@@ -106,7 +106,7 @@
 - **本地没有、也不需要维护 `komari-plugin-market` 仓库目录**：
   官方插件市场的上架和版本更新机制是向 [komari-plugin-market](https://github.com/komari-monitor/komari-plugin-market) 提交 GitHub Issue。
 - 每次发布新版本后，应向用户输出清晰的 Market Issue 提交模板，包括：
-  - 插件名称：`NetForecast (网络流量预测)`
+  - 插件名称：`NetForecast (流量预测)`
   - 版本号（Version）：`x.y.z`
-  - 下载地址（Download）：`https://github.com/livingfree2023/Komari-Plugin-NetForecast/releases/download/vx.y.z/net-forecast.zip`
+  - 仓库地址：`https://github.com/livingfree2023/Komari-Plugin-NetForecast/`
   - SHA256 校验和：`[生成的 64 位 hash]`

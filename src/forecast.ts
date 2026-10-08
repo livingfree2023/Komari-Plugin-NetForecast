@@ -7,6 +7,16 @@ export function getDaysInMonth(year: number, month: number): number {
 /**
  * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
  */
+export function formatDateToYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
+ */
 export function extractResetDayFromExpiredAt(
   expiredAt?: string | number | null,
   fallbackResetDay: number = 1
@@ -25,29 +35,55 @@ export function extractResetDayFromExpiredAt(
   }
 
   try {
-    let dateObj: Date;
-    if (typeof expiredAt === "number") {
-      dateObj = expiredAt > 10000000000 ? new Date(expiredAt) : new Date(expiredAt * 1000);
-    } else {
-      dateObj = new Date(String(expiredAt));
+    let day = 0;
+    let dateStr = "";
+
+    // 优先从日期字符串中直接正则匹配 (YYYY-MM-DD 或 YYYY/MM/DD)，防止时区转换引起的日期 -1 偏移
+    if (typeof expiredAt === "string") {
+      const match = expiredAt.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+      if (match) {
+        const y = match[1];
+        const m = match[2].padStart(2, "0");
+        const d = match[3].padStart(2, "0");
+        day = parseInt(d, 10);
+        dateStr = `${y}-${m}-${d}`;
+      }
     }
 
-    if (isNaN(dateObj.getTime())) {
+    if (!day) {
+      let dateObj: Date;
+      if (typeof expiredAt === "number") {
+        dateObj = expiredAt > 10000000000 ? new Date(expiredAt) : new Date(expiredAt * 1000);
+      } else {
+        dateObj = new Date(String(expiredAt));
+      }
+
+      if (isNaN(dateObj.getTime())) {
+        return {
+          resetDay: fallbackResetDay || 1,
+          hasExpiredAt: false,
+          desc: "自然月 1 号 (到期时间格式无效)",
+        };
+      }
+
+      // 如果时间戳接近 UTC 零点，在西区使用 UTC 日期能更忠实还原配置日
+      day = dateObj.getUTCDate();
+      dateStr = dateObj.toISOString().split("T")[0];
+    }
+
+    if (day >= 1 && day <= 31) {
       return {
-        resetDay: fallbackResetDay || 1,
-        hasExpiredAt: false,
-        desc: "自然月 1 号 (到期时间格式无效)",
+        resetDay: day,
+        hasExpiredAt: true,
+        expiredAtStr: dateStr,
+        desc: `每月 ${day} 号 (同步自节点到期日: ${dateStr})`,
       };
     }
 
-    const day = dateObj.getDate();
-    const dateStr = dateObj.toISOString().split("T")[0];
-
     return {
-      resetDay: Math.max(1, Math.min(31, day)),
-      hasExpiredAt: true,
-      expiredAtStr: dateStr,
-      desc: `每月 ${day} 号 (同步自节点到期日: ${dateStr})`,
+      resetDay: fallbackResetDay || 1,
+      hasExpiredAt: false,
+      desc: "自然月 1 号",
     };
   } catch (e) {
     return {
@@ -92,13 +128,15 @@ export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date
 
   const safeResetDay = Math.max(1, Math.min(31, Math.floor(resetDay || 1)));
 
+  // 当前月的实际月末重置日（例如 4 月是 30，2 月是 28 或 29，防止设置 31 号的节点在小月末无法进入新周期）
+  const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
+  const actualResetDayThisMonth = Math.min(safeResetDay, maxDayThisMonth);
+
   let cycleStartDate: Date;
   let cycleEndDate: Date;
 
-  if (currentDate >= safeResetDay) {
-    const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
-    const actualStartDay = Math.min(safeResetDay, maxDayThisMonth);
-    cycleStartDate = new Date(currentYear, currentMonth, actualStartDay, 0, 0, 0, 0);
+  if (currentDate >= actualResetDayThisMonth) {
+    cycleStartDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
 
     const nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
@@ -112,9 +150,7 @@ export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date
     const actualStartDay = Math.min(safeResetDay, maxDayPrevMonth);
     cycleStartDate = new Date(prevMonthYear, prevMonth, actualStartDay, 0, 0, 0, 0);
 
-    const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
-    const actualEndDay = Math.min(safeResetDay, maxDayThisMonth);
-    cycleEndDate = new Date(currentYear, currentMonth, actualEndDay, 0, 0, 0, 0);
+    cycleEndDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
   }
 
   const oneDayMs = 24 * 60 * 60 * 1000;
@@ -123,8 +159,8 @@ export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
   return {
-    cycleStart: cycleStartDate.toISOString().split("T")[0],
-    cycleEnd: cycleEndDate.toISOString().split("T")[0],
+    cycleStart: formatDateToYMD(cycleStartDate),
+    cycleEnd: formatDateToYMD(cycleEndDate),
     cycleStartDate,
     cycleEndDate,
     daysTotal,

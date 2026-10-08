@@ -298,7 +298,7 @@ export function calculateNodeForecast(
   }
 
   // 5. 构建真实 30 天时间序列与预测序列
-  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, now);
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
 
   return {
     node_id: node.uuid,
@@ -361,6 +361,8 @@ export function build30DaySeries(
   dailyAvgIn: number,
   dailyAvgOut: number,
   currentCycleBillable: number,
+  cumulativeIn: number = 0,
+  cumulativeOut: number = 0,
   now: Date = new Date()
 ): TrafficRecord[] {
   const historyMap = new Map<string, TrafficRecord>();
@@ -380,9 +382,24 @@ export function build30DaySeries(
     const dateStr = d.toISOString().split("T")[0];
     const rec = historyMap.get(dateStr);
 
-    const inB = rec ? (rec.in_bytes || 0) : 0;
-    const outB = rec ? (rec.out_bytes || 0) : 0;
-    const totB = inB + outB;
+    let inB = rec ? (rec.in_bytes || 0) : 0;
+    let outB = rec ? (rec.out_bytes || 0) : 0;
+
+    // 今天（i === 0）：若无打点聚合数据或为0，则通过当前周期累计与过去各天之差校准今日截至当前点的流量
+    if (i === 0 && inB === 0 && outB === 0 && (cumulativeIn > 0 || cumulativeOut > 0)) {
+      let pastCycleIn = 0;
+      let pastCycleOut = 0;
+      for (const h of history || []) {
+        if (h.date !== dateStr && h.timestamp >= cycleStartMs && h.timestamp < d.getTime()) {
+          pastCycleIn += (h.in_bytes || 0);
+          pastCycleOut += (h.out_bytes || 0);
+        }
+      }
+      if (cumulativeIn >= pastCycleIn) inB = cumulativeIn - pastCycleIn;
+      if (cumulativeOut >= pastCycleOut) outB = cumulativeOut - pastCycleOut;
+    }
+
+    let totB = inB + outB;
 
     if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
       runningIn += inB;
@@ -404,6 +421,7 @@ export function build30DaySeries(
       cumulative_bytes: runningIn + runningOut,
       cumulative_billable: cumBillable,
       is_forecast: false,
+      is_today: i === 0,
     });
   }
 

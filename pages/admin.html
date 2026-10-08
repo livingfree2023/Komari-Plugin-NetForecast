@@ -902,13 +902,13 @@
 
     /**
      * 将从 Komari 核心接口 /api/records/load 返回的真实网络打点记录按日汇总为进出站流量增量
-     * 绝不构造假数据，无打点的天数保持为 0
+     * 并结合实时计数器（liveTotalUp/liveTotalDown）精准计算今日截至当前时间点的已发生流量，确保当日柱状图不为空白
      */
-    function aggregateDailyFromRecords(records) {
-      if (!Array.isArray(records) || records.length === 0) return [];
-
+    function aggregateDailyFromRecords(records, liveTotalUp = null, liveTotalDown = null, now = new Date()) {
+      const todayStr = now.toISOString().split("T")[0];
       const dayGroups = {};
-      records.forEach((r) => {
+
+      (records || []).forEach((r) => {
         if (!r.time) return;
         const dayStr = r.time.slice(0, 10);
         if (!dayGroups[dayStr]) dayGroups[dayStr] = [];
@@ -916,7 +916,10 @@
       });
 
       const result = [];
-      for (const dayStr of Object.keys(dayGroups)) {
+
+      // 1. 处理今天之前（历史各整天）的数据
+      const pastDayKeys = Object.keys(dayGroups).filter(d => d < todayStr);
+      for (const dayStr of pastDayKeys) {
         const list = dayGroups[dayStr];
         list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
@@ -949,12 +952,73 @@
           in_bytes: Math.max(0, dayIn),
           out_bytes: Math.max(0, dayOut),
           total_bytes: Math.max(0, dayIn + dayOut),
+          is_today: false,
         });
       }
+
+      // 2. 精准计算「今日截至当前时间点」的已发生流量
+      // 基准计数器：优先取昨天最后一条打点的计数器；若无昨天记录则取今天最早一条打点的计数器
+      let baselineUp = null;
+      let baselineDown = null;
+
+      const recordsBeforeToday = (records || []).filter(r => r.time && r.time.slice(0, 10) < todayStr);
+      if (recordsBeforeToday.length > 0) {
+        recordsBeforeToday.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        const lastBefore = recordsBeforeToday[recordsBeforeToday.length - 1];
+        if (typeof lastBefore.net_total_up === "number") baselineUp = lastBefore.net_total_up;
+        if (typeof lastBefore.net_total_down === "number") baselineDown = lastBefore.net_total_down;
+      }
+
+      const todayList = dayGroups[todayStr] || [];
+      if (todayList.length > 0) {
+        todayList.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        if (baselineUp === null && typeof todayList[0].net_total_up === "number") {
+          baselineUp = todayList[0].net_total_up;
+        }
+        if (baselineDown === null && typeof todayList[0].net_total_down === "number") {
+          baselineDown = todayList[0].net_total_down;
+        }
+      }
+
+      let todayIn = 0;
+      let todayOut = 0;
+
+      const currentUp = typeof liveTotalUp === "number" ? liveTotalUp : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_up : null);
+      const currentDown = typeof liveTotalDown === "number" ? liveTotalDown : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_down : null);
+
+      if (currentUp !== null && baselineUp !== null && currentUp >= baselineUp) {
+        todayOut = currentUp - baselineUp;
+      } else if (todayList.length > 1) {
+        const first = todayList[0];
+        const last = todayList[todayList.length - 1];
+        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
+          todayOut = last.net_total_up - first.net_total_up;
+        }
+      }
+
+      if (currentDown !== null && baselineDown !== null && currentDown >= baselineDown) {
+        todayIn = currentDown - baselineDown;
+      } else if (todayList.length > 1) {
+        const first = todayList[0];
+        const last = todayList[todayList.length - 1];
+        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
+          todayIn = last.net_total_down - first.net_total_down;
+        }
+      }
+
+      result.push({
+        date: todayStr,
+        timestamp: new Date(todayStr + "T00:00:00Z").getTime(),
+        in_bytes: Math.max(0, todayIn),
+        out_bytes: Math.max(0, todayOut),
+        total_bytes: Math.max(0, todayIn + todayOut),
+        is_today: true,
+      });
 
       result.sort((a, b) => a.timestamp - b.timestamp);
       return result;
     }
+
     function showLoading(initialStatus = "正在初始化 NetForecast...") {
       const overlay = document.getElementById("loadingOverlay");
       if (!overlay) return;
@@ -1064,7 +1128,7 @@
               const recJson = await recRes.json();
               const recList = (recJson.data && recJson.data.records) || recJson.records || [];
               if (Array.isArray(recList) && recList.length > 0) {
-                dailyHistory = aggregateDailyFromRecords(recList);
+                dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown);
                 if (netTotalUp === 0 && netTotalDown === 0) {
                   const lastRec = recList[recList.length - 1];
                   if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
@@ -1073,6 +1137,10 @@
               }
             }
           } catch (err) {}
+
+          if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
+            dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown);
+          }
 
           completedNodes++;
           const nodePct = 20 + Math.round((completedNodes / totalNodes) * 60);
@@ -1439,13 +1507,14 @@
 
         ctx.globalAlpha = 1.0;
 
-        // X 轴日期刻度
-        if (idx % Math.ceil(count / 10) === 0 || idx === count - 1) {
-          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : "rgba(148, 163, 184, 0.75)";
-          ctx.font = "10px sans-serif";
+        // X 轴日期刻度（突出标出今日）
+        if (idx % Math.ceil(count / 10) === 0 || idx === count - 1 || item.is_today) {
+          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : (item.is_today ? "#38bdf8" : "rgba(148, 163, 184, 0.75)");
+          ctx.font = item.is_today ? "bold 10px sans-serif" : "10px sans-serif";
           ctx.textAlign = "center";
           let lbl = item.date || "";
-          if (lbl.length > 5) lbl = lbl.slice(5);
+          if (item.is_today) lbl = "今日";
+          else if (lbl.length > 5) lbl = lbl.slice(5);
           ctx.fillText(lbl, cx, baseY + 16);
         }
 
@@ -1533,11 +1602,22 @@
           tooltip.style.left = Math.min(w - 200, Math.max(10, closest.x - 90)) + "px";
           tooltip.style.top = Math.max(8, closest.y - 110) + "px";
 
+          let dateTag = it.date;
+          if (it.is_forecast) {
+            dateTag += ' <span style="color:#fb923c;">(预测)</span>';
+          } else if (it.is_today) {
+            dateTag += ' <span style="color:#38bdf8; font-weight:700;">(今日截至当前)</span>';
+          }
+
+          const inLabel = it.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
+          const outLabel = it.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
+          const totLabel = it.is_today ? "● 今日合计 (当前):" : "● 物理合计:";
+
           tooltip.innerHTML = `
-            <div class="tooltip-title">${it.date} ${it.is_forecast ? '<span style="color:#fb923c;">(预测)</span>' : ''}</div>
-            <div class="tooltip-row"><span style="color:var(--inbound);">● 入站增量:</span> <span>${formatBytes(it.in_bytes)}</span></div>
-            <div class="tooltip-row"><span style="color:var(--outbound);">● 出站增量:</span> <span>${formatBytes(it.out_bytes)}</span></div>
-            <div class="tooltip-row"><span>● 物理合计:</span> <span>${formatBytes(it.total_bytes)}</span></div>
+            <div class="tooltip-title">${dateTag}</div>
+            <div class="tooltip-row"><span style="color:var(--inbound);">${inLabel}</span> <span>${formatBytes(it.in_bytes)}</span></div>
+            <div class="tooltip-row"><span style="color:var(--outbound);">${outLabel}</span> <span>${formatBytes(it.out_bytes)}</span></div>
+            <div class="tooltip-row"><span>${totLabel}</span> <span>${formatBytes(it.total_bytes)}</span></div>
             <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
               <span style="color:var(--cumulative);">● 计费累计:</span>
               <strong style="color:var(--cumulative);">${formatBytes(it.cumulative_billable)}</strong>

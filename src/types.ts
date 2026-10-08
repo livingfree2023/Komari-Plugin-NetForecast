@@ -9,6 +9,7 @@ export interface TrafficRecord {
   cumulative_bytes?: number;
   cumulative_billable?: number;
   is_forecast?: boolean;
+  is_today?: boolean;
 }
 
 /**

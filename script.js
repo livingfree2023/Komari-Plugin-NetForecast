@@ -125,7 +125,7 @@ function calculateBillingCycle(resetDay = 1, now = new Date()) {
 /**
  * 历史与预测时间序列构建（真实按日打点，无数据即为 0，绝不伪造）
  */
-function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, now = new Date()) {
+function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date()) {
   const historyMap = {};
   (history || []).forEach((item) => {
     if (item.date) {
@@ -143,9 +143,24 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
     const dateStr = d.toISOString().split("T")[0];
     const rec = historyMap[dateStr];
 
-    const inB = rec ? (rec.in_bytes || 0) : 0;
-    const outB = rec ? (rec.out_bytes || 0) : 0;
-    const totB = inB + outB;
+    let inB = rec ? (rec.in_bytes || 0) : 0;
+    let outB = rec ? (rec.out_bytes || 0) : 0;
+
+    // 今天（i === 0）：若无打点聚合数据或为0，则通过当前周期累计与过去各天之差校准今日截至当前点的流量
+    if (i === 0 && inB === 0 && outB === 0 && (cumulativeIn > 0 || cumulativeOut > 0)) {
+      let pastCycleIn = 0;
+      let pastCycleOut = 0;
+      (history || []).forEach((h) => {
+        if (h.date !== dateStr && h.timestamp >= cycleStartMs && h.timestamp < d.getTime()) {
+          pastCycleIn += (h.in_bytes || 0);
+          pastCycleOut += (h.out_bytes || 0);
+        }
+      });
+      if (cumulativeIn >= pastCycleIn) inB = cumulativeIn - pastCycleIn;
+      if (cumulativeOut >= pastCycleOut) outB = cumulativeOut - pastCycleOut;
+    }
+
+    let totB = inB + outB;
 
     if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
       runningIn += inB;
@@ -167,6 +182,7 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
       cumulative_bytes: runningIn + runningOut,
       cumulative_billable: cumBillable,
       is_forecast: false,
+      is_today: i === 0,
     });
   }
 
@@ -360,7 +376,7 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     }
   }
 
-  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, now);
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
 
   return {
     node_id: node.uuid,

@@ -842,20 +842,52 @@
           return;
         }
 
-        // 2. 并发从 Komari 真实时序打点接口拉取各节点最近 30 天的网络历史记录 (无数据就返回空，绝不造假)
+        // 2. 并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
         const clientsWithHistory = await Promise.all(coreClients.map(async (client) => {
+          let netTotalUp = Number(client.net_total_up || 0);
+          let netTotalDown = Number(client.net_total_down || 0);
           let dailyHistory = [];
+
+          // 优先从 /api/recent/:uuid 提取内存中最新的实时流量累计 (Komari 详情页 46.7G 所在的数据源)
+          try {
+            const recentRes = await fetch(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" });
+            if (recentRes.ok) {
+              const recentJson = await recentRes.json();
+              const recList = (recentJson.data && Array.isArray(recentJson.data)) ? recentJson.data : (Array.isArray(recentJson) ? recentJson : []);
+              if (recList.length > 0) {
+                const latest = recList[recList.length - 1];
+                if (latest.network) {
+                  netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
+                  netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+                }
+                if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
+                if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+              }
+            }
+          } catch (e) {}
+
+          // 从 /api/records/load 拉取过去 30 天网络打点并聚合每日增量
           try {
             const recRes = await fetch(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" });
             if (recRes.ok) {
               const recJson = await recRes.json();
               const recList = (recJson.data && recJson.data.records) || recJson.records || [];
-              dailyHistory = aggregateDailyFromRecords(recList);
+              if (Array.isArray(recList) && recList.length > 0) {
+                dailyHistory = aggregateDailyFromRecords(recList);
+                if (netTotalUp === 0 && netTotalDown === 0) {
+                  const lastRec = recList[recList.length - 1];
+                  if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
+                  if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
+                }
+              }
             }
-          } catch (err) {
-            dailyHistory = [];
-          }
-          return Object.assign({}, client, { daily_history: dailyHistory });
+          } catch (err) {}
+
+          return Object.assign({}, client, {
+            net_total_up: netTotalUp,
+            net_total_down: netTotalDown,
+            daily_history: dailyHistory
+          });
         }));
 
         // 3. 将真实历史与真实累计一并提交给插件后端进行科学推算

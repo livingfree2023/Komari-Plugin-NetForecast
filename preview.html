@@ -116,20 +116,86 @@
       margin-top: 3px;
     }
 
-    .stats-summary {
+    /* 筛选过滤器按钮栏 */
+    .filter-group {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 12px;
-      font-size: 13px;
+      gap: 10px;
     }
 
+    .filter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text-muted);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .filter-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    /* 筛选激活态 */
+    .filter-btn.active.filter-all {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
+    }
+
+    .filter-btn.active.filter-critical {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.7);
+      color: #fca5a5;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    .filter-btn.active.filter-warning {
+      background: var(--warning-bg);
+      border-color: rgba(245, 158, 11, 0.7);
+      color: #fde68a;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(245, 158, 11, 0.35);
+    }
+
+    .filter-btn.active.filter-safe {
+      background: var(--success-bg);
+      border-color: rgba(16, 185, 129, 0.7);
+      color: #a7f3d0;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    .filter-btn.active.filter-no-quota {
+      background: var(--neutral-badge);
+      border-color: rgba(148, 163, 184, 0.5);
+      color: #e2e8f0;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(148, 163, 184, 0.2);
+    }
+
+    /* 状态徽标 (节点卡片内用) */
     .summary-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 6px 12px;
       border-radius: 8px;
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 12px;
       border: 1px solid transparent;
     }
 
@@ -174,11 +240,15 @@
       display: flex;
       flex-direction: column;
       gap: 18px;
-      transition: border-color 0.2s ease;
+      transition: all 0.25s ease;
     }
 
     .node-card:hover {
       border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .node-card.hidden {
+      display: none !important;
     }
 
     /* 节点卡片头部 */
@@ -395,6 +465,18 @@
       margin-top: 4px;
     }
 
+    /* 空状态提示 */
+    .empty-state {
+      display: none;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -403,13 +485,13 @@
 </head>
 <body>
   <div class="container">
-    <!-- 需求变更提示 -->
+    <!-- 需求提示栏 -->
     <div class="preview-tip">
-      <span>💡 <strong>全节点平铺预览 (30天周期)</strong>：已按你的最新要求调整 — 默认统一以 <strong>最近 30 天</strong> 展示所有节点图表，取消了 1/7/30 切换；配额直接读取自节点自身设置，无内置默认配额。</span>
-      <span>第四个节点演示<strong>未配置配额</strong>场景（不进行超限告警，但预测能力完全保留）。</span>
+      <span>💡 <strong>顶部状态筛选器</strong>：点击顶部的各个状态标签按钮（全部节点 / 🚨 超限告警 / ⚡ 接近限额 / ✅ 预算安全 / ⚪ 未配额），即可实时过滤仅查看对应状态的节点卡片与图表。</span>
+      <span>所有数据与预测周期均为 <strong>最近 30 天</strong>。</span>
     </div>
 
-    <!-- 顶部总览状态 -->
+    <!-- 顶部总览与交互式筛选器 -->
     <header class="header-bar">
       <div class="title-group">
         <div class="title-icon">📊</div>
@@ -418,13 +500,17 @@
           <div class="subtitle">所有节点 30 天流量新增堆叠柱状图 / 当月累计折线 / 周期重置日流量耗尽推算</div>
         </div>
       </div>
-      <div class="stats-summary" id="globalStatsSummary">
-        <!-- 动态汇总数据 -->
-      </div>
+      <!-- 动态交互式 Filter 按钮栏 -->
+      <div class="filter-group" id="filterBar" role="tablist"></div>
     </header>
 
     <!-- 所有节点图表列表容器 -->
     <main class="nodes-container" id="nodesContainer"></main>
+
+    <!-- 筛选为空时的占位 -->
+    <div class="empty-state" id="emptyState">
+      🔍 没有找到符合当前筛选条件的节点
+    </div>
   </div>
 
   <script>
@@ -441,16 +527,14 @@
     }
 
     /**
-     * Mock 节点配置数据（模拟直接从 Komari 节点自身字段读取）
-     * - quota_bytes: 节点自身的 traffic_limit，为 0 或 undefined 表示未配置限额
-     * - reset_day: 节点自身的 traffic_reset_day，为 0 或 undefined 时按自然月(1号)重置
+     * Mock 节点配置数据（直接读取自 Komari 节点自身字段）
      */
     const MOCK_NODES = [
       {
         node_id: "tokyo-prod-01",
         node_name: "🇯🇵 日本东京 (Tokyo-01)",
         has_quota: true,
-        quota_bytes: 1000 * GB, // 节点设置中配置了 1000 GB
+        quota_bytes: 1000 * GB, // 节点自身设置中配置了 1000 GB
         reset_day: 1, // 每月 1 号重置
         daily_base_gb: 34,
         weekend_boost: 1.5,
@@ -460,7 +544,7 @@
         node_id: "us-west-02",
         node_name: "🇺🇸 美西硅谷 (US-West-02)",
         has_quota: true,
-        quota_bytes: 2000 * GB, // 节点设置中配置了 2000 GB
+        quota_bytes: 2000 * GB, // 节点自身设置中配置了 2000 GB
         reset_day: 15, // 每月 15 号重置
         daily_base_gb: 22,
         weekend_boost: 1.2,
@@ -470,7 +554,7 @@
         node_id: "eu-central-03",
         node_name: "🇩🇪 德国法兰克福 (Frankfurt-03)",
         has_quota: true,
-        quota_bytes: 500 * GB, // 节点设置中配置了 500 GB
+        quota_bytes: 500 * GB, // 节点自身设置中配置了 500 GB
         reset_day: 5, // 每月 5 号重置
         daily_base_gb: 16,
         weekend_boost: 1.1,
@@ -480,13 +564,16 @@
         node_id: "singapore-edge-04",
         node_name: "🇸🇬 新加坡测试节点 (Singapore-04 · 未设限额)",
         has_quota: false,
-        quota_bytes: 0, // 节点设置未配置流量限额
+        quota_bytes: 0, // 节点自身未配置流量限额
         reset_day: 1, // 按自然月周期推算预测
         daily_base_gb: 19,
         weekend_boost: 1.3,
         inbound_ratio: 0.40
       }
     ];
+
+    // 当前激活的筛选器 (ALL | CRITICAL | WARNING | SAFE | NO_QUOTA)
+    let currentFilter = "ALL";
 
     // 生成过去 30 天的历史增量数据
     function generateNodeHistory(node) {
@@ -563,7 +650,7 @@
       const projectedTotal = cumulativeTotal + dailyAvgTotal * daysRemaining;
 
       const hasQuota = Boolean(node.has_quota && node.quota_bytes > 0);
-      let status = "NO_QUOTA"; // 如果节点没有配置限额，状态为 NO_QUOTA
+      let status = "NO_QUOTA"; // 未配置限额时状态为 NO_QUOTA
       let warningMessage = null;
 
       if (hasQuota) {
@@ -668,32 +755,79 @@
       return points;
     }
 
-    // 渲染页面
-    function renderPage() {
-      const container = document.getElementById("nodesContainer");
-      container.innerHTML = "";
+    // 缓存已计算的各节点数据
+    const nodeCalculatedData = [];
+
+    // 初始化页面与数据
+    function initData() {
+      nodeCalculatedData.length = 0;
+      MOCK_NODES.forEach((node) => {
+        const history = generateNodeHistory(node);
+        const forecast = computeForecast(history, node);
+        const series = build30DaySeries(history, forecast);
+        nodeCalculatedData.push({
+          node,
+          history,
+          forecast,
+          series
+        });
+      });
+    }
+
+    // 渲染顶部可点击的筛选器按钮
+    function renderFilterBar() {
+      const filterBar = document.getElementById("filterBar");
+      filterBar.innerHTML = "";
 
       let criticalCount = 0;
       let warningCount = 0;
       let safeCount = 0;
       let noQuotaCount = 0;
 
-      MOCK_NODES.forEach((node, nodeIdx) => {
-        const history = generateNodeHistory(node);
-        const forecast = computeForecast(history, node);
-        const series = build30DaySeries(history, forecast);
-
-        if (forecast.status === "CRITICAL") criticalCount++;
-        else if (forecast.status === "WARNING") warningCount++;
-        else if (forecast.status === "SAFE") safeCount++;
+      nodeCalculatedData.forEach((item) => {
+        if (item.forecast.status === "CRITICAL") criticalCount++;
+        else if (item.forecast.status === "WARNING") warningCount++;
+        else if (item.forecast.status === "SAFE") safeCount++;
         else noQuotaCount++;
+      });
 
-        // 创建节点卡片 DOM
+      const filters = [
+        { key: "ALL", label: `全部节点 (${nodeCalculatedData.length})`, className: "filter-all" },
+        { key: "CRITICAL", label: `🚨 ${criticalCount} 个超限告警`, className: "filter-critical", count: criticalCount },
+        { key: "WARNING", label: `⚡ ${warningCount} 个接近限额`, className: "filter-warning", count: warningCount },
+        { key: "SAFE", label: `✅ ${safeCount} 个预算安全`, className: "filter-safe", count: safeCount },
+        { key: "NO_QUOTA", label: `⚪ ${noQuotaCount} 个未配额 (仅预测)`, className: "filter-no-quota", count: noQuotaCount },
+      ];
+
+      filters.forEach((f) => {
+        const btn = document.createElement("button");
+        btn.className = `filter-btn ${f.className} ${currentFilter === f.key ? 'active' : ''}`;
+        btn.innerHTML = f.label;
+        btn.onclick = () => {
+          currentFilter = f.key;
+          renderFilterBar();
+          applyFilter();
+        };
+        filterBar.appendChild(btn);
+      });
+    }
+
+    // 渲染所有节点卡片 DOM
+    function renderNodeCards() {
+      const container = document.getElementById("nodesContainer");
+      container.innerHTML = "";
+
+      nodeCalculatedData.forEach((item) => {
+        const node = item.node;
+        const forecast = item.forecast;
+        const series = item.series;
+
         const card = document.createElement("section");
         card.className = "node-card";
         card.id = `card-${node.node_id}`;
+        card.setAttribute("data-status", forecast.status);
 
-        // 状态徽标与限额信息
+        // 状态徽标与告警横幅
         let badgeHtml = "";
         let alertBannerHtml = "";
 
@@ -820,21 +954,40 @@
 
         container.appendChild(card);
 
-        // 渲染专属 Canvas 图表
+        // 异步挂载绘图
         setTimeout(() => {
           renderNodeChart(node.node_id, series);
         }, 0);
       });
+    }
 
-      // 渲染顶部全局状态栏
-      const summaryBar = document.getElementById("globalStatsSummary");
-      summaryBar.innerHTML = `
-        <span class="summary-badge badge-neutral">节点总数: ${MOCK_NODES.length}</span>
-        ${criticalCount > 0 ? `<span class="summary-badge badge-critical">🚨 ${criticalCount} 个超限告警</span>` : ''}
-        ${warningCount > 0 ? `<span class="summary-badge badge-warning">⚡ ${warningCount} 个接近限额</span>` : ''}
-        ${safeCount > 0 ? `<span class="summary-badge badge-safe">✅ ${safeCount} 个预算安全</span>` : ''}
-        ${noQuotaCount > 0 ? `<span class="summary-badge badge-neutral">⚪ ${noQuotaCount} 个未配额 (仅预测)</span>` : ''}
-      `;
+    // 执行筛选显示/隐藏
+    function applyFilter() {
+      const cards = document.querySelectorAll(".node-card");
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const status = card.getAttribute("data-status");
+        if (currentFilter === "ALL" || status === currentFilter) {
+          card.classList.remove("hidden");
+          visibleCount++;
+          // 重新刷新可见图表确保排版尺寸准确
+          const nodeId = card.id.replace("card-", "");
+          const item = nodeCalculatedData.find(d => d.node.node_id === nodeId);
+          if (item) {
+            setTimeout(() => renderNodeChart(nodeId, item.series), 10);
+          }
+        } else {
+          card.classList.add("hidden");
+        }
+      });
+
+      const empty = document.getElementById("emptyState");
+      if (visibleCount === 0) {
+        empty.style.display = "block";
+      } else {
+        empty.style.display = "none";
+      }
     }
 
     // 绘制单个节点的专属复合图表
@@ -847,6 +1000,7 @@
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
       const rect = wrapper.getBoundingClientRect();
+      if (rect.width === 0) return; // 处于隐藏状态跳过
 
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -1039,13 +1193,17 @@
       };
     }
 
-    window.addEventListener("DOMContentLoaded", renderPage);
+    // 初始化入口
+    function init() {
+      initData();
+      renderFilterBar();
+      renderNodeCards();
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
     window.addEventListener("resize", () => {
-      MOCK_NODES.forEach((node) => {
-        const history = generateNodeHistory(node);
-        const forecast = computeForecast(history, node);
-        const series = build30DaySeries(history, forecast);
-        renderNodeChart(node.node_id, series);
+      nodeCalculatedData.forEach((item) => {
+        renderNodeChart(item.node.node_id, item.series);
       });
     });
   </script>

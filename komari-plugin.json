@@ -1,0 +1,37 @@
+{
+  "name": {
+    "zh_CN": "网络流量预测",
+    "en": "NetForecast"
+  },
+  "short": "net-forecast",
+  "description": {
+    "zh_CN": "基于历史带宽与节点流量数据的网络流量与耗尽预测插件",
+    "en": "Network traffic and quota exhaustion forecasting plugin for Komari"
+  },
+  "author": "leovannys",
+  "version": "0.1.0",
+  "entry": "script.js",
+  "permissions": {
+    "node": true,
+    "allowRoutes": true,
+    "allowSystemRPC": true,
+    "timeout": 30
+  },
+  "configuration": {
+    "type": "managed",
+    "data": [
+      {
+        "key": "enabled",
+        "name": "启用预测",
+        "type": "switch",
+        "default": true
+      },
+      {
+        "key": "forecast_period_days",
+        "name": "预测周期 (天)",
+        "type": "number",
+        "default": 30
+      }
+    ]
+  }
+}

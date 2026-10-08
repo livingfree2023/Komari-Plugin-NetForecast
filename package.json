@@ -1,0 +1,28 @@
+{
+  "name": "komari-plugin-net-forecast",
+  "version": "0.1.0",
+  "description": "Network traffic forecasting and analysis plugin for Komari",
+  "main": "dist/script.js",
+  "scripts": {
+    "dev": "komari-plugin dev",
+    "build": "komari-plugin build",
+    "package": "komari-plugin package",
+    "check": "tsc --noEmit"
+  },
+  "keywords": [
+    "komari",
+    "komari-plugin",
+    "traffic",
+    "forecast"
+  ],
+  "author": "leovannys",
+  "license": "MIT",
+  "devDependencies": {
+    "@komari-monitor/plugin-dev": "latest",
+    "@komari-monitor/plugin-sdk": "latest",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@komari-monitor/plugin-sdk": "latest"
+  }
+}

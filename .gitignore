@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.zip
+komari.local.json
+.DS_Store

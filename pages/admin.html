@@ -957,25 +957,39 @@
       }
 
       // 2. 精准计算「今日截至当前时间点」的已发生流量
-      // 基准计数器：优先取昨天最后一条打点的计数器；若无昨天记录则取今天最早一条打点的计数器
+      // 必须严格限定基准打点必须是「今天之内」或「临近昨晚 20:00 之后」的有效打点，
+      // 绝对不能向前跨越数天或数周，坚决杜绝将历史未采样的累计流量错误叠加到今日！
+      const nowMs = now.getTime();
+      const maxBaselineAgeMs = 28 * 3600 * 1000; // 最多仅回溯 28 小时以内
+
       let baselineUp = null;
       let baselineDown = null;
-
-      const recordsBeforeToday = (records || []).filter(r => r.time && r.time.slice(0, 10) < todayStr);
-      if (recordsBeforeToday.length > 0) {
-        recordsBeforeToday.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-        const lastBefore = recordsBeforeToday[recordsBeforeToday.length - 1];
-        if (typeof lastBefore.net_total_up === "number") baselineUp = lastBefore.net_total_up;
-        if (typeof lastBefore.net_total_down === "number") baselineDown = lastBefore.net_total_down;
-      }
 
       const todayList = dayGroups[todayStr] || [];
       if (todayList.length > 0) {
         todayList.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-        if (baselineUp === null && typeof todayList[0].net_total_up === "number") {
+      }
+
+      // 仅从最近 28 小时内寻找今日起始基准
+      const recordsRecentBefore = (records || []).filter(r => {
+        if (!r.time) return false;
+        const rTimeMs = new Date(r.time).getTime();
+        return r.time.slice(0, 10) < todayStr && (nowMs - rTimeMs) <= maxBaselineAgeMs;
+      });
+
+      if (recordsRecentBefore.length > 0) {
+        recordsRecentBefore.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        const lastBefore = recordsRecentBefore[recordsRecentBefore.length - 1];
+        if (typeof lastBefore.net_total_up === "number" && lastBefore.net_total_up > 0) baselineUp = lastBefore.net_total_up;
+        if (typeof lastBefore.net_total_down === "number" && lastBefore.net_total_down > 0) baselineDown = lastBefore.net_total_down;
+      }
+
+      // 若昨晚无临近打点，则使用今天第一条打点作为基准（保证 100% 只统计今天发生的增量）
+      if (todayList.length > 0) {
+        if (baselineUp === null && typeof todayList[0].net_total_up === "number" && todayList[0].net_total_up > 0) {
           baselineUp = todayList[0].net_total_up;
         }
-        if (baselineDown === null && typeof todayList[0].net_total_down === "number") {
+        if (baselineDown === null && typeof todayList[0].net_total_down === "number" && todayList[0].net_total_down > 0) {
           baselineDown = todayList[0].net_total_down;
         }
       }
@@ -983,8 +997,8 @@
       let todayIn = 0;
       let todayOut = 0;
 
-      const currentUp = typeof liveTotalUp === "number" ? liveTotalUp : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_up : null);
-      const currentDown = typeof liveTotalDown === "number" ? liveTotalDown : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_down : null);
+      const currentUp = typeof liveTotalUp === "number" && liveTotalUp > 0 ? liveTotalUp : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_up : null);
+      const currentDown = typeof liveTotalDown === "number" && liveTotalDown > 0 ? liveTotalDown : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_down : null);
 
       if (currentUp !== null && baselineUp !== null && currentUp >= baselineUp) {
         todayOut = currentUp - baselineUp;

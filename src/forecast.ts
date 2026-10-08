@@ -382,24 +382,9 @@ export function build30DaySeries(
     const dateStr = d.toISOString().split("T")[0];
     const rec = historyMap.get(dateStr);
 
-    let inB = rec ? (rec.in_bytes || 0) : 0;
-    let outB = rec ? (rec.out_bytes || 0) : 0;
-
-    // 今天（i === 0）：若无打点聚合数据或为0，则通过当前周期累计与过去各天之差校准今日截至当前点的流量
-    if (i === 0 && inB === 0 && outB === 0 && (cumulativeIn > 0 || cumulativeOut > 0)) {
-      let pastCycleIn = 0;
-      let pastCycleOut = 0;
-      for (const h of history || []) {
-        if (h.date !== dateStr && h.timestamp >= cycleStartMs && h.timestamp < d.getTime()) {
-          pastCycleIn += (h.in_bytes || 0);
-          pastCycleOut += (h.out_bytes || 0);
-        }
-      }
-      if (cumulativeIn >= pastCycleIn) inB = cumulativeIn - pastCycleIn;
-      if (cumulativeOut >= pastCycleOut) outB = cumulativeOut - pastCycleOut;
-    }
-
-    let totB = inB + outB;
+    const inB = rec ? (rec.in_bytes || 0) : 0;
+    const outB = rec ? (rec.out_bytes || 0) : 0;
+    const totB = inB + outB;
 
     if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
       runningIn += inB;
@@ -408,6 +393,7 @@ export function build30DaySeries(
     let cumBillable = computeBillableAmount(runningIn, runningOut, mode);
 
     // 如果是今天，且通过核心计数器拿到了真实的当月累计值，使折线最终锚定在真实的当前累计值上
+    // 注意：柱状图（inB/outB）必须忠实反映单日增量，绝不能将历史整周期的累计流量错误倒灌进今日！
     if (i === 0 && currentCycleBillable > 0 && cumBillable < currentCycleBillable) {
       cumBillable = currentCycleBillable;
     }

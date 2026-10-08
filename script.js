@@ -1,6 +1,6 @@
 /**
  * Komari Plugin: NetForecast (网络流量预测与限额预警)
- * Entry script for Komari Goja JS runtime
+ * Entry script for Komari Goja JS runtime (严格直连核心数据库，无本地设置缓存模式)
  */
 
 const server = require("server");
@@ -13,7 +13,6 @@ try {
   // node compat module fallback
 }
 
-// 辅助函数：格式化存储容量
 function formatBytes(bytes, decimals = 2) {
   if (!bytes || bytes === 0) return "0 B";
   const k = 1024;
@@ -29,9 +28,53 @@ function getDaysInMonth(year, month) {
 }
 
 /**
+ * 计费模式简要名称映射
+ */
+function getThresholdModeLabel(mode) {
+  const m = (mode || "sum").toLowerCase();
+  switch (m) {
+    case "upload":
+    case "up":
+      return "仅出站 (Upload)";
+    case "download":
+    case "down":
+      return "仅入站 (Download)";
+    case "max":
+      return "双向取大 (MAX)";
+    case "min":
+      return "双向取小 (MIN)";
+    case "sum":
+    default:
+      return "双向求和 (SUM)";
+  }
+}
+
+/**
+ * 根据计费模式计算计费流量数值
+ */
+function computeBillableAmount(inBytes, outBytes, mode = "sum") {
+  const m = (mode || "sum").toLowerCase();
+  switch (m) {
+    case "upload":
+    case "up":
+      return outBytes;
+    case "download":
+    case "down":
+      return inBytes;
+    case "max":
+      return Math.max(inBytes, outBytes);
+    case "min":
+      return Math.min(inBytes, outBytes);
+    case "sum":
+    default:
+      return inBytes + outBytes;
+  }
+}
+
+/**
  * 计算账单周期范围
  */
-function calculateBillingCycle(resetDay, now = new Date()) {
+function calculateBillingCycle(resetDay = 1, now = new Date()) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const currentDate = now.getDate();
@@ -80,24 +123,85 @@ function calculateBillingCycle(resetDay, now = new Date()) {
 }
 
 /**
- * 计算当月累计与未来预测
+ * 历史与预测时间序列构建
  */
-function calculateForecast(history, quotaConfig, warningThresholdPercent = 90, now = new Date()) {
-  const cycle = calculateBillingCycle(quotaConfig.reset_day, now);
+function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now = new Date()) {
+  const display = (history || []).slice(-30);
   const cycleStartMs = cycle.cycleStartDate.getTime();
-  const cycleEndMs = cycle.cycleEndDate.getTime();
 
-  const cycleRecords = (history || []).filter((r) => r.timestamp >= cycleStartMs && r.timestamp < cycleEndMs);
+  let runningIn = 0;
+  let runningOut = 0;
+
+  const points = display.map((item) => {
+    if (item.timestamp >= cycleStartMs) {
+      runningIn += item.in_bytes || 0;
+      runningOut += item.out_bytes || 0;
+    }
+    const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+
+    return {
+      date: item.date,
+      timestamp: item.timestamp,
+      in_bytes: item.in_bytes,
+      out_bytes: item.out_bytes,
+      total_bytes: item.total_bytes,
+      cumulative_bytes: runningIn + runningOut,
+      cumulative_billable: cumBillable,
+      is_forecast: false,
+    };
+  });
+
+  if (cycle.daysRemaining > 0) {
+    let fIn = runningIn;
+    let fOut = runningOut;
+    const maxForecastDays = Math.min(cycle.daysRemaining, 14);
+
+    for (let i = 1; i <= maxForecastDays; i++) {
+      const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
+      fIn += dailyAvgIn;
+      fOut += dailyAvgOut;
+      const cumBillable = computeBillableAmount(fIn, fOut, mode);
+
+      points.push({
+        date: fd.toISOString().split("T")[0],
+        timestamp: fd.getTime(),
+        in_bytes: dailyAvgIn,
+        out_bytes: dailyAvgOut,
+        total_bytes: dailyAvgIn + dailyAvgOut,
+        cumulative_bytes: fIn + fOut,
+        cumulative_billable: cumBillable,
+        is_forecast: true,
+      });
+    }
+  }
+
+  return points;
+}
+
+/**
+ * 核心预测与状态推算
+ */
+function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date()) {
+  const resetDay = Math.max(1, Math.min(31, Number(node.traffic_reset_day) || 1));
+  const cycle = calculateBillingCycle(resetDay, now);
+  const cycleStartMs = cycle.cycleStartDate.getTime();
+
+  const mode = (node.traffic_limit_type || "sum");
 
   let cumulativeIn = 0;
   let cumulativeOut = 0;
-  for (let i = 0; i < cycleRecords.length; i++) {
-    cumulativeIn += cycleRecords[i].in_bytes || 0;
-    cumulativeOut += cycleRecords[i].out_bytes || 0;
-  }
-  const cumulativeTotal = cumulativeIn + cumulativeOut;
 
-  // 近7天加权日均增量
+  (history || []).forEach((r) => {
+    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+      cumulativeIn += r.in_bytes || 0;
+      cumulativeOut += r.out_bytes || 0;
+    }
+  });
+
+  const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
+  const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
+
+  // 7 天加权移动平均
   const recentDays = (history || []).slice(-7);
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
@@ -107,12 +211,12 @@ function calculateForecast(history, quotaConfig, warningThresholdPercent = 90, n
     let weightedInSum = 0;
     let weightedOutSum = 0;
 
-    for (let i = 0; i < recentDays.length; i++) {
-      const weight = 1 + (i / recentDays.length) * 1.2;
-      weightedInSum += (recentDays[i].in_bytes || 0) * weight;
-      weightedOutSum += (recentDays[i].out_bytes || 0) * weight;
+    recentDays.forEach((record, index) => {
+      const weight = 1 + (index / recentDays.length) * 1.2;
+      weightedInSum += (record.in_bytes || 0) * weight;
+      weightedOutSum += (record.out_bytes || 0) * weight;
       weightSum += weight;
-    }
+    });
 
     dailyAvgIn = Math.round(weightedInSum / weightSum);
     dailyAvgOut = Math.round(weightedOutSum / weightSum);
@@ -122,147 +226,105 @@ function calculateForecast(history, quotaConfig, warningThresholdPercent = 90, n
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
+  const dailyAvgBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
 
-  const projectedRemainIn = dailyAvgIn * cycle.daysRemaining;
-  const projectedRemainOut = dailyAvgOut * cycle.daysRemaining;
-  const projectedIn = cumulativeIn + projectedRemainIn;
-  const projectedOut = cumulativeOut + projectedRemainOut;
-  const projectedTotal = cumulativeTotal + dailyAvgTotal * cycle.daysRemaining;
+  const projectedIn = cumulativeIn + dailyAvgIn * cycle.daysRemaining;
+  const projectedOut = cumulativeOut + dailyAvgOut * cycle.daysRemaining;
+  const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * cycle.daysRemaining;
+  const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
 
-  const quota = quotaConfig.quota_bytes || 0;
-  let usageRatioCurrent = 0;
-  let usageRatioProjected = 0;
-  let status = "SAFE";
+  const rawQuota = Number(node.traffic_limit) || 0;
+  const hasQuota = rawQuota > 0;
+
+  let status = "NO_QUOTA";
+  let usageRatio = 0;
   let daysUntilExhaustion = undefined;
   let exhaustionDate = undefined;
   let warningMessage = undefined;
 
-  if (quota > 0) {
-    usageRatioCurrent = cumulativeTotal / quota;
-    usageRatioProjected = projectedTotal / quota;
+  if (!hasQuota) {
+    status = "NO_QUOTA";
+  } else {
+    usageRatio = projectedBillable / rawQuota;
+    const modeBadge = getThresholdModeLabel(mode);
 
-    if (cumulativeTotal >= quota) {
+    if (cumulativeBillable >= rawQuota) {
       status = "CRITICAL";
       daysUntilExhaustion = 0;
       exhaustionDate = now.toISOString().split("T")[0];
-      warningMessage = `已超出流量限额 (${formatBytes(cumulativeTotal)} / ${formatBytes(quota)})，超额 ${formatBytes(cumulativeTotal - quota)}！`;
-    } else if (usageRatioProjected >= 1.0) {
+      warningMessage = `已超出流量限额 (${formatBytes(cumulativeBillable)} / ${formatBytes(rawQuota)})，超额 ${formatBytes(cumulativeBillable - rawQuota)}！`;
+    } else if (projectedBillable >= rawQuota) {
       status = "CRITICAL";
-      const remainingQuota = quota - cumulativeTotal;
-      daysUntilExhaustion = dailyAvgTotal > 0 ? Math.max(1, Math.floor(remainingQuota / dailyAvgTotal)) : 999;
-      const exhaustTime = new Date(now.getTime() + daysUntilExhaustion * 24 * 60 * 60 * 1000);
-      exhaustionDate = exhaustTime.toISOString().split("T")[0];
-      const overage = projectedTotal - quota;
-      warningMessage = `⚠️ 预警：预计将在 ${daysUntilExhaustion} 天后（${exhaustionDate}）耗尽流量限额，重置日前预计超标 ${formatBytes(overage)}！`;
-    } else if (usageRatioProjected >= warningThresholdPercent / 100) {
+      const remainingQuota = rawQuota - cumulativeBillable;
+      daysUntilExhaustion = dailyAvgBillable > 0 ? Math.max(1, Math.floor(remainingQuota / dailyAvgBillable)) : 999;
+      const exDateObj = new Date(now.getTime() + daysUntilExhaustion * 24 * 60 * 60 * 1000);
+      exhaustionDate = exDateObj.toISOString().split("T")[0];
+      const overage = projectedBillable - rawQuota;
+      warningMessage = `预计将在 ${daysUntilExhaustion} 天后（${exhaustionDate}）耗尽限额（按 ${modeBadge} 计费），重置日前预计超标 ${formatBytes(overage)}！`;
+    } else if (usageRatio >= warningThresholdPercent / 100) {
       status = "WARNING";
-      warningMessage = `⚡ 提醒：预计在重置日将消耗 ${(usageRatioProjected * 100).toFixed(1)}% 的流量，接近设定阈值 (${warningThresholdPercent}%)。`;
+      warningMessage = `预计在重置日将消耗 ${(usageRatio * 100).toFixed(1)}% 的计费流量，接近告警阈值 (${warningThresholdPercent}%)。`;
+    } else {
+      status = "SAFE";
+      warningMessage = `流量在安全预算内，预计重置日使用率为 ${(usageRatio * 100).toFixed(1)}%，剩余可用计费流量约 ${formatBytes(rawQuota - projectedBillable)}。`;
     }
   }
 
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now);
+
   return {
+    node_id: node.uuid,
+    node_name: node.name || node.uuid,
+    tags: node.tags,
+    group: node.group,
+    has_quota: hasQuota,
+    traffic_limit_bytes: rawQuota,
+    traffic_limit_formatted: hasQuota ? formatBytes(rawQuota) : "未设置限额",
+    traffic_limit_type: mode,
+    traffic_reset_day: resetDay,
     cycle,
     cumulative: {
       in_bytes: cumulativeIn,
       out_bytes: cumulativeOut,
-      total_bytes: cumulativeTotal,
+      physical_total: cumulativePhysicalTotal,
+      billable_bytes: cumulativeBillable,
+      in_formatted: formatBytes(cumulativeIn),
+      out_formatted: formatBytes(cumulativeOut),
+      physical_formatted: formatBytes(cumulativePhysicalTotal),
+      billable_formatted: formatBytes(cumulativeBillable),
     },
     daily_avg: {
       in_bytes: dailyAvgIn,
       out_bytes: dailyAvgOut,
       total_bytes: dailyAvgTotal,
+      billable_bytes: dailyAvgBillable,
+      total_formatted: formatBytes(dailyAvgTotal),
+      billable_formatted: formatBytes(dailyAvgBillable),
     },
     projected: {
       in_bytes: projectedIn,
       out_bytes: projectedOut,
-      total_bytes: projectedTotal,
+      physical_total: projectedPhysicalTotal,
+      billable_bytes: projectedBillable,
+      physical_formatted: formatBytes(projectedPhysicalTotal),
+      billable_formatted: formatBytes(projectedBillable),
     },
-    quota,
-    usage_ratio_current: usageRatioCurrent,
-    usage_ratio_projected: usageRatioProjected,
+    usage_ratio: usageRatio,
     status,
     days_until_exhaustion: daysUntilExhaustion,
     exhaustion_date: exhaustionDate,
     warning_message: warningMessage,
+    chart_series: chartSeries,
   };
 }
 
-/**
- * 构建用于图表展示的时间序列 (包含历史堆叠柱状与当月累计折线、以及未来预测走势)
- */
-function buildChartSeries(history, range, forecastData) {
-  let displayHistory = [];
-  const now = new Date();
-
-  if (range === "1d") {
-    displayHistory = (history || []).slice(-24);
-  } else if (range === "7d") {
-    displayHistory = (history || []).slice(-7);
-  } else {
-    displayHistory = (history || []).slice(-30);
-  }
-
-  let runningCumulative = 0;
-  const cycleStartMs = forecastData.cycle.cycleStartDate.getTime();
-
-  const chartPoints = displayHistory.map((item) => {
-    if (item.timestamp >= cycleStartMs) {
-      runningCumulative += item.total_bytes;
-    }
-    return {
-      date: item.date,
-      timestamp: item.timestamp,
-      in_bytes: item.in_bytes,
-      out_bytes: item.out_bytes,
-      total_bytes: item.total_bytes,
-      cumulative_bytes: runningCumulative,
-      is_forecast: false,
-    };
-  });
-
-  const forecastPoints = [];
-  if (range !== "1d" && forecastData.cycle.daysRemaining > 0) {
-    const dailyForecastIn = forecastData.daily_avg.in_bytes;
-    const dailyForecastOut = forecastData.daily_avg.out_bytes;
-    const dailyForecastTotal = forecastData.daily_avg.total_bytes;
-    let forecastCum = runningCumulative;
-
-    const maxForecastDays = Math.min(forecastData.cycle.daysRemaining, 14);
-    for (let i = 1; i <= maxForecastDays; i++) {
-      const fDate = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = fDate.toISOString().split("T")[0];
-      forecastCum += dailyForecastTotal;
-
-      forecastPoints.push({
-        date: dateStr,
-        timestamp: fDate.getTime(),
-        in_bytes: dailyForecastIn,
-        out_bytes: dailyForecastOut,
-        total_bytes: dailyForecastTotal,
-        cumulative_bytes: forecastCum,
-        is_forecast: true,
-      });
-    }
-  }
-
-  return {
-    actual: chartPoints,
-    forecast: forecastPoints,
-    all: chartPoints.concat(forecastPoints),
-  };
-}
-
-// 本地存储管理
-class SimpleStorage {
+// 纯时序流量存储（只存流量采样统计，坚决不缓存任何节点配置）
+class TrafficStorage {
   constructor() {
     this.baseDir = typeof __storageDir__ !== "undefined" && __storageDir__ ? __storageDir__ : "data/plugin-data/net-forecast";
     this.trafficFile = path ? path.join(this.baseDir, "traffic_records.json") : this.baseDir + "/traffic_records.json";
-    this.settingsFile = path ? path.join(this.baseDir, "node_settings.json") : this.baseDir + "/node_settings.json";
-
     this.trafficCache = {};
-    this.settingsCache = {};
     this.lastCounters = {};
-
     this.load();
   }
 
@@ -276,9 +338,6 @@ class SimpleStorage {
         const parsed = JSON.parse(fs.readFileSync(this.trafficFile, "utf-8"));
         this.trafficCache = parsed.records || {};
         this.lastCounters = parsed.last_counters || {};
-      }
-      if (fs.existsSync(this.settingsFile)) {
-        this.settingsCache = JSON.parse(fs.readFileSync(this.settingsFile, "utf-8"));
       }
     } catch (e) {
       console.warn("[NetForecast] Storage load notice:", e);
@@ -304,36 +363,12 @@ class SimpleStorage {
         ),
         "utf-8"
       );
-      fs.writeFileSync(this.settingsFile, JSON.stringify(this.settingsCache, null, 2), "utf-8");
     } catch (e) {
       console.error("[NetForecast] Storage save error:", e);
     }
   }
 
-  getNodeSettings(nodeId, defaultResetDay = 1) {
-    if (this.settingsCache[nodeId]) {
-      return this.settingsCache[nodeId];
-    }
-    return {
-      node_id: nodeId,
-      node_name: nodeId,
-      quota_bytes: 1099511627776, // 1TB
-      reset_day: defaultResetDay,
-      traffic_limit_type: "sum",
-    };
-  }
-
-  saveNodeSettings(nodeId, cfg) {
-    const existing = this.getNodeSettings(nodeId);
-    this.settingsCache[nodeId] = Object.assign({}, existing, cfg, { node_id: nodeId });
-    this.save();
-  }
-
-  getAllSettings() {
-    return this.settingsCache;
-  }
-
-  getNodeHistory(nodeId, nodeName) {
+  getNodeHistory(nodeId) {
     if (!this.trafficCache[nodeId] || this.trafficCache[nodeId].length === 0) {
       this.trafficCache[nodeId] = this.generateSeed(nodeId);
       this.save();
@@ -420,17 +455,15 @@ class SimpleStorage {
   }
 }
 
-// 辅助 JSON 响应
 function sendJSON(res, data, statusCode = 200) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(data));
 }
 
-// 生命周期
 function load() {
-  console.log("[NetForecast] Plugin loaded.");
-  const storage = new SimpleStorage();
+  console.log("[NetForecast] Plugin loaded in direct-core mode.");
+  const storage = new TrafficStorage();
 
   const getConfig = () => {
     const raw = server.getConfig ? server.getConfig() : {};
@@ -449,57 +482,54 @@ function load() {
     }
   };
 
-  // 1. 概览接口
-  server.route("GET", "/api/plugin/net-forecast/overview", (req, res) => {
+  const fetchCoreClients = async (fallbackClients) => {
+    if (Array.isArray(fallbackClients) && fallbackClients.length > 0) {
+      return fallbackClients;
+    }
+    if (server.call) {
+      try {
+        const res = await server.call("admin:listClients").catch(() => null);
+        if (Array.isArray(res) && res.length > 0) return res;
+        const alt = await server.call("common:getNodes").catch(() => null);
+        if (Array.isArray(alt) && alt.length > 0) return alt;
+      } catch (e) {
+        console.warn("[NetForecast] fetchCoreClients notice:", e);
+      }
+    }
+    return [];
+  };
+
+  // 1. 全节点 30 天预测总览接口
+  const handleOverview = async (req, res) => {
     try {
       const config = getConfig();
-      const allSettings = storage.getAllSettings();
-      let nodeIds = Object.keys(allSettings);
+      const body = req.body ? parseBody(req.body) : {};
+      let clients = await fetchCoreClients(body.clients);
 
-      if (nodeIds.length === 0) {
-        nodeIds.push("default-node");
-        storage.saveNodeSettings("default-node", {
-          node_id: "default-node",
-          node_name: "默认主节点",
-          quota_bytes: 1099511627776,
-          reset_day: config.default_reset_day,
-        });
+      if (!clients || clients.length === 0) {
+        clients = [
+          {
+            uuid: "node-demo-01",
+            name: "演示主节点",
+            traffic_limit: 1099511627776,
+            traffic_limit_type: "sum",
+            traffic_reset_day: config.default_reset_day,
+          },
+        ];
       }
 
-      const list = nodeIds.map((id) => {
-        const quotaCfg = storage.getNodeSettings(id, config.default_reset_day);
-        const history = storage.getNodeHistory(id, quotaCfg.node_name);
-        const forecast = calculateForecast(history, quotaCfg, config.warning_threshold);
-
-        return {
-          node_id: id,
-          node_name: quotaCfg.node_name || id,
-          quota_bytes: quotaCfg.quota_bytes,
-          quota_formatted: formatBytes(quotaCfg.quota_bytes),
-          reset_day: quotaCfg.reset_day,
-          cycle: forecast.cycle,
-          cumulative: Object.assign({}, forecast.cumulative, {
-            in_formatted: formatBytes(forecast.cumulative.in_bytes),
-            out_formatted: formatBytes(forecast.cumulative.out_bytes),
-            total_formatted: formatBytes(forecast.cumulative.total_bytes),
-          }),
-          daily_avg: Object.assign({}, forecast.daily_avg, {
-            total_formatted: formatBytes(forecast.daily_avg.total_bytes),
-          }),
-          projected: Object.assign({}, forecast.projected, {
-            total_formatted: formatBytes(forecast.projected.total_bytes),
-          }),
-          usage_ratio_current: forecast.usage_ratio_current,
-          usage_ratio_projected: forecast.usage_ratio_projected,
-          status: forecast.status,
-          days_until_exhaustion: forecast.days_until_exhaustion,
-          exhaustion_date: forecast.exhaustion_date,
-          warning_message: forecast.warning_message,
-        };
+      const list = clients.map((c) => {
+        if (typeof c.net_in === "number" && typeof c.net_out === "number") {
+          storage.recordSample(c.uuid, c.net_in, c.net_out);
+        }
+        const history = storage.getNodeHistory(c.uuid);
+        return calculateNodeForecast(history, c, config.warning_threshold);
       });
 
       const criticalCount = list.filter((n) => n.status === "CRITICAL").length;
       const warningCount = list.filter((n) => n.status === "WARNING").length;
+      const safeCount = list.filter((n) => n.status === "SAFE").length;
+      const noQuotaCount = list.filter((n) => n.status === "NO_QUOTA").length;
 
       sendJSON(res, {
         ok: true,
@@ -507,129 +537,89 @@ function load() {
           total_nodes: list.length,
           critical_count: criticalCount,
           warning_count: warningCount,
+          safe_count: safeCount,
+          no_quota_count: noQuotaCount,
         },
         nodes: list,
       });
     } catch (e) {
       sendJSON(res, { ok: false, error: e.message || String(e) }, 500);
     }
-  });
+  };
 
-  // 2. 节点图表与预测序列数据接口 (支持 1d, 7d, 30d)
-  server.route("GET", "/api/plugin/net-forecast/node-data", (req, res) => {
-    try {
-      const config = getConfig();
-      const nodeId = (req.query && req.query.node_id) || "default-node";
-      const range = (req.query && req.query.range) || "30d";
+  server.route("GET", "/api/plugin/net-forecast/overview", handleOverview);
+  server.route("POST", "/api/plugin/net-forecast/overview", handleOverview);
 
-      const quotaCfg = storage.getNodeSettings(nodeId, config.default_reset_day);
-      const history = storage.getNodeHistory(nodeId, quotaCfg.node_name);
-      const forecast = calculateForecast(history, quotaCfg, config.warning_threshold);
-      const series = buildChartSeries(history, range, forecast);
-
-      sendJSON(res, {
-        ok: true,
-        node_id: nodeId,
-        node_name: quotaCfg.node_name || nodeId,
-        quota_config: quotaCfg,
-        range,
-        forecast: Object.assign({}, forecast, {
-          cumulative: Object.assign({}, forecast.cumulative, {
-            in_formatted: formatBytes(forecast.cumulative.in_bytes),
-            out_formatted: formatBytes(forecast.cumulative.out_bytes),
-            total_formatted: formatBytes(forecast.cumulative.total_bytes),
-          }),
-          daily_avg: Object.assign({}, forecast.daily_avg, {
-            in_formatted: formatBytes(forecast.daily_avg.in_bytes),
-            out_formatted: formatBytes(forecast.daily_avg.out_bytes),
-            total_formatted: formatBytes(forecast.daily_avg.total_bytes),
-          }),
-          projected: Object.assign({}, forecast.projected, {
-            in_formatted: formatBytes(forecast.projected.in_bytes),
-            out_formatted: formatBytes(forecast.projected.out_bytes),
-            total_formatted: formatBytes(forecast.projected.total_bytes),
-          }),
-          quota_formatted: formatBytes(forecast.quota),
-        }),
-        chart_series: series,
-      });
-    } catch (e) {
-      sendJSON(res, { ok: false, error: e.message || String(e) }, 500);
-    }
-  });
-
-  // 3. 更新节点限额与重置日配置
-  server.route("POST", "/api/plugin/net-forecast/update-quota", (req, res) => {
+  // 2. 限额配置更新：直写 Komari 核心数据库
+  server.route("POST", "/api/plugin/net-forecast/update-quota", async (req, res) => {
     try {
       const data = parseBody(req.body);
-      const nodeId = data.node_id;
-      if (!nodeId) {
-        sendJSON(res, { ok: false, error: "Missing node_id" }, 400);
+      const uuid = data.uuid || data.node_id;
+      if (!uuid) {
+        sendJSON(res, { ok: false, error: "Missing uuid" }, 400);
         return;
       }
-      storage.saveNodeSettings(nodeId, {
-        node_name: data.node_name,
-        quota_bytes: Number(data.quota_bytes) >= 0 ? Number(data.quota_bytes) : 0,
-        reset_day: Math.max(1, Math.min(31, Number(data.reset_day) || 1)),
-      });
+
+      const payload = {
+        uuid: uuid,
+        traffic_limit: Number(data.traffic_limit) >= 0 ? Number(data.traffic_limit) : 0,
+        traffic_limit_type: data.traffic_limit_type || "sum",
+        traffic_reset_day: Math.max(1, Math.min(31, Number(data.traffic_reset_day) || 1)),
+      };
+
+      let rpcSuccess = false;
+      if (server.call) {
+        try {
+          await server.call("admin:editClient", payload);
+          rpcSuccess = true;
+        } catch (e) {
+          console.warn("[NetForecast] admin:editClient notice:", e);
+        }
+      }
+
       sendJSON(res, {
         ok: true,
-        message: "Settings updated successfully",
-        settings: storage.getNodeSettings(nodeId),
+        rpc_success: rpcSuccess,
+        message: "Node settings update submitted directly to Komari core",
+        payload,
       });
     } catch (e) {
       sendJSON(res, { ok: false, error: e.message || String(e) }, 500);
     }
   });
 
-  // 4. 同步节点数据
-  server.route("POST", "/api/plugin/net-forecast/sync-nodes", (req, res) => {
-    try {
-      const data = parseBody(req.body);
-      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-      nodes.forEach((n) => {
-        const id = n.uuid || n.id || n.node_id;
-        if (id) {
-          const existing = storage.getNodeSettings(id);
-          storage.saveNodeSettings(id, {
-            node_name: n.name || existing.node_name || id,
-            quota_bytes: n.traffic_limit ? Number(n.traffic_limit) : existing.quota_bytes,
-            reset_day: n.traffic_reset_day ? Number(n.traffic_reset_day) : existing.reset_day,
-          });
-          if (typeof n.net_in === "number" && typeof n.net_out === "number") {
-            storage.recordSample(id, n.net_in, n.net_out);
+  // 3. 定时同步轮询
+  const config = getConfig();
+  try {
+    server.cron(config.auto_collect_cron, async () => {
+      try {
+        if (server.call) {
+          const clients = await server.call("admin:listClients").catch(() => null);
+          if (Array.isArray(clients)) {
+            for (const c of clients) {
+              if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
+                storage.recordSample(c.uuid, c.net_in, c.net_out);
+              }
+            }
           }
         }
-      });
-      sendJSON(res, { ok: true, synced_count: nodes.length });
-    } catch (e) {
-      sendJSON(res, { ok: false, error: e.message || String(e) }, 500);
-    }
-  });
-
-  // 5. 状态健康检查
-  server.route("GET", "/api/plugin/net-forecast/status", (req, res) => {
-    sendJSON(res, {
-      ok: true,
-      plugin: "net-forecast",
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
+      } catch (e) {
+        // cron error ignored
+      }
     });
-  });
+  } catch (e) {
+    console.warn("[NetForecast] Cron registration notice:", e);
+  }
 
-  // 6. RPC 注册
-  server.registerRPC("netForecast:getOverview", () => {
+  // 4. RPC
+  server.registerRPC("netForecast:getOverview", async () => {
     const config = getConfig();
-    const all = storage.getAllSettings();
+    const clients = await fetchCoreClients();
     return {
       ok: true,
-      nodes: Object.keys(all).map((id) => {
-        const q = storage.getNodeSettings(id, config.default_reset_day);
-        const h = storage.getNodeHistory(id, q.node_name);
-        return {
-          id,
-          forecast: calculateForecast(h, q, config.warning_threshold),
-        };
+      nodes: clients.map((c) => {
+        const history = storage.getNodeHistory(c.uuid);
+        return calculateNodeForecast(history, c, config.warning_threshold);
       }),
     };
   });
@@ -639,7 +629,6 @@ function unload() {
   console.log("[NetForecast] Plugin unloaded.");
 }
 
-// 导出为 CommonJS 规范 (供兼容及测试)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { load, unload };
 }

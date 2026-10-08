@@ -5,11 +5,11 @@
   },
   "short": "net-forecast",
   "description": {
-    "zh_CN": "展示节点最近1/7/30天进出站流量增量堆叠柱状图与当月累计折线图，预测重置日流量并提供超限告警",
-    "en": "Stacked bar and cumulative line charts for 1/7/30-day traffic increments with quota reset forecasting and exhaustion alerts"
+    "zh_CN": "全节点30天进出站流量增量堆叠柱状图与计费规则自适应累计折线图，直连核心数据库，预测重置日流量并提供超限告警",
+    "en": "All-nodes 30-day stacked bar and billing-adaptive cumulative charts, directly synced with core database, forecasting reset day usage and exhaustion alerts"
   },
   "author": "leovannys",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "icon": "assets/icon.svg",
   "entry": "script.js",
   "permissions": {

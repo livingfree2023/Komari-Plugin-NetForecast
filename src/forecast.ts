@@ -1,7 +1,29 @@
-import { NodeQuotaConfig, NodeTrafficData, TrafficRecord } from "./types";
+import { BillingCycle, NodeCoreConfig, NodeForecastData, ThresholdMode, TrafficRecord } from "./types";
 
 export function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
+}
+
+/**
+ * 根据计费模式计算计费流量数值
+ */
+export function computeBillableAmount(inBytes: number, outBytes: number, mode: string = "sum"): number {
+  const m = (mode || "sum").toLowerCase();
+  switch (m) {
+    case "upload":
+    case "up":
+      return outBytes;
+    case "download":
+    case "down":
+      return inBytes;
+    case "max":
+      return Math.max(inBytes, outBytes);
+    case "min":
+      return Math.min(inBytes, outBytes);
+    case "sum":
+    default:
+      return inBytes + outBytes;
+  }
 }
 
 /**
@@ -9,38 +31,33 @@ export function getDaysInMonth(year: number, month: number): number {
  * @param resetDay 每月重置日 (1-31)
  * @param now 当前时间
  */
-export function calculateBillingCycle(resetDay: number, now: Date = new Date()) {
+export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date()): BillingCycle {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const currentDate = now.getDate();
 
-  // 规范化 resetDay，防止超过当月最大天数
   const safeResetDay = Math.max(1, Math.min(31, Math.floor(resetDay || 1)));
 
   let cycleStartDate: Date;
   let cycleEndDate: Date;
 
   if (currentDate >= safeResetDay) {
-    // 周期开始于当月的 resetDay
     const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
     const actualStartDay = Math.min(safeResetDay, maxDayThisMonth);
     cycleStartDate = new Date(currentYear, currentMonth, actualStartDay, 0, 0, 0, 0);
 
-    // 周期结束于下月的 resetDay
     const nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
     const maxDayNextMonth = getDaysInMonth(nextMonthYear, nextMonth);
     const actualEndDay = Math.min(safeResetDay, maxDayNextMonth);
     cycleEndDate = new Date(nextMonthYear, nextMonth, actualEndDay, 0, 0, 0, 0);
   } else {
-    // 周期开始于上月的 resetDay
     const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const maxDayPrevMonth = getDaysInMonth(prevMonthYear, prevMonth);
     const actualStartDay = Math.min(safeResetDay, maxDayPrevMonth);
     cycleStartDate = new Date(prevMonthYear, prevMonth, actualStartDay, 0, 0, 0, 0);
 
-    // 周期结束于当月的 resetDay
     const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
     const actualEndDay = Math.min(safeResetDay, maxDayThisMonth);
     cycleEndDate = new Date(currentYear, currentMonth, actualEndDay, 0, 0, 0, 0);
@@ -66,7 +83,7 @@ export function calculateBillingCycle(resetDay: number, now: Date = new Date()) 
  * 格式化字节大小为可读字符串
  */
 export function formatBytes(bytes: number, decimals: number = 2): string {
-  if (bytes === 0) return "0 B";
+  if (!bytes || bytes === 0) return "0 B";
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -76,31 +93,58 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
 }
 
 /**
- * 计算当月累计与未来预测
+ * 计费模式简要名称映射
  */
-export function calculateForecast(
+export function getThresholdModeLabel(mode: string = "sum"): string {
+  const m = (mode || "sum").toLowerCase();
+  switch (m) {
+    case "upload":
+    case "up":
+      return "仅出站 (Upload)";
+    case "download":
+    case "down":
+      return "仅入站 (Download)";
+    case "max":
+      return "双向取大 (MAX)";
+    case "min":
+      return "双向取小 (MIN)";
+    case "sum":
+    default:
+      return "双向求和 (SUM)";
+  }
+}
+
+/**
+ * 计算单个节点的流量预测与预警信息
+ */
+export function calculateNodeForecast(
   history: TrafficRecord[],
-  quotaConfig: NodeQuotaConfig,
+  node: NodeCoreConfig,
   warningThresholdPercent: number = 90,
   now: Date = new Date()
-) {
-  const cycle = calculateBillingCycle(quotaConfig.reset_day, now);
+): NodeForecastData {
+  const resetDay = Math.max(1, Math.min(31, Number(node.traffic_reset_day) || 1));
+  const cycle = calculateBillingCycle(resetDay, now);
   const cycleStartMs = cycle.cycleStartDate.getTime();
   const cycleEndMs = cycle.cycleEndDate.getTime();
 
-  // 1. 过滤并计算当月周期内的累计流量
-  const cycleRecords = history.filter((r) => r.timestamp >= cycleStartMs && r.timestamp < cycleEndMs);
+  const mode = (node.traffic_limit_type || "sum") as ThresholdMode;
 
+  // 1. 本周期内流量累计
   let cumulativeIn = 0;
   let cumulativeOut = 0;
 
-  for (const r of cycleRecords) {
-    cumulativeIn += r.in_bytes || 0;
-    cumulativeOut += r.out_bytes || 0;
+  for (const r of history) {
+    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+      cumulativeIn += r.in_bytes || 0;
+      cumulativeOut += r.out_bytes || 0;
+    }
   }
-  const cumulativeTotal = cumulativeIn + cumulativeOut;
 
-  // 2. 计算近期日均增量（加权移动平均，优先参考近7天）
+  const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
+  const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
+
+  // 2. 近7天加权移动平均日均增量
   const recentDays = history.slice(-7);
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
@@ -111,7 +155,6 @@ export function calculateForecast(
     let weightedOutSum = 0;
 
     recentDays.forEach((record, index) => {
-      // 越近期权重越高 (1.0 -> 2.2)
       const weight = 1 + (index / recentDays.length) * 1.2;
       weightedInSum += (record.in_bytes || 0) * weight;
       weightedOutSum += (record.out_bytes || 0) * weight;
@@ -126,142 +169,160 @@ export function calculateForecast(
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
+  const dailyAvgBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
 
-  // 3. 预测到达重置日时的增量与总量
-  const projectedRemainIn = dailyAvgIn * cycle.daysRemaining;
-  const projectedRemainOut = dailyAvgOut * cycle.daysRemaining;
+  // 3. 周期末预测到达量
+  const projectedIn = cumulativeIn + dailyAvgIn * cycle.daysRemaining;
+  const projectedOut = cumulativeOut + dailyAvgOut * cycle.daysRemaining;
+  const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * cycle.daysRemaining;
+  const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
 
-  const projectedIn = cumulativeIn + projectedRemainIn;
-  const projectedOut = cumulativeOut + projectedRemainOut;
-  const projectedTotal = cumulativeTotal + (dailyAvgTotal * cycle.daysRemaining);
+  // 4. 配额与状态评估
+  const rawQuota = Number(node.traffic_limit) || 0;
+  const hasQuota = rawQuota > 0;
 
-  // 4. 配额与超限预警状态计算
-  const quota = quotaConfig.quota_bytes || 0;
-  let usageRatioCurrent = 0;
-  let usageRatioProjected = 0;
-  let status: "SAFE" | "WARNING" | "CRITICAL" = "SAFE";
+  let status: "SAFE" | "WARNING" | "CRITICAL" | "NO_QUOTA" = "NO_QUOTA";
+  let usageRatio = 0;
   let daysUntilExhaustion: number | undefined;
   let exhaustionDate: string | undefined;
   let warningMessage: string | undefined;
 
-  if (quota > 0) {
-    usageRatioCurrent = cumulativeTotal / quota;
-    usageRatioProjected = projectedTotal / quota;
+  if (!hasQuota) {
+    status = "NO_QUOTA";
+  } else {
+    usageRatio = projectedBillable / rawQuota;
+    const modeBadge = getThresholdModeLabel(mode);
 
-    if (cumulativeTotal >= quota) {
+    if (cumulativeBillable >= rawQuota) {
       status = "CRITICAL";
       daysUntilExhaustion = 0;
       exhaustionDate = now.toISOString().split("T")[0];
-      warningMessage = `已超出流量限额 (${formatBytes(cumulativeTotal)} / ${formatBytes(quota)})，已超标 ${formatBytes(cumulativeTotal - quota)}！`;
-    } else if (usageRatioProjected >= 1.0) {
+      warningMessage = `已超出流量限额 (${formatBytes(cumulativeBillable)} / ${formatBytes(rawQuota)})，超额 ${formatBytes(cumulativeBillable - rawQuota)}！`;
+    } else if (projectedBillable >= rawQuota) {
       status = "CRITICAL";
-      const remainingQuota = quota - cumulativeTotal;
-      daysUntilExhaustion = dailyAvgTotal > 0 ? Math.max(1, Math.floor(remainingQuota / dailyAvgTotal)) : 999;
-      
-      const exhaustTime = new Date(now.getTime() + daysUntilExhaustion * 24 * 60 * 60 * 1000);
-      exhaustionDate = exhaustTime.toISOString().split("T")[0];
-      
-      const overage = projectedTotal - quota;
-      warningMessage = `⚠️ 预警：预计将在 ${daysUntilExhaustion} 天后（${exhaustionDate}）耗尽流量限额，重置日前预计超标 ${formatBytes(overage)}！`;
-    } else if (usageRatioProjected >= warningThresholdPercent / 100) {
+      const remainingQuota = rawQuota - cumulativeBillable;
+      daysUntilExhaustion = dailyAvgBillable > 0 ? Math.max(1, Math.floor(remainingQuota / dailyAvgBillable)) : 999;
+      const exDateObj = new Date(now.getTime() + daysUntilExhaustion * 24 * 60 * 60 * 1000);
+      exhaustionDate = exDateObj.toISOString().split("T")[0];
+      const overage = projectedBillable - rawQuota;
+      warningMessage = `预计将在 ${daysUntilExhaustion} 天后（${exhaustionDate}）耗尽限额（按 ${modeBadge} 计费），重置日前预计超标 ${formatBytes(overage)}！`;
+    } else if (usageRatio >= warningThresholdPercent / 100) {
       status = "WARNING";
-      warningMessage = `⚡ 注意：预计在重置日将消耗 ${(usageRatioProjected * 100).toFixed(1)}% 的流量，接近设定阈值 (${warningThresholdPercent}%)。`;
+      warningMessage = `预计在重置日将消耗 ${(usageRatio * 100).toFixed(1)}% 的计费流量，接近告警阈值 (${warningThresholdPercent}%)。`;
     } else {
       status = "SAFE";
+      warningMessage = `流量在安全预算内，预计重置日使用率为 ${(usageRatio * 100).toFixed(1)}%，剩余可用计费流量约 ${formatBytes(rawQuota - projectedBillable)}。`;
     }
   }
 
+  // 5. 构建固定 30 天时间序列与预测序列
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now);
+
   return {
+    node_id: node.uuid,
+    node_name: node.name || node.uuid,
+    tags: node.tags,
+    group: node.group,
+    has_quota: hasQuota,
+    traffic_limit_bytes: rawQuota,
+    traffic_limit_formatted: hasQuota ? formatBytes(rawQuota) : "未设置限额",
+    traffic_limit_type: mode,
+    traffic_reset_day: resetDay,
     cycle,
     cumulative: {
       in_bytes: cumulativeIn,
       out_bytes: cumulativeOut,
-      total_bytes: cumulativeTotal,
+      physical_total: cumulativePhysicalTotal,
+      billable_bytes: cumulativeBillable,
+      in_formatted: formatBytes(cumulativeIn),
+      out_formatted: formatBytes(cumulativeOut),
+      physical_formatted: formatBytes(cumulativePhysicalTotal),
+      billable_formatted: formatBytes(cumulativeBillable),
     },
     daily_avg: {
       in_bytes: dailyAvgIn,
       out_bytes: dailyAvgOut,
       total_bytes: dailyAvgTotal,
+      billable_bytes: dailyAvgBillable,
+      total_formatted: formatBytes(dailyAvgTotal),
+      billable_formatted: formatBytes(dailyAvgBillable),
     },
     projected: {
       in_bytes: projectedIn,
       out_bytes: projectedOut,
-      total_bytes: projectedTotal,
+      physical_total: projectedPhysicalTotal,
+      billable_bytes: projectedBillable,
+      physical_formatted: formatBytes(projectedPhysicalTotal),
+      billable_formatted: formatBytes(projectedBillable),
     },
-    quota,
-    usage_ratio_current: usageRatioCurrent,
-    usage_ratio_projected: usageRatioProjected,
+    usage_ratio: usageRatio,
     status,
     days_until_exhaustion: daysUntilExhaustion,
     exhaustion_date: exhaustionDate,
     warning_message: warningMessage,
+    chart_series: chartSeries,
   };
 }
 
 /**
- * 为图表生成包含未来预测的扩展时间序列
+ * 构建 30 天时间序列（过去30天堆叠柱 + 计费模式对应的累计曲线 + 未来外推虚线）
  */
-export function buildChartSeries(
+export function build30DaySeries(
   history: TrafficRecord[],
-  range: "1d" | "7d" | "30d",
-  forecastData: ReturnType<typeof calculateForecast>
-) {
-  let displayHistory: TrafficRecord[] = [];
-  const now = new Date();
+  mode: ThresholdMode,
+  cycle: BillingCycle,
+  dailyAvgIn: number,
+  dailyAvgOut: number,
+  now: Date = new Date()
+): TrafficRecord[] {
+  const display = (history || []).slice(-30);
+  const cycleStartMs = cycle.cycleStartDate.getTime();
 
-  if (range === "1d") {
-    // 最近 1 天（按最近 24 小时或当天切片）
-    displayHistory = history.slice(-24);
-  } else if (range === "7d") {
-    displayHistory = history.slice(-7);
-  } else {
-    displayHistory = history.slice(-30);
-  }
+  let runningIn = 0;
+  let runningOut = 0;
 
-  // 计算每一点的当月累计折线（Cumulative Line）
-  let runningCumulative = 0;
-  const cycleStartMs = forecastData.cycle.cycleStartDate.getTime();
-
-  const chartPoints = displayHistory.map((item) => {
+  const points: TrafficRecord[] = display.map((item) => {
     if (item.timestamp >= cycleStartMs) {
-      runningCumulative += item.total_bytes;
+      runningIn += item.in_bytes || 0;
+      runningOut += item.out_bytes || 0;
     }
+    const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+
     return {
-      ...item,
-      cumulative_bytes: runningCumulative,
+      date: item.date,
+      timestamp: item.timestamp,
+      in_bytes: item.in_bytes,
+      out_bytes: item.out_bytes,
+      total_bytes: item.total_bytes,
+      cumulative_bytes: runningIn + runningOut,
+      cumulative_billable: cumBillable,
       is_forecast: false,
     };
   });
 
-  // 生成到重置日的未来预测虚线点（仅当剩余天数 > 0 且在 7d / 30d 模式下叠加）
-  const forecastPoints: TrafficRecord[] = [];
-  if (range !== "1d" && forecastData.cycle.daysRemaining > 0) {
-    const dailyForecastIn = forecastData.daily_avg.in_bytes;
-    const dailyForecastOut = forecastData.daily_avg.out_bytes;
-    const dailyForecastTotal = forecastData.daily_avg.total_bytes;
-    let forecastCum = runningCumulative;
+  if (cycle.daysRemaining > 0) {
+    let fIn = runningIn;
+    let fOut = runningOut;
+    const maxForecastDays = Math.min(cycle.daysRemaining, 14);
 
-    const maxForecastDays = Math.min(forecastData.cycle.daysRemaining, 14); // 最多预测展现接下来两周
     for (let i = 1; i <= maxForecastDays; i++) {
-      const fDate = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = fDate.toISOString().split("T")[0];
-      forecastCum += dailyForecastTotal;
+      const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
+      fIn += dailyAvgIn;
+      fOut += dailyAvgOut;
+      const cumBillable = computeBillableAmount(fIn, fOut, mode);
 
-      forecastPoints.push({
-        date: dateStr,
-        timestamp: fDate.getTime(),
-        in_bytes: dailyForecastIn,
-        out_bytes: dailyForecastOut,
-        total_bytes: dailyForecastTotal,
-        cumulative_bytes: forecastCum,
+      points.push({
+        date: fd.toISOString().split("T")[0],
+        timestamp: fd.getTime(),
+        in_bytes: dailyAvgIn,
+        out_bytes: dailyAvgOut,
+        total_bytes: dailyAvgIn + dailyAvgOut,
+        cumulative_bytes: fIn + fOut,
+        cumulative_billable: cumBillable,
         is_forecast: true,
       });
     }
   }
 
-  return {
-    actual: chartPoints,
-    forecast: forecastPoints,
-    all: [...chartPoints, ...forecastPoints],
-  };
+  return points;
 }

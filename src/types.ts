@@ -1,54 +1,86 @@
+export type ThresholdMode = "sum" | "max" | "min" | "upload" | "download" | "up" | "down";
+
 export interface TrafficRecord {
-  date: string; // YYYY-MM-DD or YYYY-MM-DD HH:00
+  date: string; // YYYY-MM-DD
   timestamp: number;
   in_bytes: number;
   out_bytes: number;
   total_bytes: number;
   cumulative_bytes?: number;
+  cumulative_billable?: number;
   is_forecast?: boolean;
 }
 
-export interface NodeQuotaConfig {
-  node_id: string;
-  node_name?: string;
-  quota_bytes: number; // 0 means unlimited
-  reset_day: number; // 1-31
-  traffic_limit_type?: "sum" | "out" | "in" | "max";
+/**
+ * 对应 Komari 核心数据库中的 Client 字段定义（不作插件本地缓存，直接来源于核心）
+ */
+export interface NodeCoreConfig {
+  uuid: string;
+  name: string;
+  traffic_limit?: number; // 字节数，0 或 undefined 表示未配置限额
+  traffic_limit_type?: ThresholdMode; // sum | max | min | upload (up) | download (down)
+  traffic_reset_day?: number; // 每月重置日 1-31
+  billing_cycle?: number;
+  expired_at?: string | null;
+  net_in?: number;
+  net_out?: number;
+  tags?: string;
+  group?: string;
 }
 
-export interface NodeTrafficData {
+export interface BillingCycle {
+  cycleStart: string;
+  cycleEnd: string;
+  cycleStartDate: Date;
+  cycleEndDate: Date;
+  daysTotal: number;
+  daysElapsed: number;
+  daysRemaining: number;
+}
+
+export interface NodeForecastData {
   node_id: string;
   node_name: string;
-  node_group?: string;
-  status?: string;
-  quota_config: NodeQuotaConfig;
-  current_cycle: {
-    cycle_start: string;
-    cycle_end: string;
-    days_total: number;
-    days_elapsed: number;
-    days_remaining: number;
-    cumulative_in_bytes: number;
-    cumulative_out_bytes: number;
-    cumulative_total_bytes: number;
+  tags?: string;
+  group?: string;
+  has_quota: boolean;
+  traffic_limit_bytes: number;
+  traffic_limit_formatted: string;
+  traffic_limit_type: ThresholdMode;
+  traffic_reset_day: number;
+  cycle: BillingCycle;
+  cumulative: {
+    in_bytes: number;
+    out_bytes: number;
+    physical_total: number;
+    billable_bytes: number;
+    in_formatted: string;
+    out_formatted: string;
+    physical_formatted: string;
+    billable_formatted: string;
   };
-  daily_history: TrafficRecord[]; // Last 30+ days
-  hourly_history?: TrafficRecord[]; // Last 24 hours
-  forecast: {
-    daily_avg_in_bytes: number;
-    daily_avg_out_bytes: number;
-    daily_avg_total_bytes: number;
-    projected_in_bytes: number;
-    projected_out_bytes: number;
-    projected_total_bytes: number;
-    quota_bytes: number;
-    usage_ratio_current: number; // 0.0 - 1.0+
-    usage_ratio_projected: number; // 0.0 - 1.0+
-    status: "SAFE" | "WARNING" | "CRITICAL";
-    days_until_exhaustion?: number;
-    exhaustion_date?: string;
-    warning_message?: string;
+  daily_avg: {
+    in_bytes: number;
+    out_bytes: number;
+    total_bytes: number;
+    billable_bytes: number;
+    total_formatted: string;
+    billable_formatted: string;
   };
+  projected: {
+    in_bytes: number;
+    out_bytes: number;
+    physical_total: number;
+    billable_bytes: number;
+    physical_formatted: string;
+    billable_formatted: string;
+  };
+  usage_ratio: number; // 0.0 ~ 1.0+
+  status: "SAFE" | "WARNING" | "CRITICAL" | "NO_QUOTA";
+  days_until_exhaustion?: number;
+  exhaustion_date?: string;
+  warning_message?: string;
+  chart_series: TrafficRecord[]; // 30天实际 + 预测点
 }
 
 export interface PluginConfig {

@@ -1,11 +1,11 @@
 import { definePlugin, jsonResponse, server } from "@komari-monitor/plugin-sdk";
 import { StorageManager } from "./storage";
-import { buildChartSeries, calculateForecast, formatBytes } from "./forecast";
-import { PluginConfig } from "./types";
+import { calculateNodeForecast } from "./forecast";
+import { NodeCoreConfig, PluginConfig } from "./types";
 
 export default definePlugin({
   async load() {
-    console.log("[NetForecast] Plugin loaded, initializing storage and forecasting engine...");
+    console.log("[NetForecast] Plugin loaded. Direct database sync mode active (no local settings caching).");
 
     const storage = new StorageManager();
 
@@ -30,62 +30,72 @@ export default definePlugin({
       }
     };
 
-    // 1. 获取所有节点概览及预警汇总
-    server.route("GET", "/api/plugin/net-forecast/overview", async (req, res) => {
+    /**
+     * 从 Komari 核心服务直接获取实时 Client 列表（永远以核心数据库为准）
+     */
+    const fetchCoreClients = async (fallbackClients?: NodeCoreConfig[]): Promise<NodeCoreConfig[]> => {
+      // 1. 如果前端请求体中直接传入了最新读取的核心客户端列表，直接采用
+      if (Array.isArray(fallbackClients) && fallbackClients.length > 0) {
+        return fallbackClients;
+      }
+
+      // 2. 尝试通过内部 RPC 直接读取 Komari 核心数据库
+      if (server.call) {
+        try {
+          const res = await server.call("admin:listClients").catch(() => null);
+          if (Array.isArray(res) && res.length > 0) {
+            return res;
+          }
+          const altRes = await server.call("common:getNodes").catch(() => null);
+          if (Array.isArray(altRes) && altRes.length > 0) {
+            return altRes;
+          }
+        } catch (e) {
+          console.warn("[NetForecast] RPC call to core clients notice:", e);
+        }
+      }
+
+      return [];
+    };
+
+    // 1. 获取所有节点 30 天流量堆叠与未来预测总览接口 (支持 GET 或 POST 附带最新核心客户端)
+    const handleOverview = async (req: any, res: any) => {
       try {
         const config = getPluginConfig();
-        const allSettings = storage.getAllNodeSettings();
-        const nodeIds = Object.keys(allSettings);
+        const body = req.body ? parseBody(req.body) : {};
+        let clients = await fetchCoreClients(body.clients);
 
-        // 如果还没有节点，加入默认探测节点
-        if (nodeIds.length === 0) {
-          nodeIds.push("default-node");
-          storage.saveNodeSettings("default-node", {
-            node_id: "default-node",
-            node_name: "主监控节点",
-            quota_bytes: 1099511627776, // 1TB
-            reset_day: config.default_reset_day,
-          });
+        // 如果全新部署且未查到节点，提供优雅演示节点
+        if (!clients || clients.length === 0) {
+          clients = [
+            {
+              uuid: "node-demo-01",
+              name: "主监控节点 (示例)",
+              traffic_limit: 1099511627776, // 1TB
+              traffic_limit_type: "sum",
+              traffic_reset_day: config.default_reset_day,
+            },
+          ];
         }
 
-        const nodesOverview = nodeIds.map((nodeId) => {
-          const quotaConfig = storage.getNodeSettings(nodeId, config.default_reset_day);
-          const history = storage.getNodeHistory(nodeId, quotaConfig.node_name);
-          const forecast = calculateForecast(history, quotaConfig, config.warning_threshold);
+        const nodesOverview = clients.map((client) => {
+          const uuid = client.uuid;
 
-          return {
-            node_id: nodeId,
-            node_name: quotaConfig.node_name || nodeId,
-            quota_bytes: quotaConfig.quota_bytes,
-            quota_formatted: formatBytes(quotaConfig.quota_bytes),
-            reset_day: quotaConfig.reset_day,
-            cycle: forecast.cycle,
-            cumulative: {
-              ...forecast.cumulative,
-              in_formatted: formatBytes(forecast.cumulative.in_bytes),
-              out_formatted: formatBytes(forecast.cumulative.out_bytes),
-              total_formatted: formatBytes(forecast.cumulative.total_bytes),
-            },
-            daily_avg: {
-              ...forecast.daily_avg,
-              total_formatted: formatBytes(forecast.daily_avg.total_bytes),
-            },
-            projected: {
-              ...forecast.projected,
-              total_formatted: formatBytes(forecast.projected.total_bytes),
-            },
-            usage_ratio_current: forecast.usage_ratio_current,
-            usage_ratio_projected: forecast.usage_ratio_projected,
-            status: forecast.status,
-            days_until_exhaustion: forecast.days_until_exhaustion,
-            exhaustion_date: forecast.exhaustion_date,
-            warning_message: forecast.warning_message,
-          };
+          // 记录当前采样的网卡实时计数器增量
+          if (typeof client.net_in === "number" && typeof client.net_out === "number") {
+            storage.recordSample(uuid, client.net_in, client.net_out);
+          }
+
+          // 读取历史时间序列并结合核心数据库设置进行无缓存实时预测推算
+          const history = storage.getNodeHistory(uuid);
+          return calculateNodeForecast(history, client, config.warning_threshold);
         });
 
-        // 统计总警告数量
+        // 状态统计
         const criticalCount = nodesOverview.filter((n) => n.status === "CRITICAL").length;
         const warningCount = nodesOverview.filter((n) => n.status === "WARNING").length;
+        const safeCount = nodesOverview.filter((n) => n.status === "SAFE").length;
+        const noQuotaCount = nodesOverview.filter((n) => n.status === "NO_QUOTA").length;
 
         jsonResponse(res, {
           ok: true,
@@ -94,6 +104,8 @@ export default definePlugin({
             total_nodes: nodesOverview.length,
             critical_count: criticalCount,
             warning_count: warningCount,
+            safe_count: safeCount,
+            no_quota_count: noQuotaCount,
           },
           nodes: nodesOverview,
         });
@@ -101,160 +113,91 @@ export default definePlugin({
         res.statusCode = 500;
         jsonResponse(res, { ok: false, error: err.message || String(err) });
       }
-    });
+    };
 
-    // 2. 获取单个节点的详细历史与未来预测时间序列 (支持 1d/7d/30d)
-    server.route("GET", "/api/plugin/net-forecast/node-data", async (req, res) => {
-      try {
-        const config = getPluginConfig();
-        const nodeId = req.query.node_id || "default-node";
-        const range = (req.query.range || "30d") as "1d" | "7d" | "30d";
+    server.route("GET", "/api/plugin/net-forecast/overview", handleOverview);
+    server.route("POST", "/api/plugin/net-forecast/overview", handleOverview);
 
-        const quotaConfig = storage.getNodeSettings(nodeId, config.default_reset_day);
-        const history = storage.getNodeHistory(nodeId, quotaConfig.node_name);
-        const forecast = calculateForecast(history, quotaConfig, config.warning_threshold);
-        const series = buildChartSeries(history, range, forecast);
-
-        jsonResponse(res, {
-          ok: true,
-          node_id: nodeId,
-          node_name: quotaConfig.node_name || nodeId,
-          quota_config: quotaConfig,
-          range,
-          forecast: {
-            ...forecast,
-            cumulative: {
-              ...forecast.cumulative,
-              in_formatted: formatBytes(forecast.cumulative.in_bytes),
-              out_formatted: formatBytes(forecast.cumulative.out_bytes),
-              total_formatted: formatBytes(forecast.cumulative.total_bytes),
-            },
-            daily_avg: {
-              ...forecast.daily_avg,
-              in_formatted: formatBytes(forecast.daily_avg.in_bytes),
-              out_formatted: formatBytes(forecast.daily_avg.out_bytes),
-              total_formatted: formatBytes(forecast.daily_avg.total_bytes),
-            },
-            projected: {
-              ...forecast.projected,
-              in_formatted: formatBytes(forecast.projected.in_bytes),
-              out_formatted: formatBytes(forecast.projected.out_bytes),
-              total_formatted: formatBytes(forecast.projected.total_bytes),
-            },
-            quota_formatted: formatBytes(forecast.quota),
-          },
-          chart_series: series,
-        });
-      } catch (err: any) {
-        res.statusCode = 500;
-        jsonResponse(res, { ok: false, error: err.message || String(err) });
-      }
-    });
-
-    // 3. 更新节点限额与重置日配置
+    // 2. 节点限额与计费类型修改：直接回写至 Komari 核心数据库，插件自身不落盘缓存
     server.route("POST", "/api/plugin/net-forecast/update-quota", async (req, res) => {
       try {
         const data = parseBody(req.body);
-        const nodeId = data.node_id;
-        if (!nodeId) {
+        const uuid = data.uuid || data.node_id;
+        if (!uuid) {
           res.statusCode = 400;
-          jsonResponse(res, { ok: false, error: "Missing node_id" });
+          jsonResponse(res, { ok: false, error: "Missing uuid" });
           return;
         }
 
-        storage.saveNodeSettings(nodeId, {
-          node_name: data.node_name,
-          quota_bytes: Number(data.quota_bytes) >= 0 ? Number(data.quota_bytes) : 0,
-          reset_day: Math.max(1, Math.min(31, Number(data.reset_day) || 1)),
+        const editPayload = {
+          uuid: uuid,
+          traffic_limit: Number(data.traffic_limit) >= 0 ? Number(data.traffic_limit) : 0,
           traffic_limit_type: data.traffic_limit_type || "sum",
-        });
+          traffic_reset_day: Math.max(1, Math.min(31, Number(data.traffic_reset_day) || 1)),
+        };
 
-        jsonResponse(res, {
-          ok: true,
-          message: "Node quota and reset day updated successfully",
-          settings: storage.getNodeSettings(nodeId),
-        });
-      } catch (err: any) {
-        res.statusCode = 500;
-        jsonResponse(res, { ok: false, error: err.message || String(err) });
-      }
-    });
-
-    // 4. 同步节点信息列表（从前端或服务端同步最新的节点名与当前流量数据）
-    server.route("POST", "/api/plugin/net-forecast/sync-nodes", async (req, res) => {
-      try {
-        const data = parseBody(req.body);
-        const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-
-        for (const n of nodes) {
-          const id = n.uuid || n.id || n.node_id;
-          if (id) {
-            const existing = storage.getNodeSettings(id);
-            storage.saveNodeSettings(id, {
-              node_name: n.name || existing.node_name || id,
-              quota_bytes: n.traffic_limit ? Number(n.traffic_limit) : existing.quota_bytes,
-              reset_day: n.traffic_reset_day ? Number(n.traffic_reset_day) : existing.reset_day,
-            });
-
-            // 如果节点上报了当前流量累计
-            if (typeof n.net_in === "number" && typeof n.net_out === "number") {
-              storage.recordSample(id, n.net_in, n.net_out);
-            }
+        // 直接调用 Komari 核心 RPC 写入数据库
+        let rpcSuccess = false;
+        if (server.call) {
+          try {
+            await server.call("admin:editClient", editPayload);
+            rpcSuccess = true;
+          } catch (rpcErr) {
+            console.warn("[NetForecast] admin:editClient RPC failed:", rpcErr);
           }
         }
 
-        jsonResponse(res, { ok: true, synced_count: nodes.length });
+        jsonResponse(res, {
+          ok: true,
+          rpc_success: rpcSuccess,
+          message: "Core database update requested",
+          payload: editPayload,
+        });
       } catch (err: any) {
         res.statusCode = 500;
         jsonResponse(res, { ok: false, error: err.message || String(err) });
       }
     });
 
-    // 5. 注册 RPC 方法
-    server.registerRPC("netForecast:getOverview", () => {
-      const config = getPluginConfig();
-      const allSettings = storage.getAllNodeSettings();
-      const nodeIds = Object.keys(allSettings);
-      return {
-        ok: true,
-        count: nodeIds.length,
-        nodes: nodeIds.map((id) => {
-          const quota = storage.getNodeSettings(id, config.default_reset_day);
-          const history = storage.getNodeHistory(id, quota.node_name);
-          return {
-            id,
-            forecast: calculateForecast(history, quota, config.warning_threshold),
-          };
-        }),
-      };
-    });
-
-    // 6. 定时轮询与数据同步 Cron
+    // 3. 定时轮询上报：定期从核心数据库拉取各节点最新流量计数并记录时间序列
     const config = getPluginConfig();
     try {
       server.cron(config.auto_collect_cron, async () => {
-        // 定时尝试调用系统 RPC 刷新节点状态
         try {
           if (server.call) {
-            const nodes = await server.call("admin:getNodes").catch(() => null);
-            if (Array.isArray(nodes)) {
-              for (const n of nodes) {
-                if (n.uuid && typeof n.net_in === "number" && typeof n.net_out === "number") {
-                  storage.recordSample(n.uuid, n.net_in, n.net_out);
+            const clients = await server.call("admin:listClients").catch(() => null);
+            if (Array.isArray(clients)) {
+              for (const c of clients) {
+                if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
+                  storage.recordSample(c.uuid, c.net_in, c.net_out);
                 }
               }
             }
           }
         } catch (e) {
-          // ignore cron poll errors
+          // ignore background poll error
         }
       });
     } catch (e) {
       console.warn("[NetForecast] Cron registration notice:", e);
     }
+
+    // 4. 注册 RPC 方法
+    server.registerRPC("netForecast:getOverview", async () => {
+      const config = getPluginConfig();
+      const clients = await fetchCoreClients();
+      return {
+        ok: true,
+        count: clients.length,
+        nodes: clients.map((c) => {
+          const history = storage.getNodeHistory(c.uuid);
+          return calculateNodeForecast(history, c, config.warning_threshold);
+        }),
+      };
+    });
   },
 
   async unload() {
-    console.log("[NetForecast] Plugin unloaded cleanly.");
+    console.log("[NetForecast] Plugin unloaded.");
   },
 });

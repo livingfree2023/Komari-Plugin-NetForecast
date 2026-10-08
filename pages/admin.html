@@ -617,6 +617,127 @@
       background: #4f46e5;
     }
 
+
+    /* 全局数据同步进度遮罩层 (Loading Overlay) */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(11, 17, 32, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .loading-card {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 18px;
+      padding: 28px 32px;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(99, 102, 241, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: #6366f1;
+      border-right-color: #38bdf8;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .loading-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .loading-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .loading-percent {
+      font-size: 15px;
+      font-weight: 700;
+      color: #38bdf8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .loading-bar-bg {
+      width: 100%;
+      height: 9px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .loading-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1 0%, #38bdf8 50%, #10b981 100%);
+      border-radius: 8px;
+      transition: width 0.25s ease-out;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loading-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+
+    .loading-status-text {
+      font-size: 13px;
+      color: #f1f5f9;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .loading-sub-text {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -647,6 +768,28 @@
     <!-- 筛选为空时的占位 -->
     <div class="empty-state" id="emptyState">
       🔍 没有找到符合当前筛选条件的节点
+    </div>
+  </div>
+
+  <!-- 全局数据同步进度遮罩层 (Loading Overlay) -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="loading-spinner"></div>
+        <div style="flex:1; min-width:0;">
+          <div class="loading-title-row">
+            <span class="loading-title">正在同步网络流量数据</span>
+            <span class="loading-percent" id="loadingPercent">0%</span>
+          </div>
+          <div class="loading-bar-bg">
+            <div class="loading-bar-fill" id="loadingBarFill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
+        <div class="loading-status-text" id="loadingStatusText">正在连接 Komari 核心服务并获取节点列表...</div>
+        <div class="loading-sub-text" id="loadingSubText">直连核心数据库与实时上报，绝不伪造种子数据</div>
+      </div>
     </div>
   </div>
 
@@ -812,21 +955,62 @@
       result.sort((a, b) => a.timestamp - b.timestamp);
       return result;
     }
+    function showLoading(initialStatus = "正在初始化 NetForecast...") {
+      const overlay = document.getElementById("loadingOverlay");
+      if (!overlay) return;
+      overlay.style.display = "flex";
+      overlay.style.opacity = "1";
+      updateLoading(5, initialStatus, "直连核心数据库与实时上报，绝不伪造种子数据");
+    }
+
+    function updateLoading(percent, statusText, subText) {
+      const bar = document.getElementById("loadingBarFill");
+      const pct = document.getElementById("loadingPercent");
+      const st = document.getElementById("loadingStatusText");
+      const sub = document.getElementById("loadingSubText");
+      const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+      if (bar) bar.style.width = safePercent + "%";
+      if (pct) pct.textContent = safePercent + "%";
+      if (st && statusText) st.textContent = statusText;
+      if (sub && subText) sub.textContent = subText;
+    }
+
+    function hideLoading() {
+      const overlay = document.getElementById("loadingOverlay");
+      if (!overlay) return;
+      overlay.style.opacity = "0";
+      setTimeout(() => {
+        overlay.style.display = "none";
+      }, 300);
+    }
+
+    function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+      if (typeof AbortController === "undefined") {
+        return fetch(url, options);
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+        .finally(() => clearTimeout(timeoutId));
+    }
+
     /**
      * 核心加载逻辑：从 Komari 核心接口拉取真实节点配置与真实历史时序打点
      */
     async function loadAllNodes() {
+      showLoading("正在连接 Komari 核心服务并获取节点列表...");
       try {
         // 1. 优先拉取核心管理客户端列表
+        updateLoading(12, "正在连接 Komari 核心服务并获取节点列表...", "请求 /api/admin/client/list");
         let coreClients = [];
         try {
-          const clientRes = await fetch("/api/admin/client/list", { cache: "no-store" });
+          const clientRes = await fetchWithTimeout("/api/admin/client/list", { cache: "no-store" }, 4000);
           if (clientRes.ok) {
             coreClients = await clientRes.json();
           }
         } catch (e) {
           try {
-            const nodeRes = await fetch("/api/nodes", { cache: "no-store" });
+            const nodeRes = await fetchWithTimeout("/api/nodes", { cache: "no-store" }, 4000);
             if (nodeRes.ok) {
               const nd = await nodeRes.json();
               coreClients = nd.data || nd;
@@ -835,22 +1019,29 @@
         }
 
         if (!Array.isArray(coreClients) || coreClients.length === 0) {
+          updateLoading(100, "未发现有效节点或核心服务未响应", "请检查 Komari 核心服务与节点状态");
           state.rawNodes = [];
           renderFilterBar();
           renderNodeCards();
           applyFilter();
+          setTimeout(hideLoading, 500);
           return;
         }
+
+        const totalNodes = coreClients.length;
+        let completedNodes = 0;
+        updateLoading(20, `已发现 ${totalNodes} 个节点，开始同步实时状态与历史打点 (0/${totalNodes})...`, "并发请求实时内存计数器与 30 天网络记录");
 
         // 2. 并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
         const clientsWithHistory = await Promise.all(coreClients.map(async (client) => {
           let netTotalUp = Number(client.net_total_up || 0);
           let netTotalDown = Number(client.net_total_down || 0);
           let dailyHistory = [];
+          const nodeName = client.name || client.uuid || "未知节点";
 
           // 优先从 /api/recent/:uuid 提取内存中最新的实时流量累计 (Komari 详情页 46.7G 所在的数据源)
           try {
-            const recentRes = await fetch(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" });
+            const recentRes = await fetchWithTimeout(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" }, 3000);
             if (recentRes.ok) {
               const recentJson = await recentRes.json();
               const recList = (recentJson.data && Array.isArray(recentJson.data)) ? recentJson.data : (Array.isArray(recentJson) ? recentJson : []);
@@ -868,7 +1059,7 @@
 
           // 从 /api/records/load 拉取过去 30 天网络打点并聚合每日增量
           try {
-            const recRes = await fetch(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" });
+            const recRes = await fetchWithTimeout(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" }, 3500);
             if (recRes.ok) {
               const recJson = await recRes.json();
               const recList = (recJson.data && recJson.data.records) || recJson.records || [];
@@ -883,6 +1074,14 @@
             }
           } catch (err) {}
 
+          completedNodes++;
+          const nodePct = 20 + Math.round((completedNodes / totalNodes) * 60);
+          updateLoading(
+            nodePct,
+            `正在同步节点数据 (${completedNodes}/${totalNodes}): ${nodeName}`,
+            `已聚合 ${dailyHistory.length} 天真实时序记录`
+          );
+
           return Object.assign({}, client, {
             net_total_up: netTotalUp,
             net_total_down: netTotalDown,
@@ -891,21 +1090,30 @@
         }));
 
         // 3. 将真实历史与真实累计一并提交给插件后端进行科学推算
-        const res = await fetch("/api/plugin/net-forecast/overview", {
+        updateLoading(85, "正在进行科学预测与限额预警推算...", "根据计费规则自适应累计并推算重置日消耗");
+        const res = await fetchWithTimeout("/api/plugin/net-forecast/overview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clients: clientsWithHistory })
-        });
+        }, 6000);
 
         const json = await res.json();
         if (json.ok && Array.isArray(json.nodes)) {
+          updateLoading(95, "正在渲染可视化走势图与控制面板...", `共加载 ${json.nodes.length} 个节点图表`);
           state.rawNodes = json.nodes;
           renderFilterBar();
           renderNodeCards();
           applyFilter();
+          updateLoading(100, "同步就绪！", "全节点流量预测与预警加载完成");
+          setTimeout(hideLoading, 300);
+        } else {
+          updateLoading(100, "推算服务异常", json.error || "未能获取有效推算结果");
+          setTimeout(hideLoading, 600);
         }
       } catch (err) {
         console.error("Failed to load nodes from core:", err);
+        updateLoading(100, "加载异常", err.message || String(err));
+        setTimeout(hideLoading, 600);
       }
     }
 

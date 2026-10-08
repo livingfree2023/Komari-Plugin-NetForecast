@@ -237,6 +237,27 @@
       color: #a5b4fc;
     }
 
+    /* 单节点设置按钮 */
+    .node-edit-btn {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .node-edit-btn:hover {
+      background: rgba(30, 41, 59, 0.95);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
     /* 节点卡片列表 */
     .nodes-container {
       display: flex;
@@ -496,6 +517,104 @@
       font-size: 14px;
     }
 
+    /* 弹出输入框 (Modal) */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal {
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 460px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .form-group input, .form-group select {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--inbound);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn-secondary {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      color: #fff;
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .btn-primary {
+      background: var(--inbound);
+      border: 1px solid var(--inbound);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -506,11 +625,9 @@
   <div class="container">
     <!-- 需求提示栏 -->
     <div class="preview-tip">
-      <div>💡 <strong>多限额类型（Traffic Threshold）自适应与统计适配机制</strong>：</div>
-      <div>系统自动识别各节点的计费限额类型（<strong>双向求和 sum</strong>、<strong>双向取大 max</strong>、<strong>双向取小 min</strong>、<strong>仅计出站 upload only</strong>、<strong>仅计入站 download only</strong>）：</div>
-      <div>1. <strong>折线走势自动适配</strong>：折线图严格反映对应模式下的<strong>计费累计量</strong>（例如 upload only 时仅累加出站，max 时追踪高者），避免误判。</div>
-      <div>2. <strong>柱状图视觉高亮适配</strong>：非计费流量自动弱化（虚化），核心计费流量高亮展示，图例动态标明当前计费项。</div>
-      <div>3. <strong>预警推算自适应</strong>：超限与耗尽倒计时完全基于该限额模式下的有效日均增长率进行精准推算。</div>
+      <div>💡 <strong>多限额类型（Traffic Threshold）自适应与弹出输入框功能</strong>：</div>
+      <div>1. <strong>直接弹出输入框</strong>：点击任一节点右上角的「<strong>⚙️ 设置限额</strong>」，即可直接弹出输入框修改该节点的<strong>限额类型</strong>（sum/max/min/upload/download）、<strong>限额数值</strong>（GB）与<strong>重置日</strong>。</div>
+      <div>2. <strong>即时生效与图表重绘</strong>：保存后，该节点的折线走势、柱状图透明度高亮、KPI 与告警横幅立即自适应重绘！</div>
     </div>
 
     <!-- 顶部总览与交互式筛选器 -->
@@ -535,6 +652,39 @@
     </div>
   </div>
 
+  <!-- 单节点限额配置弹出输入模态框 -->
+  <div class="modal-overlay" id="nodeConfigModal">
+    <div class="modal">
+      <div class="modal-title">⚙️ 配置节点流量限额与统计规则</div>
+      <div class="form-group">
+        <label>目标节点</label>
+        <input type="text" id="modalNodeName" readonly style="opacity:0.75;" />
+      </div>
+      <div class="form-group">
+        <label>流量限额类型 (Traffic Threshold Mode)</label>
+        <select id="modalTrafficMode">
+          <option value="sum">双向求和 (sum: Inbound + Outbound)</option>
+          <option value="max">双向取大 (max: MAX(In, Out))</option>
+          <option value="min">双向取小 (min: MIN(In, Out))</option>
+          <option value="upload">仅计出站 (upload only: 仅 Outbound)</option>
+          <option value="download">仅计入站 (download only: 仅 Inbound)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>每月流量限额 (GB，填 0 表示不设置限额)</label>
+        <input type="number" id="modalQuotaGB" min="0" step="10" placeholder="例如 1000，填 0 表示不限额" />
+      </div>
+      <div class="form-group">
+        <label>每月账单重置日 (1 - 31)</label>
+        <input type="number" id="modalResetDay" min="1" max="31" placeholder="例如 1" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeNodeModal()">取消</button>
+        <button class="btn-primary" onclick="saveNodeModal()">保存并重新推算</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const GB = 1024 * 1024 * 1024;
 
@@ -550,11 +700,6 @@
 
     /**
      * 计费模式字典与名称映射
-     * sum: 双向求和 (in + out)
-     * max: 取较大一方 (max(in, out))
-     * min: 取较小一方 (min(in, out))
-     * upload: 仅计出站 (out only)
-     * download: 仅计入站 (in only)
      */
     const THRESHOLD_MODES = {
       sum: {
@@ -595,7 +740,7 @@
     };
 
     /**
-     * Mock 节点配置数据（模拟覆盖 5 种不同计费类型与无配额场景）
+     * Mock 节点配置数据
      */
     const MOCK_NODES = [
       {
@@ -655,8 +800,8 @@
       }
     ];
 
-    // 当前激活的筛选器 (ALL | CRITICAL | WARNING | SAFE | NO_QUOTA)
     let currentFilter = "ALL";
+    let editingNodeId = null;
 
     // 生成过去 30 天的历史增量数据
     function generateNodeHistory(node) {
@@ -703,7 +848,7 @@
       }
     }
 
-    // 周期与预测推算（深度结合流量模式）
+    // 周期与预测推算
     function computeForecast(history, node, now = new Date()) {
       const year = now.getFullYear();
       const month = now.getMonth();
@@ -737,7 +882,7 @@
       });
       const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
 
-      // 根据限额模式计算出的【当月计费累计量】
+      // 计费累计量
       const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
       // 7 日加权均值
@@ -753,19 +898,16 @@
       const dailyAvgOut = Math.round(wOutSum / weightSum);
       const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
 
-      // 预测到达重置日时上下行分别累计
       const projectedIn = cumulativeIn + dailyAvgIn * daysRemaining;
       const projectedOut = cumulativeOut + dailyAvgOut * daysRemaining;
       const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * daysRemaining;
 
-      // 预测到达重置日时的【计费总消耗量】
+      // 预测计费总消耗
       const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
-
-      // 计费项的日均有效增长率（用于耗尽倒计时）
       const dailyAvgBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
 
       const hasQuota = Boolean(node.has_quota && node.quota_bytes > 0);
-      let status = "NO_QUOTA"; // 未配置限额时状态为 NO_QUOTA
+      let status = "NO_QUOTA";
       let warningMessage = null;
 
       if (hasQuota) {
@@ -830,10 +972,7 @@
       };
     }
 
-    /**
-     * 构建 30 天序列与未来预测序列
-     * 关键逻辑：累计折线必须严格对应当前模式的【计费累计量】走势！
-     */
+    // 构建 30 天时间序列与预测序列
     function build30DaySeries(history, forecast) {
       const display = history.slice(-30);
       const cycleStartMs = forecast.cycle.cycleStart.getTime();
@@ -847,7 +986,6 @@
           runningIn += item.in_bytes;
           runningOut += item.out_bytes;
         }
-        // 折线走势：精确根据计费模式累加
         const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
 
         return {
@@ -861,7 +999,6 @@
         };
       });
 
-      // 叠加到达重置日的预测虚线
       if (forecast.cycle.daysRemaining > 0) {
         let fIn = runningIn;
         let fOut = runningOut;
@@ -889,7 +1026,6 @@
       return points;
     }
 
-    // 缓存数据
     const nodeCalculatedData = [];
 
     function initData() {
@@ -1025,7 +1161,10 @@
                 ${forecast.hasQuota ? `限额: ${formatBytes(forecast.quota_bytes)} · 每月 ${node.reset_day} 号重置` : `不限额 · 每月 ${node.reset_day} 号重置`}
               </div>
             </div>
-            <div>${badgeHtml}</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              ${badgeHtml}
+              <button class="node-edit-btn" onclick="openNodeModal('${node.node_id}')">⚙️ 设置限额</button>
+            </div>
           </div>
 
           ${alertBannerHtml}
@@ -1137,10 +1276,7 @@
       }
     }
 
-    /**
-     * 绘制单个节点的专属复合图表
-     * 自动根据流量限额模式调整柱状图与折线图的表现方式！
-     */
+    // 绘制单个节点的专属复合图表
     function renderNodeChart(nodeId, items, forecast) {
       const canvas = document.getElementById(`canvas-${nodeId}`);
       const wrapper = document.getElementById(`wrapper-${nodeId}`);
@@ -1217,15 +1353,12 @@
         const outH = (outBytes / maxBar) * chartH;
         const baseGroundY = padding.top + chartH;
 
-        // 根据计费模式自动调整非计费项透明度
         let inAlpha = item.is_forecast ? 0.35 : 0.92;
         let outAlpha = item.is_forecast ? 0.35 : 0.92;
 
         if (mode === "upload") {
-          // 仅计出网时，入站柱弱化为 0.35 透明度，出站为主色
           inAlpha = item.is_forecast ? 0.2 : 0.4;
         } else if (mode === "download") {
-          // 仅计入网时，出站柱弱化为 0.35 透明度，入站为主色
           outAlpha = item.is_forecast ? 0.2 : 0.4;
         }
 
@@ -1260,7 +1393,7 @@
         });
       });
 
-      // 2. 计费累计折线 (根据计费类型自适应生成)
+      // 2. 计费累计折线
       const actualPoints = [];
       const forecastPoints = [];
 
@@ -1320,7 +1453,7 @@
         });
       }
 
-      // 鼠标悬浮 Tooltip 交互（包含物理流量与计费流量双重信息）
+      // 鼠标悬浮 Tooltip 交互
       canvas.onmousemove = (e) => {
         const cRect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - cRect.left;
@@ -1360,6 +1493,48 @@
       canvas.onmouseleave = () => {
         tooltip.style.display = "none";
       };
+    }
+
+    // 打开单节点配置弹窗
+    function openNodeModal(nodeId) {
+      const node = MOCK_NODES.find(n => n.node_id === nodeId);
+      if (!node) return;
+      editingNodeId = nodeId;
+
+      document.getElementById("modalNodeName").value = node.node_name;
+      document.getElementById("modalTrafficMode").value = node.traffic_mode || "sum";
+      document.getElementById("modalQuotaGB").value = node.quota_bytes ? Math.round(node.quota_bytes / GB) : 0;
+      document.getElementById("modalResetDay").value = node.reset_day || 1;
+
+      document.getElementById("nodeConfigModal").style.display = "flex";
+    }
+
+    function closeNodeModal() {
+      document.getElementById("nodeConfigModal").style.display = "none";
+      editingNodeId = null;
+    }
+
+    function saveNodeModal() {
+      if (!editingNodeId) return;
+      const node = MOCK_NODES.find(n => n.node_id === editingNodeId);
+      if (!node) return;
+
+      const mode = document.getElementById("modalTrafficMode").value;
+      const quotaGB = parseFloat(document.getElementById("modalQuotaGB").value) || 0;
+      const resetDay = parseInt(document.getElementById("modalResetDay").value, 10) || 1;
+
+      node.traffic_mode = mode;
+      node.quota_bytes = quotaGB * GB;
+      node.has_quota = quotaGB > 0;
+      node.reset_day = resetDay;
+
+      closeNodeModal();
+
+      // 重新计算并刷新界面
+      initData();
+      renderFilterBar();
+      renderNodeCards();
+      applyFilter();
     }
 
     // 初始化入口

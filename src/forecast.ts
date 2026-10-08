@@ -169,7 +169,7 @@ export function getThresholdModeLabel(mode: string = "sum"): string {
 }
 
 /**
- * 计算单个节点的流量预测与预警信息
+ * 计算单个节点的流量预测与预警信息（严格采用真实数据）
  */
 export function calculateNodeForecast(
   history: TrafficRecord[],
@@ -185,32 +185,55 @@ export function calculateNodeForecast(
 
   const mode = (node.traffic_limit_type || "sum") as ThresholdMode;
 
-  // 1. 本周期内流量累计
+  // 1. 获取当月真实的累计流量：优先使用 Komari 原生上报的真实累计计数器（保证与 Komari 实例页 100% 对齐）
+  const rawTotalUp = Number(
+    node.net_total_up ?? 
+    node.network?.totalUp ?? 
+    node.total_up ?? 
+    node.totalUp ?? 
+    0
+  );
+  const rawTotalDown = Number(
+    node.net_total_down ?? 
+    node.network?.totalDown ?? 
+    node.total_down ?? 
+    node.totalDown ?? 
+    0
+  );
+
   let cumulativeIn = 0;
   let cumulativeOut = 0;
 
-  for (const r of history) {
-    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-      cumulativeIn += r.in_bytes || 0;
-      cumulativeOut += r.out_bytes || 0;
+  if (rawTotalUp > 0 || rawTotalDown > 0) {
+    // 真实累计计数器存在，直接采用真实数据
+    cumulativeIn = rawTotalDown;
+    cumulativeOut = rawTotalUp;
+  } else {
+    // 仅在核心未上报累计计数器时，按本周期实际采样累加（无数据则保持为 0）
+    for (const r of history || []) {
+      if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+        cumulativeIn += r.in_bytes || 0;
+        cumulativeOut += r.out_bytes || 0;
+      }
     }
   }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
   const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
-  // 2. 近7天加权移动平均日均增量
-  const recentDays = history.slice(-7);
+  // 2. 计算日均增量：优先参考近 7 天真实打点增量；若无历史打点记录，根据本周期真实已用流量和已过天数推算均速
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
-  if (recentDays.length > 0) {
+  const validRecentDays = (history || []).filter(r => (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
+
+  if (validRecentDays.length > 0) {
     let weightSum = 0;
     let weightedInSum = 0;
     let weightedOutSum = 0;
 
-    recentDays.forEach((record, index) => {
-      const weight = 1 + (index / recentDays.length) * 1.2;
+    validRecentDays.forEach((record, index) => {
+      const weight = 1 + (index / validRecentDays.length) * 1.2;
       weightedInSum += (record.in_bytes || 0) * weight;
       weightedOutSum += (record.out_bytes || 0) * weight;
       weightSum += weight;
@@ -218,9 +241,13 @@ export function calculateNodeForecast(
 
     dailyAvgIn = Math.round(weightedInSum / weightSum);
     dailyAvgOut = Math.round(weightedOutSum / weightSum);
-  } else if (cycle.daysElapsed > 0) {
+  } else if (cycle.daysElapsed > 0 && cumulativePhysicalTotal > 0) {
+    // 严格按真实累计值与已过天数求均速，绝无随机数
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
+  } else {
+    dailyAvgIn = 0;
+    dailyAvgOut = 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
@@ -270,8 +297,8 @@ export function calculateNodeForecast(
     }
   }
 
-  // 5. 构建固定 30 天时间序列与预测序列
-  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now);
+  // 5. 构建真实 30 天时间序列与预测序列
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, now);
 
   return {
     node_id: node.uuid,
@@ -324,7 +351,8 @@ export function calculateNodeForecast(
 }
 
 /**
- * 构建 30 天时间序列（过去30天堆叠柱 + 计费模式对应的累计曲线 + 未来外推虚线）
+ * 构建 30 天时间序列（过去30天真实堆叠柱 + 计费模式对应的累计曲线 + 未来外推虚线）
+ * 严格按照实际打点数据填入，无记录的日期填充为 0，绝不伪造任何数据
  */
 export function build30DaySeries(
   history: TrafficRecord[],
@@ -332,43 +360,65 @@ export function build30DaySeries(
   cycle: BillingCycle,
   dailyAvgIn: number,
   dailyAvgOut: number,
+  currentCycleBillable: number,
   now: Date = new Date()
 ): TrafficRecord[] {
-  const display = (history || []).slice(-30);
-  const cycleStartMs = cycle.cycleStartDate.getTime();
+  const historyMap = new Map<string, TrafficRecord>();
+  for (const item of history || []) {
+    if (item.date) {
+      historyMap.set(item.date, item);
+    }
+  }
 
+  const points: TrafficRecord[] = [];
+  const cycleStartMs = cycle.cycleStartDate.getTime();
   let runningIn = 0;
   let runningOut = 0;
 
-  const points: TrafficRecord[] = display.map((item) => {
-    if (item.timestamp >= cycleStartMs) {
-      runningIn += item.in_bytes || 0;
-      runningOut += item.out_bytes || 0;
-    }
-    const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
+    const dateStr = d.toISOString().split("T")[0];
+    const rec = historyMap.get(dateStr);
 
-    return {
-      date: item.date,
-      timestamp: item.timestamp,
-      in_bytes: item.in_bytes,
-      out_bytes: item.out_bytes,
-      total_bytes: item.total_bytes,
+    const inB = rec ? (rec.in_bytes || 0) : 0;
+    const outB = rec ? (rec.out_bytes || 0) : 0;
+    const totB = inB + outB;
+
+    if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
+      runningIn += inB;
+      runningOut += outB;
+    }
+    let cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+
+    // 如果是今天，且通过核心计数器拿到了真实的当月累计值，使折线最终锚定在真实的当前累计值上
+    if (i === 0 && currentCycleBillable > 0 && cumBillable < currentCycleBillable) {
+      cumBillable = currentCycleBillable;
+    }
+
+    points.push({
+      date: dateStr,
+      timestamp: d.getTime(),
+      in_bytes: inB,
+      out_bytes: outB,
+      total_bytes: totB,
       cumulative_bytes: runningIn + runningOut,
       cumulative_billable: cumBillable,
       is_forecast: false,
-    };
-  });
+    });
+  }
 
-  if (cycle.daysRemaining > 0) {
-    let fIn = runningIn;
-    let fOut = runningOut;
+  // 仅在有日均消耗且剩余天数大于 0 时外推未来预测点
+  if (cycle.daysRemaining > 0 && (dailyAvgIn > 0 || dailyAvgOut > 0)) {
+    let fCumBillable = points.length > 0 && points[points.length - 1].cumulative_billable
+      ? points[points.length - 1].cumulative_billable!
+      : currentCycleBillable;
+
+    const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
     const maxForecastDays = Math.min(cycle.daysRemaining, 14);
 
     for (let i = 1; i <= maxForecastDays; i++) {
       const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
-      fIn += dailyAvgIn;
-      fOut += dailyAvgOut;
-      const cumBillable = computeBillableAmount(fIn, fOut, mode);
+      fCumBillable += dailyForecastBillable;
 
       points.push({
         date: fd.toISOString().split("T")[0],
@@ -376,8 +426,8 @@ export function build30DaySeries(
         in_bytes: dailyAvgIn,
         out_bytes: dailyAvgOut,
         total_bytes: dailyAvgIn + dailyAvgOut,
-        cumulative_bytes: fIn + fOut,
-        cumulative_billable: cumBillable,
+        cumulative_bytes: fCumBillable,
+        cumulative_billable: fCumBillable,
         is_forecast: true,
       });
     }

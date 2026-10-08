@@ -758,11 +758,66 @@
     };
 
     /**
-     * 核心加载逻辑：从 Komari 核心数据库获取节点并调用插件预测
+     * 将从 Komari 核心接口 /api/records/load 返回的真实网络打点记录按日汇总为进出站流量增量
+     * 绝不构造假数据，无打点的天数保持为 0
+     */
+    function aggregateDailyFromRecords(records) {
+      if (!Array.isArray(records) || records.length === 0) return [];
+
+      const dayGroups = {};
+      records.forEach((r) => {
+        if (!r.time) return;
+        const dayStr = r.time.slice(0, 10);
+        if (!dayGroups[dayStr]) dayGroups[dayStr] = [];
+        dayGroups[dayStr].push(r);
+      });
+
+      const result = [];
+      for (const dayStr of Object.keys(dayGroups)) {
+        const list = dayGroups[dayStr];
+        list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+        let dayIn = 0;
+        let dayOut = 0;
+
+        const first = list[0];
+        const last = list[list.length - 1];
+
+        // 优先使用实际累计计数器的跨度差值（最精确）
+        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
+          dayOut = last.net_total_up - first.net_total_up;
+        } else {
+          let sumOutRate = 0;
+          list.forEach(item => { sumOutRate += (item.net_out || 0); });
+          dayOut = Math.round(sumOutRate * (86400 / list.length));
+        }
+
+        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
+          dayIn = last.net_total_down - first.net_total_down;
+        } else {
+          let sumInRate = 0;
+          list.forEach(item => { sumInRate += (item.net_in || 0); });
+          dayIn = Math.round(sumInRate * (86400 / list.length));
+        }
+
+        result.push({
+          date: dayStr,
+          timestamp: new Date(dayStr + "T00:00:00Z").getTime(),
+          in_bytes: Math.max(0, dayIn),
+          out_bytes: Math.max(0, dayOut),
+          total_bytes: Math.max(0, dayIn + dayOut),
+        });
+      }
+
+      result.sort((a, b) => a.timestamp - b.timestamp);
+      return result;
+    }
+    /**
+     * 核心加载逻辑：从 Komari 核心接口拉取真实节点配置与真实历史时序打点
      */
     async function loadAllNodes() {
       try {
-        // 1. 优先尝试直接从 Komari 核心管理接口拉取最真实的节点配置
+        // 1. 优先拉取核心管理客户端列表
         let coreClients = [];
         try {
           const clientRes = await fetch("/api/admin/client/list", { cache: "no-store" });
@@ -770,7 +825,6 @@
             coreClients = await clientRes.json();
           }
         } catch (e) {
-          // 若为非管理员只读或受限环境，回退尝试 /api/nodes
           try {
             const nodeRes = await fetch("/api/nodes", { cache: "no-store" });
             if (nodeRes.ok) {
@@ -780,12 +834,35 @@
           } catch (e2) {}
         }
 
-        // 2. 将核心实时节点配置发送给插件后端进行预测计算 (无需插件做任何配置缓存)
-        const postBody = Array.isArray(coreClients) && coreClients.length > 0 ? { clients: coreClients } : {};
+        if (!Array.isArray(coreClients) || coreClients.length === 0) {
+          state.rawNodes = [];
+          renderFilterBar();
+          renderNodeCards();
+          applyFilter();
+          return;
+        }
+
+        // 2. 并发从 Komari 真实时序打点接口拉取各节点最近 30 天的网络历史记录 (无数据就返回空，绝不造假)
+        const clientsWithHistory = await Promise.all(coreClients.map(async (client) => {
+          let dailyHistory = [];
+          try {
+            const recRes = await fetch(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" });
+            if (recRes.ok) {
+              const recJson = await recRes.json();
+              const recList = (recJson.data && recJson.data.records) || recJson.records || [];
+              dailyHistory = aggregateDailyFromRecords(recList);
+            }
+          } catch (err) {
+            dailyHistory = [];
+          }
+          return Object.assign({}, client, { daily_history: dailyHistory });
+        }));
+
+        // 3. 将真实历史与真实累计一并提交给插件后端进行科学推算
         const res = await fetch("/api/plugin/net-forecast/overview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(postBody)
+          body: JSON.stringify({ clients: clientsWithHistory })
         });
 
         const json = await res.json();

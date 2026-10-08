@@ -1,6 +1,6 @@
 /**
  * Komari Plugin: NetForecast (网络流量预测与限额预警)
- * Entry script for Komari Goja JS runtime (严格直连核心数据库，无本地设置缓存模式)
+ * Entry script for Komari Goja JS runtime (严格真实数据模式，杜绝假数据)
  */
 
 const server = require("server");
@@ -123,44 +123,65 @@ function calculateBillingCycle(resetDay = 1, now = new Date()) {
 }
 
 /**
- * 历史与预测时间序列构建
+ * 历史与预测时间序列构建（真实按日打点，无数据即为 0，绝不伪造）
  */
-function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now = new Date()) {
-  const display = (history || []).slice(-30);
-  const cycleStartMs = cycle.cycleStartDate.getTime();
+function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, now = new Date()) {
+  const historyMap = {};
+  (history || []).forEach((item) => {
+    if (item.date) {
+      historyMap[item.date] = item;
+    }
+  });
 
+  const points = [];
+  const cycleStartMs = cycle.cycleStartDate.getTime();
   let runningIn = 0;
   let runningOut = 0;
 
-  const points = display.map((item) => {
-    if (item.timestamp >= cycleStartMs) {
-      runningIn += item.in_bytes || 0;
-      runningOut += item.out_bytes || 0;
-    }
-    const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
+    const dateStr = d.toISOString().split("T")[0];
+    const rec = historyMap[dateStr];
 
-    return {
-      date: item.date,
-      timestamp: item.timestamp,
-      in_bytes: item.in_bytes,
-      out_bytes: item.out_bytes,
-      total_bytes: item.total_bytes,
+    const inB = rec ? (rec.in_bytes || 0) : 0;
+    const outB = rec ? (rec.out_bytes || 0) : 0;
+    const totB = inB + outB;
+
+    if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
+      runningIn += inB;
+      runningOut += outB;
+    }
+    let cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+
+    // 今天如果获取到真实累计量且历史采样未完全覆盖过去所有天数，使折线今天点锚定在真实的当前累计值上
+    if (i === 0 && currentCycleBillable > 0 && cumBillable < currentCycleBillable) {
+      cumBillable = currentCycleBillable;
+    }
+
+    points.push({
+      date: dateStr,
+      timestamp: d.getTime(),
+      in_bytes: inB,
+      out_bytes: outB,
+      total_bytes: totB,
       cumulative_bytes: runningIn + runningOut,
       cumulative_billable: cumBillable,
       is_forecast: false,
-    };
-  });
+    });
+  }
 
-  if (cycle.daysRemaining > 0) {
-    let fIn = runningIn;
-    let fOut = runningOut;
+  // 仅在有日均消耗且剩余天数大于 0 时外推未来预测点
+  if (cycle.daysRemaining > 0 && (dailyAvgIn > 0 || dailyAvgOut > 0)) {
+    let fCumBillable = points.length > 0 && points[points.length - 1].cumulative_billable
+      ? points[points.length - 1].cumulative_billable
+      : currentCycleBillable;
+
+    const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
     const maxForecastDays = Math.min(cycle.daysRemaining, 14);
 
     for (let i = 1; i <= maxForecastDays; i++) {
       const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
-      fIn += dailyAvgIn;
-      fOut += dailyAvgOut;
-      const cumBillable = computeBillableAmount(fIn, fOut, mode);
+      fCumBillable += dailyForecastBillable;
 
       points.push({
         date: fd.toISOString().split("T")[0],
@@ -168,8 +189,8 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now = n
         in_bytes: dailyAvgIn,
         out_bytes: dailyAvgOut,
         total_bytes: dailyAvgIn + dailyAvgOut,
-        cumulative_bytes: fIn + fOut,
-        cumulative_billable: cumBillable,
+        cumulative_bytes: fCumBillable,
+        cumulative_billable: fCumBillable,
         is_forecast: true,
       });
     }
@@ -225,7 +246,7 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1) {
 }
 
 /**
- * 核心预测与状态推算
+ * 核心预测与状态推算（严格使用真实数据，绝不构造假数据）
  */
 function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date()) {
   const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1);
@@ -235,31 +256,50 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
 
   const mode = (node.traffic_limit_type || "sum");
 
+  // 1. 获取当月真实的累计流量：优先使用 Komari 原生上报的真实累计计数器（保证与 Komari 实例页完全对齐）
+  const rawTotalUp = Number(
+    node.net_total_up !== undefined ? node.net_total_up :
+    (node.network && node.network.totalUp !== undefined ? node.network.totalUp :
+    (node.total_up !== undefined ? node.total_up :
+    (node.totalUp !== undefined ? node.totalUp : 0)))
+  );
+  const rawTotalDown = Number(
+    node.net_total_down !== undefined ? node.net_total_down :
+    (node.network && node.network.totalDown !== undefined ? node.network.totalDown :
+    (node.total_down !== undefined ? node.total_down :
+    (node.totalDown !== undefined ? node.totalDown : 0)))
+  );
+
   let cumulativeIn = 0;
   let cumulativeOut = 0;
 
-  (history || []).forEach((r) => {
-    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-      cumulativeIn += r.in_bytes || 0;
-      cumulativeOut += r.out_bytes || 0;
-    }
-  });
+  if (rawTotalUp > 0 || rawTotalDown > 0) {
+    cumulativeIn = rawTotalDown;
+    cumulativeOut = rawTotalUp;
+  } else {
+    (history || []).forEach((r) => {
+      if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+        cumulativeIn += r.in_bytes || 0;
+        cumulativeOut += r.out_bytes || 0;
+      }
+    });
+  }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
   const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
-  // 7 天加权移动平均
-  const recentDays = (history || []).slice(-7);
+  // 2. 7 天移动平均日均增量（严格使用真实打点增量，无记录时根据真实累计和已过天数推算均速）
+  const validRecentDays = (history || []).filter((r) => (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
-  if (recentDays.length > 0) {
+  if (validRecentDays.length > 0) {
     let weightSum = 0;
     let weightedInSum = 0;
     let weightedOutSum = 0;
 
-    recentDays.forEach((record, index) => {
-      const weight = 1 + (index / recentDays.length) * 1.2;
+    validRecentDays.forEach((record, index) => {
+      const weight = 1 + (index / validRecentDays.length) * 1.2;
       weightedInSum += (record.in_bytes || 0) * weight;
       weightedOutSum += (record.out_bytes || 0) * weight;
       weightSum += weight;
@@ -267,9 +307,12 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
 
     dailyAvgIn = Math.round(weightedInSum / weightSum);
     dailyAvgOut = Math.round(weightedOutSum / weightSum);
-  } else if (cycle.daysElapsed > 0) {
+  } else if (cycle.daysElapsed > 0 && cumulativePhysicalTotal > 0) {
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
+  } else {
+    dailyAvgIn = 0;
+    dailyAvgOut = 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
@@ -317,7 +360,7 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     }
   }
 
-  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now);
+  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, now);
 
   return {
     node_id: node.uuid,
@@ -369,7 +412,7 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
   };
 }
 
-// 纯时序流量存储（只存流量采样统计，坚决不缓存任何节点配置）
+// 纯时序流量存储（只存流量采样统计，无数据就返回空，绝不伪造种子数据）
 class TrafficStorage {
   constructor() {
     this.baseDir = typeof __storageDir__ !== "undefined" && __storageDir__ ? __storageDir__ : "data/plugin-data/net-forecast";
@@ -387,7 +430,15 @@ class TrafficStorage {
       }
       if (fs.existsSync(this.trafficFile)) {
         const parsed = JSON.parse(fs.readFileSync(this.trafficFile, "utf-8"));
-        this.trafficCache = parsed.records || {};
+        const records = parsed.records || {};
+        this.trafficCache = {};
+        for (const id in records) {
+          const list = records[id] || [];
+          const isLegacySeed = list.length === 31 && list.every(r => r.total_bytes >= 10 * 1024 * 1024 * 1024 && r.total_bytes <= 35 * 1024 * 1024 * 1024);
+          if (!isLegacySeed) {
+            this.trafficCache[id] = list;
+          }
+        }
         this.lastCounters = parsed.last_counters || {};
       }
     } catch (e) {
@@ -420,43 +471,7 @@ class TrafficStorage {
   }
 
   getNodeHistory(nodeId) {
-    if (!this.trafficCache[nodeId] || this.trafficCache[nodeId].length === 0) {
-      this.trafficCache[nodeId] = this.generateSeed(nodeId);
-      this.save();
-    }
-    return this.trafficCache[nodeId];
-  }
-
-  generateSeed(nodeId) {
-    const list = [];
-    const now = new Date();
-    let hash = 0;
-    for (let i = 0; i < nodeId.length; i++) {
-      hash = (hash << 5) - hash + nodeId.charCodeAt(i);
-      hash |= 0;
-    }
-    const baseGB = 12 + (Math.abs(hash) % 20);
-    const oneGB = 1024 * 1024 * 1024;
-
-    for (let i = 30; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = d.toISOString().split("T")[0];
-      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-      const factor = (isWeekend ? 1.35 : 0.95) + ((Math.abs(hash * (i + 1)) % 30) - 15) / 100;
-      const total = Math.round(baseGB * factor * oneGB);
-      const inRatio = 0.38 + ((i % 8) / 100);
-      const inBytes = Math.round(total * inRatio);
-      const outBytes = total - inBytes;
-
-      list.push({
-        date: dateStr,
-        timestamp: d.getTime(),
-        in_bytes: inBytes,
-        out_bytes: outBytes,
-        total_bytes: total,
-      });
-    }
-    return list;
+    return this.trafficCache[nodeId] || [];
   }
 
   recordSample(nodeId, currentIn, currentOut, now = new Date()) {
@@ -477,6 +492,10 @@ class TrafficStorage {
 
     if (deltaIn > 500 * 1024 * 1024 * 1024) deltaIn = 0;
     if (deltaOut > 500 * 1024 * 1024 * 1024) deltaOut = 0;
+
+    if (deltaIn === 0 && deltaOut === 0) {
+      return;
+    }
 
     const todayStr = now.toISOString().split("T")[0];
     const history = this.trafficCache[nodeId] || [];
@@ -513,7 +532,7 @@ function sendJSON(res, data, statusCode = 200) {
 }
 
 function load() {
-  console.log("[NetForecast] Plugin loaded in direct-core mode.");
+  console.log("[NetForecast] Plugin loaded in strict real-data mode.");
   const storage = new TrafficStorage();
 
   const getConfig = () => {
@@ -557,23 +576,18 @@ function load() {
       const body = req.body ? parseBody(req.body) : {};
       let clients = await fetchCoreClients(body.clients);
 
-      if (!clients || clients.length === 0) {
-        clients = [
-          {
-            uuid: "node-demo-01",
-            name: "演示主节点",
-            traffic_limit: 1099511627776,
-            traffic_limit_type: "sum",
-            traffic_reset_day: config.default_reset_day,
-          },
-        ];
+      if (!clients) {
+        clients = [];
       }
 
       const list = clients.map((c) => {
         if (typeof c.net_in === "number" && typeof c.net_out === "number") {
           storage.recordSample(c.uuid, c.net_in, c.net_out);
         }
-        const history = storage.getNodeHistory(c.uuid);
+        const history = Array.isArray(c.daily_history) && c.daily_history.length > 0
+          ? c.daily_history
+          : storage.getNodeHistory(c.uuid);
+
         return calculateNodeForecast(history, c, config.warning_threshold);
       });
 

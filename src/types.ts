@@ -12,7 +12,7 @@ export interface TrafficRecord {
 }
 
 /**
- * 对应 Komari 核心数据库中的 Client 字段定义（不作插件本地缓存，直接来源于核心）
+ * 对应 Komari 核心数据库与实时接口中的 Client 字段定义
  */
 export interface NodeCoreConfig {
   uuid: string;
@@ -21,9 +21,20 @@ export interface NodeCoreConfig {
   traffic_limit_type?: ThresholdMode; // sum | max | min | upload (up) | download (down)
   expired_at?: string | number | null; // 节点到期时间，提取其日期作为账单重置日
   billing_cycle?: number;
-  traffic_reset_day?: number; // 仅作为兼容只读字段
+  traffic_reset_day?: number;
   net_in?: number;
   net_out?: number;
+  net_total_up?: number;
+  net_total_down?: number;
+  total_up?: number;
+  total_down?: number;
+  network?: {
+    up?: number;
+    down?: number;
+    totalUp?: number;
+    totalDown?: number;
+  };
+  daily_history?: TrafficRecord[]; // 从 Komari /api/records/load 聚合的真实每日时序
   tags?: string;
   group?: string;
 }

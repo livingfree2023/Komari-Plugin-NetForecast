@@ -65,17 +65,9 @@ export default definePlugin({
         const body = req.body ? parseBody(req.body) : {};
         let clients = await fetchCoreClients(body.clients);
 
-        // 如果全新部署且未查到节点，提供优雅演示节点
-        if (!clients || clients.length === 0) {
-          clients = [
-            {
-              uuid: "node-demo-01",
-              name: "主监控节点 (示例)",
-              traffic_limit: 1099511627776, // 1TB
-              traffic_limit_type: "sum",
-              traffic_reset_day: config.default_reset_day,
-            },
-          ];
+        // 如果未查到节点，直接返回空数组，绝不添加模拟节点
+        if (!clients) {
+          clients = [];
         }
 
         const nodesOverview = clients.map((client) => {
@@ -86,8 +78,11 @@ export default definePlugin({
             storage.recordSample(uuid, client.net_in, client.net_out);
           }
 
-          // 读取历史时间序列并结合核心数据库设置进行无缓存实时预测推算
-          const history = storage.getNodeHistory(uuid);
+          // 优先使用直接上报的真实历史打点记录，如无则使用本地真实采样记录
+          const history = Array.isArray(client.daily_history) && client.daily_history.length > 0
+            ? client.daily_history
+            : storage.getNodeHistory(uuid);
+
           return calculateNodeForecast(history, client, config.warning_threshold);
         });
 

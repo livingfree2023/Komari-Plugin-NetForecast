@@ -61,8 +61,25 @@
 
 ## 四、版本发布与打包流程（Release & Git Workflow - 关键守则）
 
-### 1. 本地打包与构建
-1. 更新版本号：同步递增 `package.json` 和 `komari-plugin.json` 中的 `version` 字段（例如 `26.10.09`）。
+### 1. 版本号命名与递增规范（Versioning Rules - 严格遵守）
+- **基础格式**：
+  - 发布版本号与 Git Tag 统一遵循 **`v年.月.日`** 格式（例如 2026年10月08日 即为 `v26.10.08`，在 `package.json` / `komari-plugin.json` 中写为 `26.10.08`）。
+- **同日多版本递增规范（严禁修改“日”部分）**：
+  - 如果同一天内发布了多个修复或迭代版本，**绝对不能通过修改“日”的数字来升级版本号**（例如禁止将 10月8日 发布的第二个版本改名为 `26.10.09` 或 `26.10.10`，这样会导致版本号脱离真实日期）。
+  - **同一天发布多个版本的正确格式**：在日期后面追加修订序号 `.1`、`.2`：
+    - 当天第 1 个版本：`v26.10.08`（配置文件内为 `26.10.08`）
+    - 当天第 2 个版本：`v26.10.08.1`（配置文件内为 `26.10.08.1`）
+    - 当天第 3 个版本：`v26.10.08.2`（配置文件内为 `26.10.08.2`）
+    - 以此类推，**仅递增末尾的序号数字**，保持开头的“年.月.日”与实际发布当天日期严格一致。
+- **文件多处同步**：
+  版本号必须在以下位置严格对齐：
+  1. `package.json` 中的 `version` 字段
+  2. `komari-plugin.json` 中的 `version` 字段
+  3. Git Tag（必须带有 `v` 前缀，如 `v26.10.08.1`）
+  4. 提交到市场 Issue 中的 Version、下载链接及 SHA256 校验码
+
+### 2. 本地打包与构建
+1. 更新版本号：根据上述规则同步更新 `package.json` 和 `komari-plugin.json` 中的 `version` 字段。
 2. 打包分发包：
    ```bash
    rm -f net-forecast.zip
@@ -73,9 +90,9 @@
    shasum -a 256 net-forecast.zip
    ```
 
-### 2. Git 提交与 Tag 检查（防止发布落空）
+### 3. Git 提交与 Tag 检查（防止发布落空）
 - 提交所有修改，严禁遗漏任何核心文件。
-- **必须打对应的 Git Tag**（例如 `v26.10.09`）：
+- **必须打对应的 Git Tag**（例如 `v26.10.08.1`）：
   - 只有打上 `v*` 格式的 tag 并推送到 GitHub，仓库的 `.github/workflows/release.yml` 才会触发自动创建 GitHub Release 并附加 `net-forecast.zip`。
 - **推送验证要求（重要！）**：
   - macOS 沙箱环境下，若未配置 SSH 信任文件，常规 push 可能会报错 `hostkeys_foreach failed for ~/.ssh/known_hosts: Operation not permitted` 或出现无响应静默假象。
@@ -85,7 +102,7 @@
     ```
   - **推送后必须显式校验**：通过检查远程 ref 或运行 `git ls-remote --tags origin`，确认该 tag 确实已被 GitHub 接收，绝不能在未验证的情况下宣告发布成功。
 
-### 3. 插件市场提交规范（Komari Plugin Market）
+### 4. 插件市场提交规范（Komari Plugin Market）
 - **本地没有、也不需要维护 `komari-plugin-market` 仓库目录**：
   官方插件市场的上架和版本更新机制是向 [komari-plugin-market](https://github.com/komari-monitor/komari-plugin-market) 提交 GitHub Issue。
 - 每次发布新版本后，应向用户输出清晰的 Market Issue 提交模板，包括：

@@ -1,0 +1,41 @@
+name: Release NetForecast Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [created, published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Package and Release Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Plugin Distribution ZIP
+        run: |
+          zip -r net-forecast.zip komari-plugin.json script.js pages assets README.md LICENSE
+          echo "Package created:"
+          ls -lh net-forecast.zip
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-forecast-plugin
+          path: net-forecast.zip
+          retention-days: 30
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: net-forecast.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

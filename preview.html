@@ -969,7 +969,8 @@
           timestamp: d.getTime(),
           in_bytes: inBytes,
           out_bytes: outBytes,
-          total_bytes: totalBytes
+          total_bytes: totalBytes,
+          is_today: i === 0
         });
       }
       return records;
@@ -1537,13 +1538,13 @@
 
         ctx.globalAlpha = 1.0;
 
-        // X 轴日期
-        if (index % Math.ceil(count / 10) === 0 || index === count - 1) {
-          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : "rgba(148, 163, 184, 0.8)";
-          ctx.font = "10px sans-serif";
+        // X 轴日期（突出标出今日）
+        if (index % Math.ceil(count / 10) === 0 || index === count - 1 || item.is_today) {
+          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : (item.is_today ? "#38bdf8" : "rgba(148, 163, 184, 0.8)");
+          ctx.font = item.is_today ? "bold 10px sans-serif" : "10px sans-serif";
           ctx.textAlign = "center";
-          let label = item.date;
-          if (label && label.length > 5) label = label.slice(5);
+          let label = item.is_today ? "今日" : item.date;
+          if (!item.is_today && label && label.length > 5) label = label.slice(5);
           ctx.fillText(label, cx, baseGroundY + 16);
         }
 
@@ -1636,11 +1637,22 @@
           tooltip.style.left = Math.min(rect.width - 200, Math.max(10, closest.x - 90)) + "px";
           tooltip.style.top = Math.max(10, closest.y - 110) + "px";
 
+          let dateTitle = item.date;
+          if (item.is_forecast) {
+            dateTitle += ' <span style="color:#fb923c; font-size:11px;">(未来预测)</span>';
+          } else if (item.is_today) {
+            dateTitle += ' <span style="color:#38bdf8; font-weight:700; font-size:11px;">(今日截至当前)</span>';
+          }
+
+          const inText = item.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
+          const outText = item.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
+          const totText = item.is_today ? "● 今日合计 (当前):" : "● 当日物理总计:";
+
           tooltip.innerHTML = `
-            <div class="tooltip-title">${item.date} ${item.is_forecast ? '<span style="color:#fb923c; font-size:11px;">(未来预测)</span>' : ''}</div>
-            <div class="tooltip-row"><span style="color:var(--inbound);">● 入站增量:</span> <span>${formatBytes(item.in_bytes)}</span></div>
-            <div class="tooltip-row"><span style="color:var(--outbound);">● 出站增量:</span> <span>${formatBytes(item.out_bytes)}</span></div>
-            <div class="tooltip-row"><span>● 当日物理总计:</span> <span>${formatBytes(item.total_bytes)}</span></div>
+            <div class="tooltip-title">${dateTitle}</div>
+            <div class="tooltip-row"><span style="color:var(--inbound);">${inText}</span> <span>${formatBytes(item.in_bytes)}</span></div>
+            <div class="tooltip-row"><span style="color:var(--outbound);">${outText}</span> <span>${formatBytes(item.out_bytes)}</span></div>
+            <div class="tooltip-row"><span>${totText}</span> <span>${formatBytes(item.total_bytes)}</span></div>
             <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
               <span style="color:var(--cumulative);">● 当月计费累计:</span> 
               <strong style="color:var(--cumulative);">${formatBytes(item.cumulative_billable)}</strong>

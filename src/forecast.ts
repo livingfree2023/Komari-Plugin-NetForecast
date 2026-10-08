@@ -5,6 +5,60 @@ export function getDaysInMonth(year: number, month: number): number {
 }
 
 /**
+ * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
+ */
+export function extractResetDayFromExpiredAt(
+  expiredAt?: string | number | null,
+  fallbackResetDay: number = 1
+): {
+  resetDay: number;
+  hasExpiredAt: boolean;
+  expiredAtStr?: string;
+  desc: string;
+} {
+  if (!expiredAt) {
+    return {
+      resetDay: Math.max(1, Math.min(31, fallbackResetDay || 1)),
+      hasExpiredAt: false,
+      desc: "自然月 1 号 (未设置到期日)",
+    };
+  }
+
+  try {
+    let dateObj: Date;
+    if (typeof expiredAt === "number") {
+      dateObj = expiredAt > 10000000000 ? new Date(expiredAt) : new Date(expiredAt * 1000);
+    } else {
+      dateObj = new Date(String(expiredAt));
+    }
+
+    if (isNaN(dateObj.getTime())) {
+      return {
+        resetDay: fallbackResetDay || 1,
+        hasExpiredAt: false,
+        desc: "自然月 1 号 (到期时间格式无效)",
+      };
+    }
+
+    const day = dateObj.getDate();
+    const dateStr = dateObj.toISOString().split("T")[0];
+
+    return {
+      resetDay: Math.max(1, Math.min(31, day)),
+      hasExpiredAt: true,
+      expiredAtStr: dateStr,
+      desc: `每月 ${day} 号 (同步自节点到期日: ${dateStr})`,
+    };
+  } catch (e) {
+    return {
+      resetDay: fallbackResetDay || 1,
+      hasExpiredAt: false,
+      desc: "自然月 1 号",
+    };
+  }
+}
+
+/**
  * 根据计费模式计算计费流量数值
  */
 export function computeBillableAmount(inBytes: number, outBytes: number, mode: string = "sum"): number {
@@ -123,10 +177,11 @@ export function calculateNodeForecast(
   warningThresholdPercent: number = 90,
   now: Date = new Date()
 ): NodeForecastData {
-  const resetDay = Math.max(1, Math.min(31, Number(node.traffic_reset_day) || 1));
+  // 从核心节点的 expired_at 提取账单重置日（若未设置则按自然月 1 号）
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1);
+  const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now);
   const cycleStartMs = cycle.cycleStartDate.getTime();
-  const cycleEndMs = cycle.cycleEndDate.getTime();
 
   const mode = (node.traffic_limit_type || "sum") as ThresholdMode;
 
@@ -227,7 +282,11 @@ export function calculateNodeForecast(
     traffic_limit_bytes: rawQuota,
     traffic_limit_formatted: hasQuota ? formatBytes(rawQuota) : "未设置限额",
     traffic_limit_type: mode,
+    has_expired_at: extracted.hasExpiredAt,
+    expired_at_raw: node.expired_at,
+    expired_at_str: extracted.expiredAtStr,
     traffic_reset_day: resetDay,
+    reset_day_desc: extracted.desc,
     cycle,
     cumulative: {
       in_bytes: cumulativeIn,

@@ -673,8 +673,11 @@
         <input type="number" id="modalQuotaGB" min="0" step="10" placeholder="例如 1000，填 0 表示不限额" />
       </div>
       <div class="form-group">
-        <label>每月账单重置日 (traffic_reset_day: 1 - 31)</label>
-        <input type="number" id="modalResetDay" min="1" max="31" placeholder="例如 1" />
+        <label>账单重置日 (同步自节点到期时间 expired_at)</label>
+        <input type="text" id="modalResetDayInfo" readonly style="opacity:0.85; background:rgba(15,23,42,0.6);" />
+        <div style="font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.4;">
+          💡 流量重置周期由节点到期日决定；如需调整，请前往 Komari 节点管理设置该节点的到期时间。
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary" onclick="closeNodeModal()">取消</button>
@@ -896,7 +899,7 @@
               <span class="node-quota-meta">
                 <span>📦 限额: <strong>${node.traffic_limit_formatted}</strong></span>
                 <span>·</span>
-                <span>🗓️ 每月 <strong>${node.traffic_reset_day}</strong> 号重置</span>
+                <span>🗓️ ${node.has_expired_at ? `每月 <strong>${node.traffic_reset_day}</strong> 号重置` : `<strong>自然月</strong>重置 (1号)`}</span>
               </span>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -1265,7 +1268,7 @@
       document.getElementById("modalNodeName").value = node.node_name || node.node_id;
       document.getElementById("modalTrafficMode").value = (node.traffic_limit_type || "sum").toLowerCase();
       document.getElementById("modalQuotaGB").value = node.has_quota ? Math.round(node.traffic_limit_bytes / GB) : 0;
-      document.getElementById("modalResetDay").value = node.traffic_reset_day || 1;
+      document.getElementById("modalResetDayInfo").value = node.reset_day_desc || (node.has_expired_at ? `每月 ${node.traffic_reset_day} 号 (到期日: ${node.expired_at_str})` : "自然月 1 号 (未设置到期日)");
 
       document.getElementById("nodeConfigModal").style.display = "flex";
     }
@@ -1288,7 +1291,6 @@
       const quotaGB = parseFloat(document.getElementById("modalQuotaGB").value) || 0;
       const quotaBytes = Math.round(quotaGB * GB);
       const mode = document.getElementById("modalTrafficMode").value;
-      const resetDay = parseInt(document.getElementById("modalResetDay").value, 10) || 1;
 
       try {
         // 1. 直写 Komari 核心管理接口 (POST /api/admin/client/:uuid/edit)
@@ -1299,8 +1301,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               traffic_limit: quotaBytes,
-              traffic_limit_type: mode,
-              traffic_reset_day: resetDay
+              traffic_limit_type: mode
             })
           });
           if (coreEditRes.ok) {
@@ -1318,8 +1319,7 @@
             body: JSON.stringify({
               uuid: state.editingNodeId,
               traffic_limit: quotaBytes,
-              traffic_limit_type: mode,
-              traffic_reset_day: resetDay
+              traffic_limit_type: mode
             })
           });
         } catch (pluginErr) {

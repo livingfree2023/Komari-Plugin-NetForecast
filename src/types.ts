@@ -19,9 +19,9 @@ export interface NodeCoreConfig {
   name: string;
   traffic_limit?: number; // 字节数，0 或 undefined 表示未配置限额
   traffic_limit_type?: ThresholdMode; // sum | max | min | upload (up) | download (down)
-  traffic_reset_day?: number; // 每月重置日 1-31
+  expired_at?: string | number | null; // 节点到期时间，提取其日期作为账单重置日
   billing_cycle?: number;
-  expired_at?: string | null;
+  traffic_reset_day?: number; // 仅作为兼容只读字段
   net_in?: number;
   net_out?: number;
   tags?: string;
@@ -47,7 +47,11 @@ export interface NodeForecastData {
   traffic_limit_bytes: number;
   traffic_limit_formatted: string;
   traffic_limit_type: ThresholdMode;
-  traffic_reset_day: number;
+  has_expired_at: boolean;
+  expired_at_raw?: string | number | null;
+  expired_at_str?: string;
+  traffic_reset_day: number; // 1-31 (从 expired_at 提取的月份日期，默认1)
+  reset_day_desc: string;
   cycle: BillingCycle;
   cumulative: {
     in_bytes: number;

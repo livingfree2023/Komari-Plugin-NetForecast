@@ -179,10 +179,57 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, now = n
 }
 
 /**
+ * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
+ */
+function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1) {
+  if (!expiredAt) {
+    return {
+      resetDay: Math.max(1, Math.min(31, fallbackResetDay || 1)),
+      hasExpiredAt: false,
+      desc: "自然月 1 号 (未设置到期日)",
+    };
+  }
+
+  try {
+    let dateObj;
+    if (typeof expiredAt === "number") {
+      dateObj = expiredAt > 10000000000 ? new Date(expiredAt) : new Date(expiredAt * 1000);
+    } else {
+      dateObj = new Date(String(expiredAt));
+    }
+
+    if (isNaN(dateObj.getTime())) {
+      return {
+        resetDay: fallbackResetDay || 1,
+        hasExpiredAt: false,
+        desc: "自然月 1 号 (到期时间格式无效)",
+      };
+    }
+
+    const day = dateObj.getDate();
+    const dateStr = dateObj.toISOString().split("T")[0];
+
+    return {
+      resetDay: Math.max(1, Math.min(31, day)),
+      hasExpiredAt: true,
+      expiredAtStr: dateStr,
+      desc: `每月 ${day} 号 (同步自节点到期日: ${dateStr})`,
+    };
+  } catch (e) {
+    return {
+      resetDay: fallbackResetDay || 1,
+      hasExpiredAt: false,
+      desc: "自然月 1 号",
+    };
+  }
+}
+
+/**
  * 核心预测与状态推算
  */
 function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date()) {
-  const resetDay = Math.max(1, Math.min(31, Number(node.traffic_reset_day) || 1));
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1);
+  const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now);
   const cycleStartMs = cycle.cycleStartDate.getTime();
 
@@ -281,7 +328,11 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     traffic_limit_bytes: rawQuota,
     traffic_limit_formatted: hasQuota ? formatBytes(rawQuota) : "未设置限额",
     traffic_limit_type: mode,
+    has_expired_at: extracted.hasExpiredAt,
+    expired_at_raw: node.expired_at,
+    expired_at_str: extracted.expiredAtStr,
     traffic_reset_day: resetDay,
+    reset_day_desc: extracted.desc,
     cycle,
     cumulative: {
       in_bytes: cumulativeIn,
@@ -564,7 +615,6 @@ function load() {
         uuid: uuid,
         traffic_limit: Number(data.traffic_limit) >= 0 ? Number(data.traffic_limit) : 0,
         traffic_limit_type: data.traffic_limit_type || "sum",
-        traffic_reset_day: Math.max(1, Math.min(31, Number(data.traffic_reset_day) || 1)),
       };
 
       let rpcSuccess = false;

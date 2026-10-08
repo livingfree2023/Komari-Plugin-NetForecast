@@ -133,7 +133,6 @@ export default definePlugin({
           uuid: uuid,
           traffic_limit: Number(data.traffic_limit) >= 0 ? Number(data.traffic_limit) : 0,
           traffic_limit_type: data.traffic_limit_type || "sum",
-          traffic_reset_day: Math.max(1, Math.min(31, Number(data.traffic_reset_day) || 1)),
         };
 
         // 直接调用 Komari 核心 RPC 写入数据库

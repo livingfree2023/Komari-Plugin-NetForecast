@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NetForecast 全节点流量预测总览 (Mockup Preview)</title>
+  <title>NetForecast 全节点流量预测总览 (多计费模式自适应 Mockup)</title>
   <style>
     :root {
       --bg: #0b1120;
@@ -22,6 +22,8 @@
       --success: #10b981;
       --success-bg: rgba(16, 185, 129, 0.16);
       --neutral-badge: rgba(148, 163, 184, 0.15);
+      --mode-tag-bg: rgba(99, 102, 241, 0.12);
+      --mode-tag-border: rgba(99, 102, 241, 0.3);
       --radius: 14px;
     }
 
@@ -43,7 +45,7 @@
     }
 
     .container {
-      max-width: 1320px;
+      max-width: 1340px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -54,15 +56,14 @@
     .preview-tip {
       background: rgba(99, 102, 241, 0.15);
       border: 1px dashed rgba(99, 102, 241, 0.4);
-      padding: 12px 18px;
-      border-radius: 10px;
+      padding: 14px 20px;
+      border-radius: 12px;
       font-size: 13px;
       color: #c7d2fe;
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.5;
     }
 
     .preview-tip strong {
@@ -146,7 +147,6 @@
       transform: translateY(-1px);
     }
 
-    /* 筛选激活态 */
     .filter-btn.active.filter-all {
       background: rgba(255, 255, 255, 0.14);
       border-color: rgba(255, 255, 255, 0.35);
@@ -223,6 +223,20 @@
       color: #cbd5e1;
     }
 
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: var(--mode-tag-bg);
+      border: 1px solid var(--mode-tag-border);
+      color: #a5b4fc;
+    }
+
     /* 节点卡片列表 */
     .nodes-container {
       display: flex;
@@ -264,6 +278,7 @@
 
     .node-title-wrap {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 10px;
     }
@@ -278,9 +293,12 @@
       font-size: 12px;
       color: var(--text-muted);
       background: rgba(15, 23, 42, 0.7);
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* 告警横幅（仅在节点配置了配额且超限/预警时展示） */
@@ -314,7 +332,7 @@
     /* 统计指标行 */
     .node-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
       gap: 14px;
     }
 
@@ -346,6 +364,7 @@
     .kpi-detail {
       font-size: 12px;
       color: var(--text-muted);
+      line-height: 1.4;
     }
 
     .progress-bar-bg {
@@ -423,7 +442,7 @@
     .canvas-wrapper {
       position: relative;
       width: 100%;
-      height: 280px;
+      height: 290px;
       background: rgba(15, 23, 42, 0.4);
       border-radius: 10px;
       padding: 10px 0;
@@ -448,7 +467,7 @@
       z-index: 100;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(8px);
-      min-width: 175px;
+      min-width: 185px;
     }
 
     .tooltip-title {
@@ -487,8 +506,11 @@
   <div class="container">
     <!-- 需求提示栏 -->
     <div class="preview-tip">
-      <span>💡 <strong>顶部状态筛选器</strong>：点击顶部的各个状态标签按钮（全部节点 / 🚨 超限告警 / ⚡ 接近限额 / ✅ 预算安全 / ⚪ 未配额），即可实时过滤仅查看对应状态的节点卡片与图表。</span>
-      <span>所有数据与预测周期均为 <strong>最近 30 天</strong>。</span>
+      <div>💡 <strong>多限额类型（Traffic Threshold）自适应与统计适配机制</strong>：</div>
+      <div>系统自动识别各节点的计费限额类型（<strong>双向求和 sum</strong>、<strong>双向取大 max</strong>、<strong>双向取小 min</strong>、<strong>仅计出站 upload only</strong>、<strong>仅计入站 download only</strong>）：</div>
+      <div>1. <strong>折线走势自动适配</strong>：折线图严格反映对应模式下的<strong>计费累计量</strong>（例如 upload only 时仅累加出站，max 时追踪高者），避免误判。</div>
+      <div>2. <strong>柱状图视觉高亮适配</strong>：非计费流量自动弱化（虚化），核心计费流量高亮展示，图例动态标明当前计费项。</div>
+      <div>3. <strong>预警推算自适应</strong>：超限与耗尽倒计时完全基于该限额模式下的有效日均增长率进行精准推算。</div>
     </div>
 
     <!-- 顶部总览与交互式筛选器 -->
@@ -497,7 +519,7 @@
         <div class="title-icon">📊</div>
         <div>
           <h1>节点网络流量预测与限额预警 (NetForecast)</h1>
-          <div class="subtitle">所有节点 30 天流量新增堆叠柱状图 / 当月累计折线 / 周期重置日流量耗尽推算</div>
+          <div class="subtitle">全节点 30 天每日增量柱状图 / 计费累计折线 / 周期重置日流量耗尽推算</div>
         </div>
       </div>
       <!-- 动态交互式 Filter 按钮栏 -->
@@ -527,14 +549,61 @@
     }
 
     /**
-     * Mock 节点配置数据（直接读取自 Komari 节点自身字段）
+     * 计费模式字典与名称映射
+     * sum: 双向求和 (in + out)
+     * max: 取较大一方 (max(in, out))
+     * min: 取较小一方 (min(in, out))
+     * upload: 仅计出站 (out only)
+     * download: 仅计入站 (in only)
+     */
+    const THRESHOLD_MODES = {
+      sum: {
+        code: "sum",
+        name: "双向求和 (SUM)",
+        desc: "计费流量 = 入站 + 出站",
+        badge: "双向求和 (In + Out)",
+        lineLabel: "当月计费累计 (双向求和)"
+      },
+      max: {
+        code: "max",
+        name: "双向取大 (MAX)",
+        desc: "计费流量 = MAX(入站, 出站)",
+        badge: "双向取大 MAX(In, Out)",
+        lineLabel: "当月计费累计 (取高者 MAX)"
+      },
+      min: {
+        code: "min",
+        name: "双向取小 (MIN)",
+        desc: "计费流量 = MIN(入站, 出站)",
+        badge: "双向取小 MIN(In, Out)",
+        lineLabel: "当月计费累计 (取低者 MIN)"
+      },
+      upload: {
+        code: "upload",
+        name: "仅计出站 (UPLOAD ONLY)",
+        desc: "计费流量 = 仅出站 (入站不计额度)",
+        badge: "仅计出网 (Upload Only)",
+        lineLabel: "当月计费累计 (仅出站)"
+      },
+      download: {
+        code: "download",
+        name: "仅计入站 (DOWNLOAD ONLY)",
+        desc: "计费流量 = 仅入站 (出站不计额度)",
+        badge: "仅计入网 (Download Only)",
+        lineLabel: "当月计费累计 (仅入站)"
+      }
+    };
+
+    /**
+     * Mock 节点配置数据（模拟覆盖 5 种不同计费类型与无配额场景）
      */
     const MOCK_NODES = [
       {
         node_id: "tokyo-prod-01",
         node_name: "🇯🇵 日本东京 (Tokyo-01)",
         has_quota: true,
-        quota_bytes: 1000 * GB, // 节点自身设置中配置了 1000 GB
+        traffic_mode: "sum", // 模式1：双向求和 (sum)
+        quota_bytes: 1000 * GB, // 1000 GB
         reset_day: 1, // 每月 1 号重置
         daily_base_gb: 34,
         weekend_boost: 1.5,
@@ -544,26 +613,40 @@
         node_id: "us-west-02",
         node_name: "🇺🇸 美西硅谷 (US-West-02)",
         has_quota: true,
-        quota_bytes: 2000 * GB, // 节点自身设置中配置了 2000 GB
+        traffic_mode: "upload", // 模式2：仅计出站 (upload only)
+        quota_bytes: 1000 * GB, // 1000 GB 出站限额
         reset_day: 15, // 每月 15 号重置
-        daily_base_gb: 22,
+        daily_base_gb: 24,
         weekend_boost: 1.2,
-        inbound_ratio: 0.42
+        inbound_ratio: 0.40 // 出站约 14.4 GB/天
       },
       {
         node_id: "eu-central-03",
         node_name: "🇩🇪 德国法兰克福 (Frankfurt-03)",
         has_quota: true,
-        quota_bytes: 500 * GB, // 节点自身设置中配置了 500 GB
+        traffic_mode: "max", // 模式3：双向取大 (max)
+        quota_bytes: 500 * GB, // 500 GB
         reset_day: 5, // 每月 5 号重置
-        daily_base_gb: 16,
+        daily_base_gb: 20,
         weekend_boost: 1.1,
-        inbound_ratio: 0.46
+        inbound_ratio: 0.30 // 出站为主 70% (~14GB/天)
+      },
+      {
+        node_id: "hk-edge-05",
+        node_name: "🇭🇰 中国香港 (HK-Edge-05)",
+        has_quota: true,
+        traffic_mode: "download", // 模式4：仅计入站 (download only)
+        quota_bytes: 800 * GB,
+        reset_day: 10,
+        daily_base_gb: 26,
+        weekend_boost: 1.25,
+        inbound_ratio: 0.65 // 入站为主 65% (~16.9GB/天)
       },
       {
         node_id: "singapore-edge-04",
         node_name: "🇸🇬 新加坡测试节点 (Singapore-04 · 未设限额)",
         has_quota: false,
+        traffic_mode: "sum",
         quota_bytes: 0, // 节点自身未配置流量限额
         reset_day: 1, // 按自然月周期推算预测
         daily_base_gb: 19,
@@ -601,12 +684,33 @@
       return records;
     }
 
-    // 周期与预测推算
+    /**
+     * 根据节点计费模式计算计费流量数值
+     */
+    function computeBillableAmount(inBytes, outBytes, mode = "sum") {
+      switch (mode) {
+        case "upload":
+          return outBytes;
+        case "download":
+          return inBytes;
+        case "max":
+          return Math.max(inBytes, outBytes);
+        case "min":
+          return Math.min(inBytes, outBytes);
+        case "sum":
+        default:
+          return inBytes + outBytes;
+      }
+    }
+
+    // 周期与预测推算（深度结合流量模式）
     function computeForecast(history, node, now = new Date()) {
       const year = now.getFullYear();
       const month = now.getMonth();
       const date = now.getDate();
       const resetDay = Math.max(1, Math.min(31, node.reset_day || 1));
+      const mode = node.traffic_mode || "sum";
+      const modeDef = THRESHOLD_MODES[mode] || THRESHOLD_MODES.sum;
 
       let cycleStart, cycleEnd;
       if (date >= resetDay) {
@@ -622,6 +726,7 @@
       const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStart.getTime()) / oneDay)));
       const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
+      // 本周期内上下行分别累计
       let cumulativeIn = 0;
       let cumulativeOut = 0;
       history.forEach((r) => {
@@ -630,7 +735,10 @@
           cumulativeOut += r.out_bytes;
         }
       });
-      const cumulativeTotal = cumulativeIn + cumulativeOut;
+      const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
+
+      // 根据限额模式计算出的【当月计费累计量】
+      const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
       // 7 日加权均值
       const recent = history.slice(-7);
@@ -645,9 +753,16 @@
       const dailyAvgOut = Math.round(wOutSum / weightSum);
       const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
 
+      // 预测到达重置日时上下行分别累计
       const projectedIn = cumulativeIn + dailyAvgIn * daysRemaining;
       const projectedOut = cumulativeOut + dailyAvgOut * daysRemaining;
-      const projectedTotal = cumulativeTotal + dailyAvgTotal * daysRemaining;
+      const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * daysRemaining;
+
+      // 预测到达重置日时的【计费总消耗量】
+      const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
+
+      // 计费项的日均有效增长率（用于耗尽倒计时）
+      const dailyAvgBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
 
       const hasQuota = Boolean(node.has_quota && node.quota_bytes > 0);
       let status = "NO_QUOTA"; // 未配置限额时状态为 NO_QUOTA
@@ -655,30 +770,32 @@
 
       if (hasQuota) {
         const quota = node.quota_bytes;
-        const ratio = projectedTotal / quota;
+        const ratio = projectedBillable / quota;
 
-        if (cumulativeTotal >= quota) {
+        if (cumulativeBillable >= quota) {
           status = "CRITICAL";
-          warningMessage = `已超出节点配置的流量限额 (${formatBytes(cumulativeTotal)} / ${formatBytes(quota)})，超额 ${formatBytes(cumulativeTotal - quota)}！`;
+          warningMessage = `已超出节点配置的流量限额 (${formatBytes(cumulativeBillable)} / ${formatBytes(quota)})，超额 ${formatBytes(cumulativeBillable - quota)}！`;
         } else if (ratio >= 1.0) {
           status = "CRITICAL";
-          const remainQuota = quota - cumulativeTotal;
-          const daysUntilExhaustion = Math.max(1, Math.floor(remainQuota / dailyAvgTotal));
+          const remainQuota = quota - cumulativeBillable;
+          const daysUntilExhaustion = Math.max(1, Math.floor(remainQuota / dailyAvgBillable));
           const exDateObj = new Date(now.getTime() + daysUntilExhaustion * oneDay);
           const exhaustionDate = exDateObj.toISOString().split("T")[0];
-          const overage = projectedTotal - quota;
-          warningMessage = `预计将在 <strong>${daysUntilExhaustion} 天后</strong>（${exhaustionDate}）耗尽节点配置的流量限额，重置日前预计超标 <strong>${formatBytes(overage)}</strong>！`;
+          const overage = projectedBillable - quota;
+          warningMessage = `预计将在 <strong>${daysUntilExhaustion} 天后</strong>（${exhaustionDate}）耗尽限额（按 ${modeDef.badge} 计费），重置日前预计超标 <strong>${formatBytes(overage)}</strong>！`;
         } else if (ratio >= 0.9) {
           status = "WARNING";
-          warningMessage = `预计在重置日将消耗 <strong>${(ratio * 100).toFixed(1)}%</strong> 的流量，接近告警阈值 (90%)。`;
+          warningMessage = `预计在重置日将消耗 <strong>${(ratio * 100).toFixed(1)}%</strong> 的计费流量，接近告警阈值 (90%)。`;
         } else {
           status = "SAFE";
-          warningMessage = `流量处于安全预算内，预计重置日使用率为 <strong>${(ratio * 100).toFixed(1)}%</strong>，剩余可用 <strong>${formatBytes(quota - projectedTotal)}</strong>。`;
+          warningMessage = `流量处于安全预算内，预计重置日使用率为 <strong>${(ratio * 100).toFixed(1)}%</strong>，剩余可用计费流量 <strong>${formatBytes(quota - projectedBillable)}</strong>。`;
         }
       }
 
       return {
         hasQuota,
+        mode,
+        modeDef,
         quota_bytes: node.quota_bytes,
         cycle: {
           startStr: cycleStart.toISOString().split("T")[0],
@@ -692,61 +809,78 @@
         cumulative: {
           in_bytes: cumulativeIn,
           out_bytes: cumulativeOut,
-          total_bytes: cumulativeTotal
+          physical_total: cumulativePhysicalTotal,
+          billable_bytes: cumulativeBillable
         },
         daily_avg: {
           in_bytes: dailyAvgIn,
           out_bytes: dailyAvgOut,
-          total_bytes: dailyAvgTotal
+          total_bytes: dailyAvgTotal,
+          billable_bytes: dailyAvgBillable
         },
         projected: {
           in_bytes: projectedIn,
           out_bytes: projectedOut,
-          total_bytes: projectedTotal
+          physical_total: projectedPhysicalTotal,
+          billable_bytes: projectedBillable
         },
-        usage_ratio: hasQuota ? projectedTotal / node.quota_bytes : 0,
+        usage_ratio: hasQuota ? projectedBillable / node.quota_bytes : 0,
         status,
         warning_message: warningMessage
       };
     }
 
-    // 构建 30 天序列与未来预测序列
+    /**
+     * 构建 30 天序列与未来预测序列
+     * 关键逻辑：累计折线必须严格对应当前模式的【计费累计量】走势！
+     */
     function build30DaySeries(history, forecast) {
       const display = history.slice(-30);
-      let runningCum = 0;
       const cycleStartMs = forecast.cycle.cycleStart.getTime();
+      const mode = forecast.mode;
+
+      let runningIn = 0;
+      let runningOut = 0;
 
       const points = display.map((item) => {
         if (item.timestamp >= cycleStartMs) {
-          runningCum += item.total_bytes;
+          runningIn += item.in_bytes;
+          runningOut += item.out_bytes;
         }
+        // 折线走势：精确根据计费模式累加
+        const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+
         return {
           date: item.date,
           timestamp: item.timestamp,
           in_bytes: item.in_bytes,
           out_bytes: item.out_bytes,
           total_bytes: item.total_bytes,
-          cumulative_bytes: runningCum,
+          cumulative_billable: cumBillable,
           is_forecast: false
         };
       });
 
       // 叠加到达重置日的预测虚线
       if (forecast.cycle.daysRemaining > 0) {
-        let fCum = runningCum;
+        let fIn = runningIn;
+        let fOut = runningOut;
         const now = new Date();
         const fDays = Math.min(forecast.cycle.daysRemaining, 14);
 
         for (let i = 1; i <= fDays; i++) {
           const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
-          fCum += forecast.daily_avg.total_bytes;
+          fIn += forecast.daily_avg.in_bytes;
+          fOut += forecast.daily_avg.out_bytes;
+          const cumBillable = computeBillableAmount(fIn, fOut, mode);
+
           points.push({
             date: fd.toISOString().split("T")[0],
             timestamp: fd.getTime(),
             in_bytes: forecast.daily_avg.in_bytes,
             out_bytes: forecast.daily_avg.out_bytes,
             total_bytes: forecast.daily_avg.total_bytes,
-            cumulative_bytes: fCum,
+            cumulative_billable: cumBillable,
             is_forecast: true
           });
         }
@@ -755,10 +889,9 @@
       return points;
     }
 
-    // 缓存已计算的各节点数据
+    // 缓存数据
     const nodeCalculatedData = [];
 
-    // 初始化页面与数据
     function initData() {
       nodeCalculatedData.length = 0;
       MOCK_NODES.forEach((node) => {
@@ -821,6 +954,7 @@
         const node = item.node;
         const forecast = item.forecast;
         const series = item.series;
+        const modeDef = forecast.modeDef;
 
         const card = document.createElement("section");
         card.className = "node-card";
@@ -832,7 +966,7 @@
         let alertBannerHtml = "";
 
         if (!forecast.hasQuota) {
-          badgeHtml = `<span class="summary-badge badge-neutral">⚪ 未配置限额 (保留预测)</span>`;
+          badgeHtml = `<span class="summary-badge badge-neutral">⚪ 未配置限额 (仅预测)</span>`;
         } else if (forecast.status === "CRITICAL") {
           badgeHtml = `<span class="summary-badge badge-critical">🚨 超限预警</span>`;
           alertBannerHtml = `
@@ -857,7 +991,7 @@
           const ratioPercent = Math.min(100, Math.round(forecast.usage_ratio * 100));
           const fillClass = forecast.status === "CRITICAL" ? "critical" : forecast.status === "WARNING" ? "warning" : "";
           quotaInfoHtml = `
-            <div class="kpi-detail">限额: ${formatBytes(forecast.quota_bytes)} (预测占比 ${ratioPercent}%)</div>
+            <div class="kpi-detail">限额: ${formatBytes(forecast.quota_bytes)} (预测计费占比 ${ratioPercent}%)</div>
             <div class="progress-bar-bg">
               <div class="progress-bar-fill ${fillClass}" style="width: ${ratioPercent}%;"></div>
             </div>
@@ -869,10 +1003,24 @@
           `;
         }
 
+        // 动态根据限额模式微调图例说明
+        let inboundLegendNote = "";
+        let outboundLegendNote = "";
+        if (forecast.mode === "upload") {
+          inboundLegendNote = " <span style='opacity:0.6;'>(不计额度)</span>";
+          outboundLegendNote = " <strong style='color:#34d399;'>(计费核心)</strong>";
+        } else if (forecast.mode === "download") {
+          inboundLegendNote = " <strong style='color:#818cf8;'>(计费核心)</strong>";
+          outboundLegendNote = " <span style='opacity:0.6;'>(不计额度)</span>";
+        } else if (forecast.mode === "max") {
+          outboundLegendNote = " <span style='color:#a5b4fc;'>(取两项较大者计费)</span>";
+        }
+
         card.innerHTML = `
           <div class="node-header">
             <div class="node-title-wrap">
               <div class="node-name">${node.node_name}</div>
+              <span class="mode-pill">📌 ${modeDef.badge}</span>
               <div class="node-quota-meta">
                 ${forecast.hasQuota ? `限额: ${formatBytes(forecast.quota_bytes)} · 每月 ${node.reset_day} 号重置` : `不限额 · 每月 ${node.reset_day} 号重置`}
               </div>
@@ -885,20 +1033,20 @@
           <div class="node-kpi-grid">
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>当月已用流量 (累计)</span>
-                <span style="color: var(--cumulative);">● 累计</span>
+                <span>当月计费流量 (有效累计)</span>
+                <span style="color: var(--cumulative);">● 计费项</span>
               </div>
-              <div class="kpi-number">${formatBytes(forecast.cumulative.total_bytes)}</div>
-              <div class="kpi-detail">入: ${formatBytes(forecast.cumulative.in_bytes)} | 出: ${formatBytes(forecast.cumulative.out_bytes)}</div>
+              <div class="kpi-number" style="color: var(--cumulative);">${formatBytes(forecast.cumulative.billable_bytes)}</div>
+              <div class="kpi-detail">实际物理消耗: 入 ${formatBytes(forecast.cumulative.in_bytes)} | 出 ${formatBytes(forecast.cumulative.out_bytes)}</div>
             </div>
 
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>日均消耗速率 (7日加权)</span>
+                <span>计费消耗均速 (7日加权)</span>
                 <span>📈 均速</span>
               </div>
-              <div class="kpi-number">${formatBytes(forecast.daily_avg.total_bytes)} / 天</div>
-              <div class="kpi-detail">入: ${formatBytes(forecast.daily_avg.in_bytes)}/天 | 出: ${formatBytes(forecast.daily_avg.out_bytes)}/天</div>
+              <div class="kpi-number">${formatBytes(forecast.daily_avg.billable_bytes)} / 天</div>
+              <div class="kpi-detail">物理均速: 入 ${formatBytes(forecast.daily_avg.in_bytes)}/天 | 出 ${formatBytes(forecast.daily_avg.out_bytes)}/天</div>
             </div>
 
             <div class="node-kpi-item">
@@ -912,11 +1060,11 @@
 
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>预测到达重置日总消耗</span>
+                <span>预测重置日计费总用量</span>
                 <span>${forecast.hasQuota ? '含配额推算' : '无配额预测'}</span>
               </div>
               <div class="kpi-number" style="${forecast.status === 'CRITICAL' ? 'color: var(--danger);' : ''}">
-                ${formatBytes(forecast.projected.total_bytes)}
+                ${formatBytes(forecast.projected.billable_bytes)}
               </div>
               ${quotaInfoHtml}
             </div>
@@ -924,23 +1072,23 @@
 
           <div class="chart-box">
             <div class="chart-sub-header">
-              <span>最近 30 天每日进出站流量增量与当月累计趋势</span>
+              <span>最近 30 天每日进出站流量增量与<strong>计费累计趋势</strong> (根据 ${modeDef.name} 自动调整)</span>
               <div class="chart-legend">
                 <div class="legend-item">
                   <div class="legend-color" style="background: var(--inbound);"></div>
-                  <span>入站新增 (Inbound)</span>
+                  <span>入站新增${inboundLegendNote}</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-color" style="background: var(--outbound);"></div>
-                  <span>出站新增 (Outbound)</span>
+                  <span>出站新增${outboundLegendNote}</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-line" style="background: var(--cumulative);"></div>
-                  <span>当月累计流量 (Cycle Total)</span>
+                  <span>${modeDef.lineLabel}</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-line dashed"></div>
-                  <span>未来预测走势 (Forecast)</span>
+                  <span>计费预测走势 (Forecast)</span>
                 </div>
               </div>
             </div>
@@ -956,7 +1104,7 @@
 
         // 异步挂载绘图
         setTimeout(() => {
-          renderNodeChart(node.node_id, series);
+          renderNodeChart(node.node_id, series, forecast);
         }, 0);
       });
     }
@@ -971,11 +1119,10 @@
         if (currentFilter === "ALL" || status === currentFilter) {
           card.classList.remove("hidden");
           visibleCount++;
-          // 重新刷新可见图表确保排版尺寸准确
           const nodeId = card.id.replace("card-", "");
           const item = nodeCalculatedData.find(d => d.node.node_id === nodeId);
           if (item) {
-            setTimeout(() => renderNodeChart(nodeId, item.series), 10);
+            setTimeout(() => renderNodeChart(nodeId, item.series, item.forecast), 10);
           }
         } else {
           card.classList.add("hidden");
@@ -990,8 +1137,11 @@
       }
     }
 
-    // 绘制单个节点的专属复合图表
-    function renderNodeChart(nodeId, items) {
+    /**
+     * 绘制单个节点的专属复合图表
+     * 自动根据流量限额模式调整柱状图与折线图的表现方式！
+     */
+    function renderNodeChart(nodeId, items, forecast) {
       const canvas = document.getElementById(`canvas-${nodeId}`);
       const wrapper = document.getElementById(`wrapper-${nodeId}`);
       const tooltip = document.getElementById(`tooltip-${nodeId}`);
@@ -1000,7 +1150,7 @@
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
       const rect = wrapper.getBoundingClientRect();
-      if (rect.width === 0) return; // 处于隐藏状态跳过
+      if (rect.width === 0) return;
 
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -1008,7 +1158,7 @@
 
       const width = rect.width;
       const height = rect.height;
-      const padding = { top: 20, right: 65, bottom: 32, left: 65 };
+      const padding = { top: 22, right: 68, bottom: 32, left: 68 };
       const chartW = width - padding.left - padding.right;
       const chartH = height - padding.top - padding.bottom;
 
@@ -1020,13 +1170,15 @@
       items.forEach((item) => {
         const barSum = (item.in_bytes || 0) + (item.out_bytes || 0);
         if (barSum > maxBar) maxBar = barSum;
-        if (item.cumulative_bytes && item.cumulative_bytes > maxLine) maxLine = item.cumulative_bytes;
+        if (item.cumulative_billable && item.cumulative_billable > maxLine) {
+          maxLine = item.cumulative_billable;
+        }
       });
 
       maxBar = maxBar > 0 ? maxBar * 1.15 : 10 * GB;
       maxLine = maxLine > 0 ? maxLine * 1.15 : maxBar;
 
-      // 网格刻度线
+      // 绘制网格刻度线
       ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -1053,8 +1205,9 @@
       const stepX = chartW / count;
       const barWidth = Math.max(4, Math.min(22, stepX * 0.55));
       const screenPoints = [];
+      const mode = forecast.mode;
 
-      // 1. 堆叠柱状图
+      // 1. 堆叠柱状图绘制（自适应透明度）
       items.forEach((item, index) => {
         const cx = padding.left + stepX * index + stepX / 2;
         const inBytes = item.in_bytes || 0;
@@ -1064,13 +1217,27 @@
         const outH = (outBytes / maxBar) * chartH;
         const baseGroundY = padding.top + chartH;
 
-        ctx.globalAlpha = item.is_forecast ? 0.35 : 0.92;
+        // 根据计费模式自动调整非计费项透明度
+        let inAlpha = item.is_forecast ? 0.35 : 0.92;
+        let outAlpha = item.is_forecast ? 0.35 : 0.92;
 
+        if (mode === "upload") {
+          // 仅计出网时，入站柱弱化为 0.35 透明度，出站为主色
+          inAlpha = item.is_forecast ? 0.2 : 0.4;
+        } else if (mode === "download") {
+          // 仅计入网时，出站柱弱化为 0.35 透明度，入站为主色
+          outAlpha = item.is_forecast ? 0.2 : 0.4;
+        }
+
+        // 入站柱
         const inY = baseGroundY - inH;
+        ctx.globalAlpha = inAlpha;
         ctx.fillStyle = "#6366f1";
         ctx.fillRect(cx - barWidth / 2, inY, barWidth, inH);
 
+        // 出站柱 (堆叠在上方)
         const outY = inY - outH;
+        ctx.globalAlpha = outAlpha;
         ctx.fillStyle = "#10b981";
         ctx.fillRect(cx - barWidth / 2, outY, barWidth, outH);
 
@@ -1093,13 +1260,13 @@
         });
       });
 
-      // 2. 累计实线与预测虚线
+      // 2. 计费累计折线 (根据计费类型自适应生成)
       const actualPoints = [];
       const forecastPoints = [];
 
       items.forEach((item, index) => {
         const cx = padding.left + stepX * index + stepX / 2;
-        const cumBytes = item.cumulative_bytes || 0;
+        const cumBytes = item.cumulative_billable || 0;
         const cy = padding.top + chartH - (cumBytes / maxLine) * chartH;
 
         if (item.is_forecast) {
@@ -1112,6 +1279,7 @@
         }
       });
 
+      // 实际折线 (实线)
       if (actualPoints.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#f59e0b";
@@ -1131,6 +1299,7 @@
         });
       }
 
+      // 预测折线 (虚线)
       if (forecastPoints.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#fb923c";
@@ -1151,7 +1320,7 @@
         });
       }
 
-      // 绑定每个卡片的鼠标悬浮交互
+      // 鼠标悬浮 Tooltip 交互（包含物理流量与计费流量双重信息）
       canvas.onmousemove = (e) => {
         const cRect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - cRect.left;
@@ -1170,17 +1339,17 @@
         if (closest) {
           const item = closest.item;
           tooltip.style.display = "block";
-          tooltip.style.left = Math.min(rect.width - 190, Math.max(10, closest.x - 85)) + "px";
-          tooltip.style.top = Math.max(10, closest.y - 100) + "px";
+          tooltip.style.left = Math.min(rect.width - 200, Math.max(10, closest.x - 90)) + "px";
+          tooltip.style.top = Math.max(10, closest.y - 110) + "px";
 
           tooltip.innerHTML = `
             <div class="tooltip-title">${item.date} ${item.is_forecast ? '<span style="color:#fb923c; font-size:11px;">(未来预测)</span>' : ''}</div>
             <div class="tooltip-row"><span style="color:var(--inbound);">● 入站增量:</span> <span>${formatBytes(item.in_bytes)}</span></div>
             <div class="tooltip-row"><span style="color:var(--outbound);">● 出站增量:</span> <span>${formatBytes(item.out_bytes)}</span></div>
-            <div class="tooltip-row"><span>● 当日总计:</span> <strong>${formatBytes(item.total_bytes)}</strong></div>
+            <div class="tooltip-row"><span>● 当日物理总计:</span> <span>${formatBytes(item.total_bytes)}</span></div>
             <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
-              <span style="color:var(--cumulative);">● 当月累计:</span> 
-              <strong style="color:var(--cumulative);">${formatBytes(item.cumulative_bytes)}</strong>
+              <span style="color:var(--cumulative);">● 当月计费累计:</span> 
+              <strong style="color:var(--cumulative);">${formatBytes(item.cumulative_billable)}</strong>
             </div>
           `;
         } else {
@@ -1203,7 +1372,7 @@
     window.addEventListener("DOMContentLoaded", init);
     window.addEventListener("resize", () => {
       nodeCalculatedData.forEach((item) => {
-        renderNodeChart(item.node.node_id, item.series);
+        renderNodeChart(item.node.node_id, item.series, item.forecast);
       });
     });
   </script>

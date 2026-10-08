@@ -16,7 +16,7 @@
     "forecast",
     "quota"
   ],
-  "author": "leovannys",
+  "author": "livingfree2023",
   "license": "MIT",
   "devDependencies": {
     "@komari-monitor/plugin-dev": "latest",

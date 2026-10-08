@@ -225,15 +225,17 @@ export function calculateNodeForecast(
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
-  const validRecentDays = (history || []).filter(r => (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
+  // 2. 计算日均增量：优先参考过去（不包含尚未完整的今日）真实打点增量；
+  // 若无过去历史打点记录（如插件安装首日），严格根据本周期真实已用流量和已过天数推算均速
+  const validPastDays = (history || []).filter(r => !r.is_today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
 
-  if (validRecentDays.length > 0) {
+  if (validPastDays.length > 0) {
     let weightSum = 0;
     let weightedInSum = 0;
     let weightedOutSum = 0;
 
-    validRecentDays.forEach((record, index) => {
-      const weight = 1 + (index / validRecentDays.length) * 1.2;
+    validPastDays.forEach((record, index) => {
+      const weight = 1 + (index / validPastDays.length) * 1.2;
       weightedInSum += (record.in_bytes || 0) * weight;
       weightedOutSum += (record.out_bytes || 0) * weight;
       weightSum += weight;
@@ -246,8 +248,9 @@ export function calculateNodeForecast(
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
   } else {
-    dailyAvgIn = 0;
-    dailyAvgOut = 0;
+    const todayRec = (history || []).find(r => r.is_today);
+    dailyAvgIn = todayRec ? (todayRec.in_bytes || 0) : 0;
+    dailyAvgOut = todayRec ? (todayRec.out_bytes || 0) : 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;

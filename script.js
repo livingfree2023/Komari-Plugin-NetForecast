@@ -290,18 +290,18 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
   const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
-  // 2. 7 天移动平均日均增量（严格使用真实打点增量，无记录时根据真实累计和已过天数推算均速）
-  const validRecentDays = (history || []).filter((r) => (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
+  // 2. 7 天移动平均日均增量（优先使用过去已完整天数的真实打点增量，无记录时根据真实累计和已过天数推算均速）
+  const validPastDays = (history || []).filter((r) => !r.is_today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
-  if (validRecentDays.length > 0) {
+  if (validPastDays.length > 0) {
     let weightSum = 0;
     let weightedInSum = 0;
     let weightedOutSum = 0;
 
-    validRecentDays.forEach((record, index) => {
-      const weight = 1 + (index / validRecentDays.length) * 1.2;
+    validPastDays.forEach((record, index) => {
+      const weight = 1 + (index / validPastDays.length) * 1.2;
       weightedInSum += (record.in_bytes || 0) * weight;
       weightedOutSum += (record.out_bytes || 0) * weight;
       weightSum += weight;
@@ -313,8 +313,9 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
   } else {
-    dailyAvgIn = 0;
-    dailyAvgOut = 0;
+    const todayRec = (history || []).find((r) => r.is_today);
+    dailyAvgIn = todayRec ? (todayRec.in_bytes || 0) : 0;
+    dailyAvgOut = todayRec ? (todayRec.out_bytes || 0) : 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;

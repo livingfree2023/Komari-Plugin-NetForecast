@@ -1020,6 +1020,22 @@
         }
       }
 
+      // 如果未通过计数器计算出今日流量，但今日有时序速率打点（net_out/net_in），通过速率时间积分推算今日消耗
+      if (todayOut === 0 && todayList.length > 0) {
+        let sumOutRate = 0;
+        todayList.forEach(item => { sumOutRate += (item.net_out || 0); });
+        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
+        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
+        todayOut = Math.round(sumOutRate * (secondsToday / todayList.length));
+      }
+      if (todayIn === 0 && todayList.length > 0) {
+        let sumInRate = 0;
+        todayList.forEach(item => { sumInRate += (item.net_in || 0); });
+        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
+        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
+        todayIn = Math.round(sumInRate * (secondsToday / todayList.length));
+      }
+
       result.push({
         date: todayStr,
         timestamp: new Date(todayStr + "T00:00:00Z").getTime(),

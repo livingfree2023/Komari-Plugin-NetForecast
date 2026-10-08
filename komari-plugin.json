@@ -5,11 +5,12 @@
   },
   "short": "net-forecast",
   "description": {
-    "zh_CN": "基于历史带宽与节点流量数据的网络流量与耗尽预测插件",
-    "en": "Network traffic and quota exhaustion forecasting plugin for Komari"
+    "zh_CN": "展示节点最近1/7/30天进出站流量增量堆叠柱状图与当月累计折线图，预测重置日流量并提供超限告警",
+    "en": "Stacked bar and cumulative line charts for 1/7/30-day traffic increments with quota reset forecasting and exhaustion alerts"
   },
   "author": "leovannys",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "icon": "assets/icon.svg",
   "entry": "script.js",
   "permissions": {
     "node": true,
@@ -21,17 +22,44 @@
     "type": "managed",
     "data": [
       {
-        "key": "enabled",
-        "name": "启用预测",
-        "type": "switch",
-        "default": true
+        "key": "default_reset_day",
+        "name": {
+          "zh_CN": "默认每月重置日 (1-31)",
+          "en": "Default Monthly Reset Day (1-31)"
+        },
+        "type": "number",
+        "default": 1
       },
       {
-        "key": "forecast_period_days",
-        "name": "预测周期 (天)",
+        "key": "warning_threshold",
+        "name": {
+          "zh_CN": "流量告警阈值百分比 (%)",
+          "en": "Warning Threshold Percentage (%)"
+        },
         "type": "number",
-        "default": 30
+        "default": 90
+      },
+      {
+        "key": "auto_collect_cron",
+        "name": {
+          "zh_CN": "流量采集频率",
+          "en": "Collection Cron"
+        },
+        "type": "string",
+        "default": "*/10 * * * *"
       }
     ]
-  }
+  },
+  "pages": [
+    {
+      "file": "pages/admin.html",
+      "title": {
+        "zh_CN": "流量预测",
+        "en": "NetForecast"
+      },
+      "icon": "assets/icon.svg",
+      "type": "iframe",
+      "visibility": "admin"
+    }
+  ]
 }

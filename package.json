@@ -1,19 +1,20 @@
 {
   "name": "komari-plugin-net-forecast",
-  "version": "0.1.0",
-  "description": "Network traffic forecasting and analysis plugin for Komari",
-  "main": "dist/script.js",
+  "version": "1.0.0",
+  "description": "Network traffic forecasting and quota exhaustion alert plugin for Komari",
+  "main": "script.js",
   "scripts": {
     "dev": "komari-plugin dev",
-    "build": "komari-plugin build",
-    "package": "komari-plugin package",
+    "build": "tsc",
+    "package": "zip -r net-forecast.zip komari-plugin.json script.js pages assets",
     "check": "tsc --noEmit"
   },
   "keywords": [
     "komari",
     "komari-plugin",
     "traffic",
-    "forecast"
+    "forecast",
+    "quota"
   ],
   "author": "leovannys",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "komari-plugin-net-forecast",
-  "version": "26.1008.3",
+  "version": "26.1008.4",
   "description": "Network traffic forecasting and quota exhaustion alert plugin for Komari",
   "main": "script.js",
   "scripts": {

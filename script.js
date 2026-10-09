@@ -604,6 +604,7 @@ function sendJSON(res, data, statusCode = 200) {
 
 const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget {
+  display: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #f8fafc;
   position: fixed;
@@ -617,16 +618,16 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   padding: 0;
 }
 .nf-trigger-pill {
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(15, 23, 42, 0.9);
   border: 1px solid rgba(99, 102, 241, 0.45);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   color: #fff;
-  padding: 9px 16px;
+  padding: 9px 18px;
   border-radius: 40px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.25);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -634,25 +635,26 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 .nf-trigger-pill:hover {
   background: rgba(30, 41, 59, 0.95);
-  border-color: #6366f1;
+  border-color: #818cf8;
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.45);
 }
 .nf-pulse-dot {
   width: 9px;
   height: 9px;
   background: #10b981;
   border-radius: 50%;
-  box-shadow: 0 0 8px #10b981;
+  box-shadow: 0 0 10px #10b981;
+  transition: all 0.3s;
 }
 .nf-pulse-dot.alert {
   background: #ef4444;
-  box-shadow: 0 0 10px #ef4444;
+  box-shadow: 0 0 12px #ef4444;
   animation: nfPulse 1.6s infinite;
 }
 @keyframes nfPulse {
   0% { transform: scale(0.95); opacity: 0.85; }
-  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px #ef4444; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 16px #ef4444; }
   100% { transform: scale(0.95); opacity: 0.85; }
 }
 .nf-trigger-title {
@@ -662,26 +664,36 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 .nf-trigger-badge {
   font-size: 11px;
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
-  padding: 2px 7px;
-  border-radius: 12px;
   font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+.nf-trigger-badge.alert {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+}
+.nf-trigger-badge.safe {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
 }
 .nf-widget-card {
   position: absolute;
-  bottom: 56px;
+  bottom: 58px;
   right: 0;
-  width: 440px;
+  width: 450px;
   max-width: calc(100vw - 32px);
-  max-height: 80vh;
-  background: rgba(15, 23, 42, 0.96);
+  max-height: 82vh;
+  background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border-radius: 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(99, 102, 241, 0.18);
   display: flex;
   flex-direction: column;
   animation: nfSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -692,63 +704,78 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .nf-header {
-  padding: 14px 18px;
+  padding: 15px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(30, 41, 59, 0.4);
+  background: rgba(30, 41, 59, 0.45);
 }
 .nf-header-title {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.nf-header-icon {
+  font-size: 16px;
+  background: rgba(99, 102, 241, 0.25);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+.nf-header-text {
   font-size: 14px;
   font-weight: 700;
   color: #fff;
 }
 .nf-close-btn {
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  font-size: 18px;
+  font-size: 15px;
   cursor: pointer;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s;
 }
 .nf-close-btn:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .nf-kpi-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  padding: 10px 18px;
+  padding: 12px 18px;
   background: rgba(15, 23, 42, 0.6);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .nf-kpi-item {
   background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 6px 10px;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 .nf-kpi-lbl {
   font-size: 10px;
   color: #94a3b8;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .nf-kpi-val {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
@@ -759,18 +786,22 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 18px;
+  padding: 10px 18px;
   background: rgba(15, 23, 42, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   overflow-x: auto;
+}
+.nf-filter-bar::-webkit-scrollbar {
+  display: none;
 }
 .nf-filter-btn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: #94a3b8;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 20px;
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -788,13 +819,13 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 .nf-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 12px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .nf-list::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 .nf-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
@@ -804,10 +835,16 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
+  transition: all 0.2s ease;
+}
+.nf-node-card:hover {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
 }
 .nf-node-header {
   display: flex;
@@ -828,33 +865,33 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.35);
   color: #a5b4fc;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
   font-weight: 600;
 }
 .nf-badge {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 .nf-badge.critical {
-  background: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 1px solid rgba(239, 68, 68, 0.45);
 }
 .nf-badge.warning {
-  background: rgba(245, 158, 11, 0.18);
+  background: rgba(245, 158, 11, 0.2);
   color: #fde68a;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  border: 1px solid rgba(245, 158, 11, 0.45);
 }
 .nf-badge.safe {
   background: rgba(16, 185, 129, 0.18);
   color: #a7f3d0;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 .nf-badge.no-quota {
   background: rgba(148, 163, 184, 0.15);
@@ -872,9 +909,9 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 .nf-bar-bg {
   width: 100%;
-  height: 6px;
-  background: rgba(15, 23, 42, 0.8);
-  border-radius: 3px;
+  height: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border-radius: 4px;
   overflow: hidden;
   position: relative;
   display: flex;
@@ -882,10 +919,13 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 .nf-bar-used {
   height: 100%;
   background: #6366f1;
+  border-radius: 4px 0 0 4px;
+  transition: width 0.3s ease;
 }
 .nf-bar-projected {
   height: 100%;
   background: repeating-linear-gradient(45deg, rgba(251, 146, 60, 0.5), rgba(251, 146, 60, 0.5) 4px, rgba(251, 146, 60, 0.85) 4px, rgba(251, 146, 60, 0.85) 8px);
+  transition: width 0.3s ease;
 }
 .nf-bar-projected.critical {
   background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.55), rgba(239, 68, 68, 0.55) 4px, rgba(239, 68, 68, 0.9) 4px, rgba(239, 68, 68, 0.9) 8px);
@@ -897,12 +937,12 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   font-size: 11px;
   color: #94a3b8;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 6px;
+  padding-top: 7px;
 }
 .nf-footer {
-  padding: 10px 18px;
+  padding: 12px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.85);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -912,20 +952,21 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color: #94a3b8;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 .nf-live-dot {
   width: 6px;
   height: 6px;
   background: #10b981;
   border-radius: 50%;
+  box-shadow: 0 0 6px #10b981;
 }
 .nf-btn-full {
   font-size: 12px;
   color: #fff;
   background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
-  padding: 5px 12px;
-  border-radius: 7px;
+  padding: 6px 14px;
+  border-radius: 8px;
   text-decoration: none;
   font-weight: 600;
   transition: all 0.2s;
@@ -942,17 +983,20 @@ const WIDGET_BODY_HTML = `
   <div class="nf-trigger-pill" id="nfTriggerPill">
     <div class="nf-pulse-dot" id="nfPulseDot"></div>
     <span class="nf-trigger-title" id="nfTriggerTitle">流量预测</span>
-    <span class="nf-trigger-badge" id="nfTriggerBadge" style="display:none;"></span>
+    <span class="nf-trigger-badge safe" id="nfTriggerBadge">✓ 正常</span>
   </div>
   <div class="nf-widget-card" id="nfWidgetCard" style="display:none;">
     <div class="nf-header">
-      <div class="nf-header-title"><span>📊</span><span id="nfWhTitle">节点流量预测与预算</span></div>
+      <div class="nf-header-title">
+        <div class="nf-header-icon">📊</div>
+        <span class="nf-header-text" id="nfWhTitle">节点流量预测与预算</span>
+      </div>
       <button class="nf-close-btn" id="nfCloseBtn" title="关闭">✕</button>
     </div>
     <div class="nf-kpi-bar">
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal">-</span></div>
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal" style="color:#fca5a5;">-</span></div>
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#38bdf8;">-</span></div>
+      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal" style="color:#38bdf8;">-</span></div>
+      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal">-</span></div>
+      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#fde68a;">-</span></div>
     </div>
     <div class="nf-filter-bar" id="nfFilterBar">
       <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>
@@ -961,7 +1005,7 @@ const WIDGET_BODY_HTML = `
       <button class="nf-filter-btn" data-filter="NO_QUOTA" id="nfBtnNoQuota">⚪ 免额 (0)</button>
     </div>
     <div class="nf-list" id="nfNodeList">
-      <div style="text-align:center; padding:20px; color:#94a3b8; font-size:12px;">正在加载流量预测数据...</div>
+      <div style="text-align:center; padding:24px; color:#94a3b8; font-size:12px;">正在计算全节点流量与预算预测...</div>
     </div>
     <div class="nf-footer">
       <div class="nf-footer-status"><div class="nf-live-dot"></div><span id="nfFooterStatus">实时监测中</span></div>
@@ -971,11 +1015,36 @@ const WIDGET_BODY_HTML = `
 </div>
 <script>
 (function() {
-  if (window.self !== window.top) {
-    var root = document.getElementById("nf-floating-widget");
-    if (root) root.remove();
+  function nfIsAdminPage() {
+    var p = window.location.pathname || "";
+    return p.startsWith("/admin") || p.startsWith("/api/plugin") || (window.self !== window.top);
+  }
+
+  // 1. 严格检查是否处于后台页面或 iframe，若处于后台则立即彻底移除
+  if (nfIsAdminPage()) {
+    var el = document.getElementById("nf-floating-widget");
+    if (el) el.remove();
+    var st = document.getElementById("netforecast-widget-style");
+    if (st) st.remove();
     return;
   }
+
+  var widgetRoot = document.getElementById("nf-floating-widget");
+  if (widgetRoot) {
+    widgetRoot.style.display = "block";
+  }
+
+  function nfCheckRoute() {
+    var el = document.getElementById("nf-floating-widget");
+    if (!el) return;
+    if (nfIsAdminPage()) {
+      el.style.display = "none";
+    } else {
+      el.style.display = "block";
+    }
+  }
+  window.addEventListener("popstate", nfCheckRoute);
+  window.addEventListener("hashchange", nfCheckRoute);
 
   var isEn = (navigator.language || "").toLowerCase().startsWith("en");
   var pill = document.getElementById("nfTriggerPill");
@@ -1001,6 +1070,7 @@ const WIDGET_BODY_HTML = `
 
   if (isEn) {
     if (triggerTitle) triggerTitle.textContent = "NetForecast";
+    if (triggerBadge) triggerBadge.textContent = "✓ Safe";
     if (whTitle) whTitle.textContent = "Node Traffic Forecast";
     if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
     if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
@@ -1025,8 +1095,8 @@ const WIDGET_BODY_HTML = `
   function toggle() {
     isOpen = !isOpen;
     card.style.display = isOpen ? "flex" : "none";
-    if (isOpen && !cachedData) {
-      fetchData();
+    if (isOpen && (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0)) {
+      fetchAndCompute();
     }
   }
 
@@ -1077,7 +1147,7 @@ const WIDGET_BODY_HTML = `
       if (isEn) modeLabel = mode.toUpperCase();
 
       var badgeClass = "safe";
-      var badgeText = isEn ? "✅ Safe" : "✅ 预算充足";
+      var badgeText = isEn ? "✓ Safe" : "✓ 预算充足";
       if (status === "CRITICAL") {
         badgeClass = "critical";
         badgeText = isEn ? "🚨 Over Quota" : "🚨 超额预警";
@@ -1105,7 +1175,7 @@ const WIDGET_BODY_HTML = `
         barHtml = '<div class="nf-bar-used" style="width:' + usedPct + '%; background:' + usedColor + ';"></div>' +
                   '<div class="nf-bar-projected ' + projClass + '" style="width:' + projPct + '%;"></div>';
         metaHtml = '<span>' + (isEn ? "Used: " : "已用: ") + '<strong>' + formatBytes(usedBytes) + '</strong> / ' + (isEn ? "Quota: " : "限额: ") + formatBytes(quotaBytes) + '</span>' +
-                   '<span style="font-weight:700; color:' + (isCrit ? '#ef4444' : '#fff') + ';">' + usedPct + '%</span>';
+                   '<span style="font-weight:700; color:' + (isCrit ? '#ef4444' : '#38bdf8') + ';">' + usedPct + '%</span>';
       } else {
         barHtml = '<div class="nf-bar-used" style="width:100%; opacity:0.3; background:#94a3b8;"></div>';
         metaHtml = '<span>' + (isEn ? "Used: " : "已用: ") + '<strong>' + formatBytes(usedBytes) + '</strong> · ' + (isEn ? "Projected: " : "预测: ") + formatBytes((n.projected && n.projected.billable_bytes) || 0) + '</span>' +
@@ -1145,11 +1215,12 @@ const WIDGET_BODY_HTML = `
     var totalAlerts = crit + warn;
 
     if (totalAlerts > 0) {
-      triggerBadge.style.display = "inline-flex";
-      triggerBadge.textContent = totalAlerts + (isEn ? " Alerts" : " 节点预警");
+      triggerBadge.className = "nf-trigger-badge alert";
+      triggerBadge.textContent = totalAlerts + (isEn ? " Alerts" : " 预警");
       pulseDot.className = "nf-pulse-dot alert";
     } else {
-      triggerBadge.style.display = "none";
+      triggerBadge.className = "nf-trigger-badge safe";
+      triggerBadge.textContent = isEn ? "✓ Safe" : "✓ 正常";
       pulseDot.className = "nf-pulse-dot";
     }
 
@@ -1190,21 +1261,72 @@ const WIDGET_BODY_HTML = `
     renderList();
   }
 
-  function fetchData() {
-    fetch("/api/plugin/net-forecast/overview")
-      .then(function(res) { return res.json(); })
-      .then(function(json) {
-        if (json && json.ok) {
-          renderData(json);
-        }
-      })
-      .catch(function(e) {
-        console.warn("[NetForecast Widget]", e);
+  // 2. 深度数据计算与同步：直接拉取 Komari 核心实时代打点并重新推算
+  async function fetchAndCompute() {
+    try {
+      // (1) 先拉取基础配置列表
+      var baseRes = await fetch("/api/plugin/net-forecast/overview");
+      if (!baseRes.ok) return;
+      var baseJson = await baseRes.json();
+      if (!baseJson || !baseJson.ok || !Array.isArray(baseJson.nodes)) return;
+
+      var nodes = baseJson.nodes;
+      renderData(baseJson);
+
+      // (2) 并发拉取各节点的 /api/recent/:uuid 实时流量上报并聚合
+      var enrichedClients = await Promise.all(nodes.map(async function(node) {
+        var netTotalUp = (node.cumulative && node.cumulative.out_bytes) || 0;
+        var netTotalDown = (node.cumulative && node.cumulative.in_bytes) || 0;
+
+        try {
+          var rRes = await fetch("/api/recent/" + encodeURIComponent(node.node_id), { cache: "no-store" });
+          if (rRes.ok) {
+            var rJson = await rRes.json();
+            var recList = (rJson.data && Array.isArray(rJson.data)) ? rJson.data : (Array.isArray(rJson) ? rJson : []);
+            if (recList.length > 0) {
+              var latest = recList[recList.length - 1];
+              if (latest.network) {
+                netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
+                netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+              }
+              if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
+              if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+            }
+          }
+        } catch (e) {}
+
+        return {
+          uuid: node.node_id,
+          name: node.node_name,
+          traffic_limit: node.traffic_limit_bytes,
+          traffic_limit_type: node.traffic_limit_type,
+          expired_at: node.expired_at_raw,
+          traffic_reset_day: node.traffic_reset_day,
+          net_total_up: netTotalUp,
+          net_total_down: netTotalDown
+        };
+      }));
+
+      // (3) 将附带实时累计的 Client 数据提交给 /overview 进行科学预测计算
+      var calcRes = await fetch("/api/plugin/net-forecast/overview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clients: enrichedClients })
       });
+
+      if (calcRes.ok) {
+        var calcJson = await calcRes.json();
+        if (calcJson && calcJson.ok) {
+          renderData(calcJson);
+        }
+      }
+    } catch (e) {
+      console.warn("[NetForecast Widget] sync error:", e);
+    }
   }
 
-  fetchData();
-  setInterval(fetchData, 60000);
+  fetchAndCompute();
+  setInterval(fetchAndCompute, 45000);
 })();
 </script>`;
 
@@ -1231,20 +1353,48 @@ function load() {
   };
 
   const fetchCoreClients = async (fallbackClients) => {
+    let clients = [];
     if (Array.isArray(fallbackClients) && fallbackClients.length > 0) {
-      return fallbackClients;
-    }
-    if (server.call) {
+      clients = fallbackClients;
+    } else if (server.call) {
       try {
         const res = await server.call("admin:listClients").catch(() => null);
-        if (Array.isArray(res) && res.length > 0) return res;
-        const alt = await server.call("common:getNodes").catch(() => null);
-        if (Array.isArray(alt) && alt.length > 0) return alt;
+        if (Array.isArray(res) && res.length > 0) {
+          clients = res;
+        } else {
+          const alt = await server.call("common:getNodes").catch(() => null);
+          if (Array.isArray(alt) && alt.length > 0) clients = alt;
+        }
       } catch (e) {
         console.warn("[NetForecast] fetchCoreClients notice:", e);
       }
     }
-    return [];
+
+    // 尝试拉取实时状态以补充网卡实时累计计数器 (totalUp / totalDown)
+    if (server.call && Array.isArray(clients) && clients.length > 0) {
+      try {
+        const statusRes = await server.call("common:getNodesLatestStatus").catch(() => null);
+        const statusData = (statusRes && statusRes.data) ? statusRes.data : statusRes;
+        if (statusData && typeof statusData === "object") {
+          clients.forEach((c) => {
+            const uuid = c.uuid || c.id;
+            const item = statusData[uuid] || (statusData.data && statusData.data[uuid]);
+            if (item && item.network) {
+              const up = Number(item.network.totalUp !== undefined ? item.network.totalUp : (item.network.total_up || 0));
+              const down = Number(item.network.totalDown !== undefined ? item.network.totalDown : (item.network.total_down || 0));
+              if (up > 0 && !c.net_total_up) c.net_total_up = up;
+              if (down > 0 && !c.net_total_down) c.net_total_down = down;
+              if (typeof item.network.up === "number") c.net_out = item.network.up;
+              if (typeof item.network.down === "number") c.net_in = item.network.down;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("[NetForecast] getNodesLatestStatus RPC notice:", e);
+      }
+    }
+
+    return clients;
   };
 
   // 1. 全节点 30 天预测总览接口
@@ -1336,7 +1486,7 @@ function load() {
     server.cron(config.auto_collect_cron, async () => {
       try {
         if (server.call) {
-          const clients = await server.call("admin:listClients").catch(() => null);
+          const clients = await fetchCoreClients();
           if (Array.isArray(clients)) {
             for (const c of clients) {
               if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
@@ -1353,8 +1503,7 @@ function load() {
     console.warn("[NetForecast] Cron registration notice:", e);
   }
 
-  // 4. RPC
-    // 5. 前台浮出层组件 HTML 自动注入 (根据配置 enable_floating_widget)
+  // 4. 前台浮出层组件 HTML 自动注入 (根据配置 enable_floating_widget)
   if (config.enable_floating_widget && server.injectHTML) {
     try {
       server.injectHTML(WIDGET_HEAD_HTML, WIDGET_BODY_HTML);
@@ -1364,6 +1513,7 @@ function load() {
     }
   }
 
+  // 5. RPC
   server.registerRPC("netForecast:getOverview", async () => {
     const config = getConfig();
     const clients = await fetchCoreClients();

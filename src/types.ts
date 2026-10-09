@@ -104,4 +104,5 @@ export interface PluginConfig {
   default_reset_day: number;
   warning_threshold: number;
   auto_collect_cron: string;
+  enable_floating_widget?: boolean;
 }

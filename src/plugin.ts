@@ -16,6 +16,7 @@ export default definePlugin({
         default_reset_day: Number(raw.default_reset_day) || 1,
         warning_threshold: Number(raw.warning_threshold) || 90,
         auto_collect_cron: raw.auto_collect_cron || "*/10 * * * *",
+        enable_floating_widget: raw.enable_floating_widget !== undefined ? Boolean(raw.enable_floating_widget) : true,
       };
     };
 

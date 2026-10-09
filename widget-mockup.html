@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetForecast - 前台浮窗组件 (模式A) & 流量预测入口 Mockup</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card-bg: rgba(30, 41, 59, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --inbound: #6366f1;
+      --outbound: #10b981;
+      --cumulative: #f59e0b;
+      --forecast-line: #fb923c;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.16);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.16);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.16);
+      --neutral-badge: rgba(148, 163, 184, 0.15);
+      --mode-tag-bg: rgba(99, 102, 241, 0.12);
+      --mode-tag-border: rgba(99, 102, 241, 0.3);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* 顶部导航栏 (模拟 Komari 前台公开页面) */
+    .komari-navbar {
+      height: 64px;
+      background: rgba(15, 23, 42, 0.85);
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      font-size: 22px;
+      width: 38px;
+      height: 38px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-item {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* 方案一实现：通过 server.injectHTML 注入的流量预测入口按钮 */
+    .injected-nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(56, 189, 248, 0.2) 100%);
+      border: 1px solid rgba(99, 102, 241, 0.5);
+      color: #38bdf8;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 9px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+      position: relative;
+    }
+
+    .injected-nav-btn:hover {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(56, 189, 248, 0.35) 100%);
+      border-color: #38bdf8;
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
+    }
+
+    .injected-tag {
+      font-size: 10px;
+      background: rgba(16, 185, 129, 0.25);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    /* 模拟 Komari 节点展示内容背景 */
+    .komari-content {
+      max-width: 1340px;
+      margin: 32px auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .mock-hero {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mock-hero-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .mock-hero-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .mock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 18px;
+    }
+
+    .mock-server-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      opacity: 0.85;
+    }
+
+    .mock-server-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .mock-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .mock-m-item {
+      background: rgba(15, 23, 42, 0.6);
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .mock-m-val {
+      font-weight: 700;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    /* ============================================================ */
+    /* 核心焦点：模式 A 前台浮窗小组件 (Floating Popover Widget)   */
+    /* ============================================================ */
+
+    /* 悬浮胶囊触发按钮 (Bottom-Right Floating Trigger Button) */
+    .widget-trigger-pill {
+      position: fixed;
+      bottom: 24px;
+      right: 28px;
+      z-index: 1000;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      backdrop-filter: blur(20px);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.25);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .widget-trigger-pill:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: #6366f1;
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.4);
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      background: #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ef4444;
+      animation: pulse 1.6s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.85; }
+      50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px #ef4444; }
+      100% { transform: scale(0.95); opacity: 0.85; }
+    }
+
+    .trigger-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .trigger-alert-badge {
+      font-size: 11px;
+      background: var(--danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    /* 模式 A：浮窗面板主体 (Floating Card Container) */
+    .widget-card {
+      position: fixed;
+      bottom: 80px;
+      right: 28px;
+      width: 440px;
+      max-height: 82vh;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(24px);
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(99, 102, 241, 0.15);
+      display: flex;
+      flex-direction: column;
+      z-index: 999;
+      animation: slideUpFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    @keyframes slideUpFade {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* 浮窗顶部 Header */
+    .widget-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 41, 59, 0.4);
+    }
+
+    .wh-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .wh-icon {
+      font-size: 18px;
+      background: rgba(99, 102, 241, 0.25);
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9px;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+
+    .wh-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .wh-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .wh-action-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 5px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .wh-action-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .wh-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .wh-close-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* 浮窗顶部快捷总览条 (Quick Summary KPIs) */
+    .widget-kpi-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 12px 20px;
+      background: rgba(15, 23, 42, 0.6);
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .w-kpi-item {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 8px 10px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .w-kpi-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .w-kpi-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* 筛选标签栏 (Filter Pills) */
+    .widget-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      background: rgba(15, 23, 42, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      overflow-x: auto;
+    }
+
+    .w-filter-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .w-filter-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .w-filter-btn.active {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: rgba(99, 102, 241, 0.5);
+      color: #a5b4fc;
+      font-weight: 700;
+    }
+
+    /* 节点列表滚动容器 */
+    .widget-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .widget-list::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .widget-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* 单节点精简卡片 (Mini Node Card in Mode A) */
+    .w-node-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .w-node-card:hover {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-1px);
+    }
+
+    .w-node-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .w-node-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .w-node-mode {
+      font-size: 10px;
+      background: var(--mode-tag-bg);
+      border: 1px solid var(--mode-tag-border);
+      color: #a5b4fc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .w-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .w-badge.critical {
+      background: var(--danger-bg);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .w-badge.warning {
+      background: var(--warning-bg);
+      color: #fde68a;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .w-badge.safe {
+      background: var(--success-bg);
+      color: #a7f3d0;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .w-badge.no-quota {
+      background: var(--neutral-badge);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    /* 双层预测进度条 (Solid = 已用, Striped = 预测增量) */
+    .w-progress-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .w-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .w-progress-meta strong {
+      color: #fff;
+    }
+
+    .w-bar-bg {
+      width: 100%;
+      height: 7px;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+    }
+
+    /* 已用流量实心条 */
+    .w-bar-used {
+      height: 100%;
+      background: var(--inbound);
+      border-radius: 4px 0 0 4px;
+    }
+
+    /* 预测消耗条 (虚纹路条) */
+    .w-bar-projected {
+      height: 100%;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(251, 146, 60, 0.5),
+        rgba(251, 146, 60, 0.5) 4px,
+        rgba(251, 146, 60, 0.85) 4px,
+        rgba(251, 146, 60, 0.85) 8px
+      );
+    }
+
+    .w-bar-projected.critical {
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(239, 68, 68, 0.55),
+        rgba(239, 68, 68, 0.55) 4px,
+        rgba(239, 68, 68, 0.9) 4px,
+        rgba(239, 68, 68, 0.9) 8px
+      );
+    }
+
+    /* 卡片底栏指标行 */
+    .w-node-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 8px;
+    }
+
+    .w-foot-highlight {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* 浮窗底部 Footer */
+    .widget-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--card-border);
+      background: rgba(15, 23, 42, 0.8);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wf-status {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .wf-live-dot {
+      width: 6px;
+      height: 6px;
+      background: #10b981;
+      border-radius: 50%;
+    }
+
+    .wf-btn-full {
+      font-size: 12px;
+      color: #fff;
+      background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      padding: 6px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    .wf-btn-full:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 模拟 Komari 前台页面导航栏 (展示顶栏注入的流量预测入口) -->
+  <nav class="komari-navbar">
+    <div class="brand-wrap">
+      <div class="brand-logo">🐱</div>
+      <div>
+        <div class="brand-title">Komari Monitor</div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a href="#" class="nav-item">🖥️ 节点监控</a>
+      <a href="#" class="nav-item">📈 历史负载</a>
+      <a href="#" class="nav-item">🌐 网络 Ping</a>
+
+      <!-- 💡 插件后台设置模拟开关：可在插件设置中开启/关闭前台浮出层（默认开启） -->
+      <label class="nav-item" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:rgba(255,255,255,0.06); border:1px solid var(--card-border); color:#fff; font-size:12px;" title="模拟在 Komari 插件设置页面中开启/关闭前台浮出层组件">
+        <input type="checkbox" id="pluginSettingWidgetToggle" checked onchange="toggleWidgetFeature(this.checked)" style="accent-color:#6366f1; cursor:pointer;" />
+        <span>⚙️ 浮出层组件 (插件设置: 默认开启)</span>
+      </label>
+
+      <!-- 语言切换测试按钮 (演示中英文自适应：中文显示「流量预测」，英文版显示「NetForecast」) -->
+      <button class="nav-item" id="langToggleBtn" onclick="toggleLanguage()" style="cursor:pointer; background:rgba(255,255,255,0.08); border:1px solid var(--card-border); color:#fff; font-weight:600;" title="点击切换中文/英文入口展示效果">🌐 切换英文 (EN)</button>
+    </div>
+  </nav>
+
+  <!-- 2. 模拟 Komari 前台服务器列表背景 -->
+  <main class="komari-content">
+    <div class="mock-hero">
+      <div>
+        <div class="mock-hero-title">服务器集群监控面板</div>
+        <div class="mock-hero-sub">共在线 5 台计算实例 · 点击右下角「流量预测」浮出层查看配额走势与完整图表</div>
+      </div>
+      <div style="font-size: 13px; color: var(--text-muted); background: rgba(15,23,42,0.6); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--card-border);">
+        💡 当前视图为模拟 Komari 前台公开访客页
+      </div>
+    </div>
+
+    <div class="mock-grid">
+      <div class="mock-server-card">
+        <div class="mock-server-header">
+          <span>🇺🇸 US.VMISS (洛杉矶优化网络)</span>
+          <span style="color:#10b981;">● 在线</span>
+        </div>
+        <div class="mock-metrics">
+          <div class="mock-m-item"><div>CPU</div><div class="mock-m-val">12%</div></div>
+          <div class="mock-m-item"><div>内存</div><div class="mock-m-val">38%</div></div>
+          <div class="mock-m-item"><div>硬盘</div><div class="mock-m-val">45%</div></div>
+          <div class="mock-m-item"><div>网络负载</div><div class="mock-m-val">4.2 MB/s</div></div>
+        </div>
+      </div>
+
+      <div class="mock-server-card">
+        <div class="mock-server-header">
+          <span>🇸🇬 SG.OCI (新加坡 ARM 实例)</span>
+          <span style="color:#10b981;">● 在线</span>
+        </div>
+        <div class="mock-metrics">
+          <div class="mock-m-item"><div>CPU</div><div class="mock-m-val">28%</div></div>
+          <div class="mock-m-item"><div>内存</div><div class="mock-m-val">52%</div></div>
+          <div class="mock-m-item"><div>硬盘</div><div class="mock-m-val">68%</div></div>
+          <div class="mock-m-item"><div>网络负载</div><div class="mock-m-val">18.5 MB/s</div></div>
+        </div>
+      </div>
+
+      <div class="mock-server-card">
+        <div class="mock-server-header">
+          <span>🇯🇵 JP.AWS (东京 Lightsail)</span>
+          <span style="color:#10b981;">● 在线</span>
+        </div>
+        <div class="mock-metrics">
+          <div class="mock-m-item"><div>CPU</div><div class="mock-m-val">6%</div></div>
+          <div class="mock-m-item"><div>内存</div><div class="mock-m-val">24%</div></div>
+          <div class="mock-m-item"><div>硬盘</div><div class="mock-m-val">19%</div></div>
+          <div class="mock-m-item"><div>网络负载</div><div class="mock-m-val">1.1 MB/s</div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- 核心设计点 2：前台悬浮小组件 (模式 A 设计)                     -->
+  <!-- ============================================================ -->
+
+  <!-- 1. 悬浮胶囊触发按钮 (Bottom-Right Floating Trigger Button) -->
+  <div class="widget-trigger-pill" id="widgetTrigger" onclick="toggleWidget()">
+    <div class="pulse-dot"></div>
+    <span class="trigger-title" id="triggerTitle">流量预测</span>
+    <span class="trigger-alert-badge" id="triggerBadge">2 节点预警</span>
+  </div>
+
+  <!-- 2. 模式 A 展开后的浮窗卡片 (Floating Window Panel) -->
+  <div class="widget-card" id="widgetCard">
+    <!-- Header -->
+    <div class="widget-header">
+      <div class="wh-title-group">
+        <div class="wh-icon">📊</div>
+        <div>
+          <div class="wh-title" id="whTitle">节点流量预测与预算</div>
+        </div>
+      </div>
+      <div class="wh-actions">
+        <button class="wh-close-btn" onclick="toggleWidget()" title="收起浮窗">✕</button>
+      </div>
+    </div>
+
+    <!-- Quick Summary KPIs -->
+    <div class="widget-kpi-bar">
+      <div class="w-kpi-item">
+        <span class="w-kpi-lbl">配额总已用</span>
+        <span class="w-kpi-val">1.38 TB</span>
+      </div>
+      <div class="w-kpi-item">
+        <span class="w-kpi-lbl">超限风险</span>
+        <span class="w-kpi-val" style="color: #fca5a5;">2 台节点</span>
+      </div>
+      <div class="w-kpi-item">
+        <span class="w-kpi-lbl">最近重置</span>
+        <span class="w-kpi-val" style="color: #38bdf8;">4天后 (JP.AWS)</span>
+      </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="widget-filter-bar">
+      <button class="w-filter-btn active" onclick="filterWidget('ALL', this)">全部 (5)</button>
+      <button class="w-filter-btn" onclick="filterWidget('ALERT', this)">🚨 预警 (2)</button>
+      <button class="w-filter-btn" onclick="filterWidget('SAFE', this)">✅ 安全 (2)</button>
+      <button class="w-filter-btn" onclick="filterWidget('NO_QUOTA', this)">⚪ 免额 (1)</button>
+    </div>
+
+    <!-- 节点预测精简卡片列表 -->
+    <div class="widget-list" id="widgetList">
+
+      <!-- 节点 1：超限严重告警 -->
+      <div class="w-node-card" data-category="ALERT">
+        <div class="w-node-header">
+          <div class="w-node-title">
+            <span>🇯🇵 JP.ZT.Plus</span>
+            <span class="w-node-mode">双向求和</span>
+          </div>
+          <span class="w-badge critical">🚨 超限 180 GB</span>
+        </div>
+        <div class="w-progress-container">
+          <div class="w-progress-meta">
+            <span>已用: <strong>1.18 TB</strong> / 限额 1 TB</span>
+            <span style="color:#ef4444; font-weight:700;">118%</span>
+          </div>
+          <div class="w-bar-bg">
+            <div class="w-bar-used" style="width: 85%; background:#ef4444;"></div>
+            <div class="w-bar-projected critical" style="width: 15%;"></div>
+          </div>
+        </div>
+        <div class="w-node-footer">
+          <span>均速: <span class="w-foot-highlight">60 GB/天</span></span>
+          <span>10-19 重置 (倒计时 11 天)</span>
+        </div>
+      </div>
+
+      <!-- 节点 2：接近限额预警 -->
+      <div class="w-node-card" data-category="ALERT">
+        <div class="w-node-header">
+          <div class="w-node-title">
+            <span>🇸🇬 SG.OCI</span>
+            <span class="w-node-mode">双向求和</span>
+          </div>
+          <span class="w-badge warning">⚡ 预计达 30% 预算</span>
+        </div>
+        <div class="w-progress-container">
+          <div class="w-progress-meta">
+            <span>已用: <strong>33.8 GB</strong> / 预计达 <strong>149.9 GB</strong></span>
+            <span>限额 500 GB</span>
+          </div>
+          <div class="w-bar-bg">
+            <div class="w-bar-used" style="width: 7%; background:#6366f1;"></div>
+            <div class="w-bar-projected" style="width: 23%;"></div>
+          </div>
+        </div>
+        <div class="w-node-footer">
+          <span>均速: <span class="w-foot-highlight">4.83 GB/天</span></span>
+          <span>11-03 重置 (剩余 24 天)</span>
+        </div>
+      </div>
+
+      <!-- 节点 3：周期临近尾声 · 预算充足 -->
+      <div class="w-node-card" data-category="SAFE">
+        <div class="w-node-header">
+          <div class="w-node-title">
+            <span>🇯🇵 JP.AWS</span>
+            <span class="w-node-mode">双向求和</span>
+          </div>
+          <span class="w-badge safe">✅ 预算充足 (14%)</span>
+        </div>
+        <div class="w-progress-container">
+          <div class="w-progress-meta">
+            <span>已用: <strong>24.5 GB</strong> / 预计达 <strong>28.3 GB</strong></span>
+            <span>限额 200 GB</span>
+          </div>
+          <div class="w-bar-bg">
+            <div class="w-bar-used" style="width: 12.2%; background:#10b981;"></div>
+            <div class="w-bar-projected" style="width: 1.9%;"></div>
+          </div>
+        </div>
+        <div class="w-node-footer">
+          <span>均速: <span class="w-foot-highlight">965 MB/天</span></span>
+          <span style="color:#38bdf8;">10-14 重置 (仅剩 4 天)</span>
+        </div>
+      </div>
+
+      <!-- 节点 4：双向取大 MAX 计费模式 -->
+      <div class="w-node-card" data-category="SAFE">
+        <div class="w-node-header">
+          <div class="w-node-title">
+            <span>🇯🇵 JP.Zouter.DJJ</span>
+            <span class="w-node-mode">双向取大</span>
+          </div>
+          <span class="w-badge safe">✅ 安全 (0.4%)</span>
+        </div>
+        <div class="w-progress-container">
+          <div class="w-progress-meta">
+            <span>计费: <strong>928 MB</strong> (出站取高)</span>
+            <span>限额 300 GB</span>
+          </div>
+          <div class="w-bar-bg">
+            <div class="w-bar-used" style="width: 1%; background:#10b981;"></div>
+            <div class="w-bar-projected" style="width: 0.5%;"></div>
+          </div>
+        </div>
+        <div class="w-node-footer">
+          <span>均速: <span class="w-foot-highlight">37.1 MB/天</span></span>
+          <span>10-15 重置 (剩余 5 天)</span>
+        </div>
+      </div>
+
+      <!-- 节点 5：未配置限额 (免额预测节点) -->
+      <div class="w-node-card" data-category="NO_QUOTA">
+        <div class="w-node-header">
+          <div class="w-node-title">
+            <span>🇺🇸 US.VMISS</span>
+            <span class="w-node-mode">双向求和</span>
+          </div>
+          <span class="w-badge no-quota">⚪ 未配额 (仅预测)</span>
+        </div>
+        <div class="w-progress-container">
+          <div class="w-progress-meta">
+            <span>已用: <strong>46.7 GB</strong> · 预测 <strong>112 GB</strong></span>
+            <span style="opacity:0.6;">不计额度告警</span>
+          </div>
+          <div class="w-bar-bg">
+            <div class="w-bar-used" style="width: 100%; opacity:0.3; background:#94a3b8;"></div>
+          </div>
+        </div>
+        <div class="w-node-footer">
+          <span>均速: <span class="w-foot-highlight">3.6 GB/天</span></span>
+          <span>11-01 自然月重置</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="widget-footer">
+      <div class="wf-status">
+        <div class="wf-live-dot"></div>
+        <span>实时监测中 · 自动对齐</span>
+      </div>
+      <a href="public.html" target="_blank" class="wf-btn-full" id="footerFullBtn">查看完整图表 ↗</a>
+    </div>
+  </div>
+
+  <script>
+    // 切换浮窗显示/收起
+    let isWidgetOpen = true;
+
+    function toggleWidget() {
+      const card = document.getElementById("widgetCard");
+      isWidgetOpen = !isWidgetOpen;
+      card.style.display = isWidgetOpen ? "flex" : "none";
+    }
+
+    // 快捷分类筛选
+    function filterWidget(type, btn) {
+      document.querySelectorAll(".w-filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const cards = document.querySelectorAll(".w-node-card");
+      cards.forEach(card => {
+        const cat = card.getAttribute("data-category");
+        if (type === "ALL" || type === cat) {
+          card.style.display = "flex";
+        } else {
+          card.style.display = "none";
+        }
+      });
+    }
+
+    // 模拟插件设置：开启/关闭前台浮出层小组件 (默认开启)
+    function toggleWidgetFeature(enabled) {
+      const trigger = document.getElementById("widgetTrigger");
+      const card = document.getElementById("widgetCard");
+      if (!enabled) {
+        if (trigger) trigger.style.display = "none";
+        if (card) card.style.display = "none";
+        isWidgetOpen = false;
+      } else {
+        if (trigger) trigger.style.display = "flex";
+      }
+    }
+
+    // 中英文自适应切换演示 (支持中文「流量预测」与英文「NetForecast」无缝切换)
+    let currentLang = 'zh';
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      const btn = document.getElementById('langToggleBtn');
+      const footerBtn = document.getElementById('footerFullBtn');
+      const triggerTitle = document.getElementById('triggerTitle');
+      const triggerBadge = document.getElementById('triggerBadge');
+      const whTitle = document.getElementById('whTitle');
+
+      if (currentLang === 'en') {
+        btn.textContent = '🌐 切换中文 (ZH)';
+        if (footerBtn) footerBtn.textContent = 'View Full Chart ↗';
+        if (triggerTitle) triggerTitle.textContent = 'NetForecast';
+        if (triggerBadge) triggerBadge.textContent = '2 Alerts';
+        if (whTitle) whTitle.textContent = 'Node Traffic Forecast';
+      } else {
+        btn.textContent = '🌐 切换英文 (EN)';
+        if (footerBtn) footerBtn.textContent = '查看完整图表 ↗';
+        if (triggerTitle) triggerTitle.textContent = '流量预测';
+        if (triggerBadge) triggerBadge.textContent = '2 节点预警';
+        if (whTitle) whTitle.textContent = '节点流量预测与预算';
+      }
+    }
+  </script>
+</body>
+</html>

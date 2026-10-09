@@ -23,6 +23,11 @@
   - 优先使用**过去已完整各天**（`!r.is_today`）的 7 天移动加权平均。
   - 当缺乏过去完整天数（例如安装首日或新接入节点）时，采用 `本周期真实累计 / 本周期已过天数`（`cumulativeIn / cycle.daysElapsed`）推算均速，杜绝使用今日刚过几小时的微量流量推算整月。
 
+### 3. 前台浮出层组件与入口规范（Frontend Floating Widget & Entrypoints）
+- **首页顶部无侵入**：Komari 首页导航栏顶部不注入额外按钮，保持前台界面简洁无感。
+- **浮出层单一跳转入口**：右下角浮出层小组件仅在底部 Footer 保留单一的「查看完整图表 ↗」跳转入口，顶部 Header 仅保留关闭按钮（`✕`），避免双入口冗余造成视觉混淆。
+- **插件配置开关（默认开启）**：在 `komari-plugin.json` 的 `configuration.data` 中提供 `enable_floating_widget` 布尔选项，默认值为 `true`（启用），允许管理员在插件设置中自由关闭前台浮出层。
+
 ---
 
 ## 二、时区与日期计算规范（Timezone & Date Conventions）

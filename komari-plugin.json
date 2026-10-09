@@ -47,6 +47,15 @@
         },
         "type": "string",
         "default": "*/10 * * * *"
+      },
+      {
+        "key": "enable_floating_widget",
+        "name": {
+          "zh_CN": "启用前台流量预测浮出层小组件",
+          "en": "Enable Floating Widget on Frontend"
+        },
+        "type": "boolean",
+        "default": true
       }
     ]
   },

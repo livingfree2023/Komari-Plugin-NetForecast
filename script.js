@@ -608,7 +608,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 
 #nf-floating-widget {
-  display: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
   color: #f8fafc !important;
   z-index: 99999 !important;
@@ -616,8 +615,11 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 
 /* 1. 可拖拽方形触发图标按钮 (无文字，边框状态变色) */
 #nf-floating-widget .nf-trigger-sq {
-  width: 46px !important;
-  height: 46px !important;
+  width: 48px !important;
+  height: 48px !important;
+  position: fixed !important;
+  right: 28px !important;
+  bottom: 28px !important;
   background: rgba(15, 23, 42, 0.92) !important;
   border-radius: 12px !important;
   backdrop-filter: blur(20px) !important;
@@ -628,7 +630,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   cursor: grab !important;
   user-select: none !important;
   touch-action: none !important;
-  position: fixed !important;
   z-index: 99999 !important;
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s !important;
 }
@@ -1074,40 +1075,47 @@ const WIDGET_BODY_HTML = `
 </div>
 <script>
 (function() {
-  function nfIsAdminPage() {
-    var p = window.location.pathname || "";
-    return p.startsWith("/admin") || p.startsWith("/api/plugin") || (window.self !== window.top);
-  }
-
-  // 1. 严格检查是否处于后台页面或 iframe，若处于后台则立即彻底移除
-  if (nfIsAdminPage()) {
-    var el = document.getElementById("nf-floating-widget");
-    if (el) el.remove();
-    var st = document.getElementById("netforecast-widget-style");
-    if (st) st.remove();
-    return;
+  function nfIsAdminPath() {
+    try {
+      var p = (window.location.pathname || "").toLowerCase();
+      return p.indexOf("/admin") === 0;
+    } catch (e) {
+      return false;
+    }
   }
 
   var widgetRoot = document.getElementById("nf-floating-widget");
   if (widgetRoot) {
-    widgetRoot.style.display = "block";
+    widgetRoot.style.display = nfIsAdminPath() ? "none" : "block";
   }
 
-  // 识别当前 URL 是否为单个节点实例页面 (e.g. /instance/70ecf483... 或 /node/...)
+  // 稳健提取当前节点 ID (免正则转义干扰，同时支持 pathname / hash / query)
   function getCurrentInstanceUuid() {
-    var path = window.location.pathname || "";
-    var m = path.match(/\/(?:instance|node|server|client)\/([a-fA-F0-9-]+)/i);
-    if (m) return m[1];
-    var hash = window.location.hash || "";
-    var hm = hash.match(/(?:instance|node|server|client)\/([a-fA-F0-9-]+)/i);
-    if (hm) return hm[1];
+    try {
+      var full = (window.location.pathname || "") + " " + (window.location.hash || "");
+      var parts = full.split(/[\/\?#&]+/);
+      for (var i = 0; i < parts.length - 1; i++) {
+        var seg = parts[i].toLowerCase();
+        if (seg === "instance" || seg === "node" || seg === "server" || seg === "client") {
+          var cand = parts[i + 1];
+          if (cand && cand.length >= 8) {
+            return cand;
+          }
+        }
+      }
+      var q = window.location.search || "";
+      if (q.indexOf("uuid=") !== -1 || q.indexOf("node_id=") !== -1) {
+        var m = q.match(/[?&](?:uuid|node_id)=([a-zA-Z0-9_-]+)/);
+        if (m) return m[1];
+      }
+    } catch (e) {}
     return null;
   }
 
   function nfCheckRoute() {
     var el = document.getElementById("nf-floating-widget");
     if (!el) return;
-    if (nfIsAdminPage()) {
+    if (nfIsAdminPath()) {
       el.style.display = "none";
     } else {
       el.style.display = "block";
@@ -1157,6 +1165,16 @@ const WIDGET_BODY_HTML = `
   var footerStatus = document.getElementById("nfFooterStatus");
   var footerFullBtn = document.getElementById("nfFooterFullBtn");
 
+  if (isEn) {
+    if (btn) btn.title = "Traffic Forecast (Drag to move)";
+    if (whTitle) whTitle.textContent = "Traffic & Quota Forecast";
+    if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
+    if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
+    if (kpiResetLbl) kpiResetLbl.textContent = "NEXT RESET";
+    if (footerStatus) footerStatus.textContent = "Live Monitoring";
+    if (footerFullBtn) footerFullBtn.textContent = "Full Chart ↗";
+  }
+
   // 2. 拖拽与记住最后位置 (Draggable & Persisted Position)
   var posKey = "nf_btn_pos_v2";
   function loadSavedPos() {
@@ -1169,18 +1187,18 @@ const WIDGET_BODY_HTML = `
           var maxT = Math.max(10, window.innerHeight - 60);
           var l = Math.max(10, Math.min(maxL, p.left));
           var t = Math.max(10, Math.min(maxT, p.top));
-          btn.style.left = l + "px";
-          btn.style.top = t + "px";
-          btn.style.right = "auto";
-          btn.style.bottom = "auto";
+          btn.style.setProperty("left", l + "px", "important");
+          btn.style.setProperty("top", t + "px", "important");
+          btn.style.setProperty("right", "auto", "important");
+          btn.style.setProperty("bottom", "auto", "important");
           return;
         }
       }
     } catch (e) {}
-    btn.style.right = "28px";
-    btn.style.bottom = "28px";
-    btn.style.left = "auto";
-    btn.style.top = "auto";
+    btn.style.setProperty("right", "28px", "important");
+    btn.style.setProperty("bottom", "28px", "important");
+    btn.style.setProperty("left", "auto", "important");
+    btn.style.setProperty("top", "auto", "important");
   }
   loadSavedPos();
 
@@ -1207,10 +1225,10 @@ const WIDGET_BODY_HTML = `
       isDragging = true;
       var newL = Math.max(10, Math.min(window.innerWidth - 56, origL + dx));
       var newT = Math.max(10, Math.min(window.innerHeight - 56, origT + dy));
-      btn.style.left = newL + "px";
-      btn.style.top = newT + "px";
-      btn.style.right = "auto";
-      btn.style.bottom = "auto";
+      btn.style.setProperty("left", newL + "px", "important");
+      btn.style.setProperty("top", newT + "px", "important");
+      btn.style.setProperty("right", "auto", "important");
+      btn.style.setProperty("bottom", "auto", "important");
     }
   });
 

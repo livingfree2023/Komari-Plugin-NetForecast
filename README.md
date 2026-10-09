@@ -35,14 +35,14 @@
 
 ## 🚀 快速安装与使用
 
-### 方式一：通过专属插件源订阅安装（推荐实时获取最新版）
+### 方式一：通过专属插件源订阅安装（实时获取最新版）
 
 在 Komari 插件市场设置中添加本仓库专属的自定义插件源订阅地址（直连 `refs/heads/main`，穿透 GitHub CDN 缓存，确保第一时间获取最新版本）：
 ```text
 https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json
 ```
 
-### 方式二：通过 Komari 官方插件市场安装（版本可能有滞后）
+### 方式二：通过 Komari 官方插件市场安装（每6小时同步一次）
 
 1. 登录您的 Komari 管理后台。
 2. 导航至左侧 **插件市场 (Plugin Market)**。

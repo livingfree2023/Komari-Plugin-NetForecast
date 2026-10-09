@@ -50,6 +50,13 @@
 3. 点击右上角 **上传插件**，选择下载好的 `net-forecast.zip`。
 4. 上传完成后点击启用即可。
 
+### 方式三：通过专属插件源订阅安装（实时获取最新版）
+
+在 Komari 插件市场设置中添加本仓库专属的自定义插件源订阅地址（直连 `refs/heads/main`，穿透 GitHub CDN 缓存，确保第一时间获取最新版本）：
+```text
+https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json
+```
+
 ---
 
 ## 🛠️ 自行构建

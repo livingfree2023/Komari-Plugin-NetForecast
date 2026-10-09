@@ -102,11 +102,17 @@
     ```
   - **推送后必须显式校验**：通过检查远程 ref 或运行 `git ls-remote --tags origin`，确认该 tag 确实已被 GitHub 接收，绝不能在未验证的情况下宣告发布成功。
 
-### 4. 插件市场提交规范（Komari Plugin Market）
+### 4. 插件市场提交与专属订阅源规范（Komari Plugin Market）
 - **本地没有、也不需要维护 `komari-plugin-market` 仓库目录**：
   官方插件市场的上架和版本更新机制是向 [komari-plugin-market](https://github.com/komari-monitor/komari-plugin-market) 提交 GitHub Issue。
+- **专属插件源 `v1.json` 规范（穿透 CDN 缓存）**：
+  - 本仓库根目录维护的 `v1.json` 为单插件专用市场源。
+  - 引用与订阅该文件时，**必须使用带 `refs/heads/main` 的完整路径**：
+    `https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`
+    普通 `.../main/v1.json` 容易命中 GitHub Fastly CDN 的陈旧缓存，而使用 `refs/heads/main` 能确保 Komari 面板或用户拉取时 100% 拿到最新提交的版本。
 - 每次发布新版本后，应向用户输出清晰的 Market Issue 提交模板，包括：
   - 插件名称：`NetForecast (流量预测)`
   - 版本号（Version）：`x.y.z`
   - 仓库地址：`https://github.com/livingfree2023/Komari-Plugin-NetForecast/`
   - SHA256 校验和：`[生成的 64 位 hash]`
+  - 专属源地址：`https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`

@@ -64,6 +64,10 @@ https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/
 3. 点击右上角 **上传插件**，选择下载好的 `net-forecast.zip`。
 4. 上传完成后点击启用即可。
 
+**第一次使用需要手动开启**
+
+![image](https://cdn.nodeimage.com/i/Cqn5ypYEZrgTOAHKFMWJwOWmGbXdNsKo.png)
+
 ---
 
 ## 🛠️ 自行构建

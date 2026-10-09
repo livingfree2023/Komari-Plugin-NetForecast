@@ -9,13 +9,14 @@
     "en": "All-nodes 30-day stacked bar and billing-adaptive cumulative charts, directly synced with core database, forecasting reset day usage and exhaustion alerts"
   },
   "author": "livingfree2023",
-  "version": "26.1008.2",
+  "version": "26.1008.3",
   "icon": "assets/icon.svg",
   "entry": "script.js",
   "permissions": {
     "node": true,
     "allowRoutes": true,
     "allowSystemRPC": true,
+    "allowHTMLInject": true,
     "timeout": 30
   },
   "configuration": {
@@ -69,6 +70,16 @@
       "icon": "assets/icon.svg",
       "type": "iframe",
       "visibility": "admin"
+    },
+    {
+      "file": "pages/public.html",
+      "title": {
+        "zh_CN": "流量预测看板",
+        "en": "Traffic Forecast"
+      },
+      "icon": "assets/icon.svg",
+      "type": "iframe",
+      "visibility": "public"
     }
   ]
 }

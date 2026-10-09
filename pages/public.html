@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetForecast - 节点网络流量预测看板</title>
+  <style>
+    .node-edit-btn, #nodeConfigModal, .modal-overlay { display: none !important; }
+    :root {
+      --bg: #0b1120;
+      --card-bg: rgba(30, 41, 59, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --inbound: #6366f1;
+      --outbound: #10b981;
+      --cumulative: #f59e0b;
+      --forecast-line: #fb923c;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.16);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.16);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.16);
+      --neutral-badge: rgba(148, 163, 184, 0.15);
+      --mode-tag-bg: rgba(99, 102, 241, 0.12);
+      --mode-tag-border: rgba(99, 102, 241, 0.3);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text-main);
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1340px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* 顶部控制与状态栏 */
+    .header-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      padding: 18px 24px;
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .title-icon {
+      font-size: 26px;
+      background: rgba(99, 102, 241, 0.25);
+      width: 46px;
+      height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.2);
+    }
+
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* 动态筛选药丸按钮栏 */
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text-muted);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .filter-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .filter-btn.active.filter-all {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
+    }
+
+    .filter-btn.active.filter-critical {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.7);
+      color: #fca5a5;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    .filter-btn.active.filter-warning {
+      background: var(--warning-bg);
+      border-color: rgba(245, 158, 11, 0.7);
+      color: #fde68a;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(245, 158, 11, 0.35);
+    }
+
+    .filter-btn.active.filter-safe {
+      background: var(--success-bg);
+      border-color: rgba(16, 185, 129, 0.7);
+      color: #a7f3d0;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    .filter-btn.active.filter-no-quota {
+      background: var(--neutral-badge);
+      border-color: rgba(148, 163, 184, 0.5);
+      color: #e2e8f0;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(148, 163, 184, 0.2);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-refresh {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-refresh:hover {
+      color: #fff;
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* 状态徽标 */
+    .summary-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 12px;
+      border: 1px solid transparent;
+    }
+
+    .badge-critical {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .badge-warning {
+      background: var(--warning-bg);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+    }
+
+    .badge-safe {
+      background: var(--success-bg);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+
+    .badge-neutral {
+      background: var(--neutral-badge);
+      border-color: rgba(148, 163, 184, 0.25);
+      color: #cbd5e1;
+    }
+
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: var(--mode-tag-bg);
+      border: 1px solid var(--mode-tag-border);
+      color: #a5b4fc;
+    }
+
+    /* 节点设置按钮 */
+    .node-edit-btn {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .node-edit-btn:hover {
+      background: rgba(30, 41, 59, 0.95);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* 节点卡片列表 */
+    .nodes-container {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .node-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transition: all 0.25s ease;
+    }
+
+    .node-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .node-card.hidden {
+      display: none !important;
+    }
+
+    .node-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .node-title-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .node-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .node-quota-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.7);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .node-alert-banner {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .node-alert-banner.critical {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .node-alert-banner.warning {
+      background: var(--warning-bg);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+    }
+
+    .node-alert-banner strong {
+      color: #fff;
+    }
+
+    .node-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .node-kpi-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      padding: 14px 16px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .kpi-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .kpi-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .kpi-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--inbound);
+      border-radius: 3px;
+    }
+
+    .progress-bar-fill.critical {
+      background: var(--danger);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    }
+
+    .progress-bar-fill.warning {
+      background: var(--warning);
+    }
+
+    .chart-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chart-sub-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+    }
+
+    .legend-line {
+      width: 16px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .legend-line.dashed {
+      border-top: 2px dashed var(--forecast-line);
+      height: 0;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 290px;
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 10px;
+      padding: 10px 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 10px 14px;
+      border-radius: 9px;
+      font-size: 12px;
+      color: #fff;
+      pointer-events: none;
+      display: none;
+      z-index: 100;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      min-width: 185px;
+    }
+
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .empty-state {
+      display: none;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* 弹出输入框 (Modal) */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal {
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 460px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .form-group input, .form-group select {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--inbound);
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .btn-secondary {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      color: #fff;
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    .btn-primary {
+      background: var(--inbound);
+      border: 1px solid var(--inbound);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+
+
+    /* 全局数据同步进度遮罩层 (Loading Overlay) */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(11, 17, 32, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+      transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .loading-card {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 18px;
+      padding: 28px 32px;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(99, 102, 241, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: #6366f1;
+      border-right-color: #38bdf8;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .loading-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .loading-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .loading-percent {
+      font-size: 15px;
+      font-weight: 700;
+      color: #38bdf8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .loading-bar-bg {
+      width: 100%;
+      height: 9px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .loading-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1 0%, #38bdf8 50%, #10b981 100%);
+      border-radius: 8px;
+      transition: width 0.25s ease-out;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loading-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+
+    .loading-status-text {
+      font-size: 13px;
+      color: #f1f5f9;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .loading-sub-text {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 顶部总览与交互式筛选器 -->
+    <header class="header-bar">
+      <div class="title-group">
+        <div class="title-icon">📊</div>
+        <div>
+          <h1>节点网络流量预测与限额预警 (NetForecast)</h1>
+          <div class="subtitle">全节点 30 天每日增量柱状图 / 计费规则自适应累计 / 账单日耗尽推算（直连核心数据库）</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <!-- 动态交互式 Filter 按钮栏 -->
+        <div class="filter-group" id="filterBar" role="tablist"></div>
+        <button class="btn-refresh" id="btnRefresh" title="从核心数据库刷新">🔄 刷新</button>
+      </div>
+    </header>
+
+    <!-- 所有节点图表列表容器 -->
+    <main class="nodes-container" id="nodesContainer"></main>
+
+    <!-- 筛选为空时的占位 -->
+    <div class="empty-state" id="emptyState">
+      🔍 没有找到符合当前筛选条件的节点
+    </div>
+  </div>
+
+  <!-- 全局数据同步进度遮罩层 (Loading Overlay) -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="loading-spinner"></div>
+        <div style="flex:1; min-width:0;">
+          <div class="loading-title-row">
+            <span class="loading-title">正在同步网络流量数据</span>
+            <span class="loading-percent" id="loadingPercent">0%</span>
+          </div>
+          <div class="loading-bar-bg">
+            <div class="loading-bar-fill" id="loadingBarFill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
+        <div class="loading-status-text" id="loadingStatusText">正在连接 Komari 核心服务并获取节点列表...</div>
+        <div class="loading-sub-text" id="loadingSubText">直连核心数据库与实时上报，绝不伪造种子数据</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 单节点限额配置弹出模态框 (直接写入 Komari 核心数据库) -->
+  <div class="modal-overlay" id="nodeConfigModal">
+    <div class="modal">
+      <div class="modal-title">⚙️ 配置节点流量限额与统计规则</div>
+      <div class="form-group">
+        <label>目标节点</label>
+        <input type="text" id="modalNodeName" readonly style="opacity:0.75;" />
+      </div>
+      <div class="form-group">
+        <label>流量限额类型 (traffic_limit_type)</label>
+        <select id="modalTrafficMode">
+          <option value="sum">双向求和 (sum: Inbound + Outbound)</option>
+          <option value="max">双向取大 (max: MAX(In, Out))</option>
+          <option value="min">双向取小 (min: MIN(In, Out))</option>
+          <option value="upload">仅计出站 (upload: 仅 Outbound)</option>
+          <option value="download">仅计入站 (download: 仅 Inbound)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>每月流量限额 (GB，填 0 表示不设置限额)</label>
+        <input type="number" id="modalQuotaGB" min="0" step="10" placeholder="例如 1000，填 0 表示不限额" />
+      </div>
+      <div class="form-group">
+        <label>账单重置日 (同步自节点到期时间 expired_at)</label>
+        <input type="text" id="modalResetDayInfo" readonly style="opacity:0.85; background:rgba(15,23,42,0.6);" />
+        <div style="font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.4;">
+          💡 流量重置周期由节点到期日决定；如需调整，请前往 Komari 节点管理设置该节点的到期时间。
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeNodeModal()">取消</button>
+        <button class="btn-primary" id="btnSaveNodeModal" onclick="saveNodeModal()">保存并写入数据库</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GB = 1024 * 1024 * 1024;
+
+    const THRESHOLD_MODES = {
+      sum: {
+        code: "sum",
+        name: "双向求和 (SUM)",
+        desc: "计费流量 = 入站 + 出站",
+        badge: "双向求和 (In + Out)",
+        lineLabel: "当月计费累计 (双向求和)"
+      },
+      max: {
+        code: "max",
+        name: "双向取大 (MAX)",
+        desc: "计费流量 = MAX(入站, 出站)",
+        badge: "双向取大 MAX(In, Out)",
+        lineLabel: "当月计费累计 (取高者 MAX)"
+      },
+      min: {
+        code: "min",
+        name: "双向取小 (MIN)",
+        desc: "计费流量 = MIN(入站, 出站)",
+        badge: "双向取小 MIN(In, Out)",
+        lineLabel: "当月计费累计 (取低者 MIN)"
+      },
+      upload: {
+        code: "upload",
+        name: "仅计出站 (UPLOAD)",
+        desc: "计费流量 = 仅出站 (入站不计额度)",
+        badge: "仅计出网 (Upload Only)",
+        lineLabel: "当月计费累计 (仅出站)"
+      },
+      up: {
+        code: "upload",
+        name: "仅计出站 (UPLOAD)",
+        desc: "计费流量 = 仅出站 (入站不计额度)",
+        badge: "仅计出网 (Upload Only)",
+        lineLabel: "当月计费累计 (仅出站)"
+      },
+      download: {
+        code: "download",
+        name: "仅计入站 (DOWNLOAD)",
+        desc: "计费流量 = 仅入站 (出站不计额度)",
+        badge: "仅计入网 (Download Only)",
+        lineLabel: "当月计费累计 (仅入站)"
+      },
+      down: {
+        code: "download",
+        name: "仅计入站 (DOWNLOAD)",
+        desc: "计费流量 = 仅入站 (出站不计额度)",
+        badge: "仅计入网 (Download Only)",
+        lineLabel: "当月计费累计 (仅入站)"
+      }
+    };
+
+    function formatBytes(bytes, decimals = 2) {
+      if (!bytes || bytes === 0) return "0 B";
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+      const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
+      const idx = Math.min(i, sizes.length - 1);
+      return parseFloat((bytes / Math.pow(k, idx)).toFixed(dm)) + " " + sizes[idx];
+    }
+
+    const state = {
+      rawNodes: [],
+      currentFilter: "ALL",
+      editingNodeId: null
+    };
+
+    /**
+     * 将从 Komari 核心接口 /api/records/load 返回的真实网络打点记录按日汇总为进出站流量增量
+     * 并结合实时计数器（liveTotalUp/liveTotalDown）精准计算今日截至当前时间点的已发生流量，确保当日柱状图不为空白
+     */
+    function aggregateDailyFromRecords(records, liveTotalUp = null, liveTotalDown = null, now = new Date()) {
+      const todayStr = now.toISOString().split("T")[0];
+      const dayGroups = {};
+
+      (records || []).forEach((r) => {
+        if (!r.time) return;
+        const dayStr = r.time.slice(0, 10);
+        if (!dayGroups[dayStr]) dayGroups[dayStr] = [];
+        dayGroups[dayStr].push(r);
+      });
+
+      const result = [];
+
+      // 1. 处理今天之前（历史各整天）的数据
+      const pastDayKeys = Object.keys(dayGroups).filter(d => d < todayStr);
+      for (const dayStr of pastDayKeys) {
+        const list = dayGroups[dayStr];
+        list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+        let dayIn = 0;
+        let dayOut = 0;
+
+        const first = list[0];
+        const last = list[list.length - 1];
+
+        // 优先使用实际累计计数器的跨度差值（最精确）
+        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
+          dayOut = last.net_total_up - first.net_total_up;
+        } else {
+          let sumOutRate = 0;
+          list.forEach(item => { sumOutRate += (item.net_out || 0); });
+          dayOut = Math.round(sumOutRate * (86400 / list.length));
+        }
+
+        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
+          dayIn = last.net_total_down - first.net_total_down;
+        } else {
+          let sumInRate = 0;
+          list.forEach(item => { sumInRate += (item.net_in || 0); });
+          dayIn = Math.round(sumInRate * (86400 / list.length));
+        }
+
+        result.push({
+          date: dayStr,
+          timestamp: new Date(dayStr + "T00:00:00Z").getTime(),
+          in_bytes: Math.max(0, dayIn),
+          out_bytes: Math.max(0, dayOut),
+          total_bytes: Math.max(0, dayIn + dayOut),
+          is_today: false,
+        });
+      }
+
+      // 2. 精准计算「今日截至当前时间点」的已发生流量
+      // 必须严格限定基准打点必须是「今天之内」或「临近昨晚 20:00 之后」的有效打点，
+      // 绝对不能向前跨越数天或数周，坚决杜绝将历史未采样的累计流量错误叠加到今日！
+      const nowMs = now.getTime();
+      const maxBaselineAgeMs = 28 * 3600 * 1000; // 最多仅回溯 28 小时以内
+
+      let baselineUp = null;
+      let baselineDown = null;
+
+      const todayList = dayGroups[todayStr] || [];
+      if (todayList.length > 0) {
+        todayList.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      }
+
+      // 仅从最近 28 小时内寻找今日起始基准
+      const recordsRecentBefore = (records || []).filter(r => {
+        if (!r.time) return false;
+        const rTimeMs = new Date(r.time).getTime();
+        return r.time.slice(0, 10) < todayStr && (nowMs - rTimeMs) <= maxBaselineAgeMs;
+      });
+
+      if (recordsRecentBefore.length > 0) {
+        recordsRecentBefore.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        const lastBefore = recordsRecentBefore[recordsRecentBefore.length - 1];
+        if (typeof lastBefore.net_total_up === "number" && lastBefore.net_total_up > 0) baselineUp = lastBefore.net_total_up;
+        if (typeof lastBefore.net_total_down === "number" && lastBefore.net_total_down > 0) baselineDown = lastBefore.net_total_down;
+      }
+
+      // 若昨晚无临近打点，则使用今天第一条打点作为基准（保证 100% 只统计今天发生的增量）
+      if (todayList.length > 0) {
+        if (baselineUp === null && typeof todayList[0].net_total_up === "number" && todayList[0].net_total_up > 0) {
+          baselineUp = todayList[0].net_total_up;
+        }
+        if (baselineDown === null && typeof todayList[0].net_total_down === "number" && todayList[0].net_total_down > 0) {
+          baselineDown = todayList[0].net_total_down;
+        }
+      }
+
+      let todayIn = 0;
+      let todayOut = 0;
+
+      const currentUp = typeof liveTotalUp === "number" && liveTotalUp > 0 ? liveTotalUp : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_up : null);
+      const currentDown = typeof liveTotalDown === "number" && liveTotalDown > 0 ? liveTotalDown : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_down : null);
+
+      if (currentUp !== null && baselineUp !== null && currentUp >= baselineUp) {
+        todayOut = currentUp - baselineUp;
+      } else if (todayList.length > 1) {
+        const first = todayList[0];
+        const last = todayList[todayList.length - 1];
+        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
+          todayOut = last.net_total_up - first.net_total_up;
+        }
+      }
+
+      if (currentDown !== null && baselineDown !== null && currentDown >= baselineDown) {
+        todayIn = currentDown - baselineDown;
+      } else if (todayList.length > 1) {
+        const first = todayList[0];
+        const last = todayList[todayList.length - 1];
+        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
+          todayIn = last.net_total_down - first.net_total_down;
+        }
+      }
+
+      // 如果未通过计数器计算出今日流量，但今日有时序速率打点（net_out/net_in），通过速率时间积分推算今日消耗
+      if (todayOut === 0 && todayList.length > 0) {
+        let sumOutRate = 0;
+        todayList.forEach(item => { sumOutRate += (item.net_out || 0); });
+        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
+        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
+        todayOut = Math.round(sumOutRate * (secondsToday / todayList.length));
+      }
+      if (todayIn === 0 && todayList.length > 0) {
+        let sumInRate = 0;
+        todayList.forEach(item => { sumInRate += (item.net_in || 0); });
+        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
+        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
+        todayIn = Math.round(sumInRate * (secondsToday / todayList.length));
+      }
+
+      result.push({
+        date: todayStr,
+        timestamp: new Date(todayStr + "T00:00:00Z").getTime(),
+        in_bytes: Math.max(0, todayIn),
+        out_bytes: Math.max(0, todayOut),
+        total_bytes: Math.max(0, todayIn + todayOut),
+        is_today: true,
+      });
+
+      result.sort((a, b) => a.timestamp - b.timestamp);
+      return result;
+    }
+
+    function showLoading(initialStatus = "正在初始化 NetForecast...") {
+      const overlay = document.getElementById("loadingOverlay");
+      if (!overlay) return;
+      overlay.style.display = "flex";
+      overlay.style.opacity = "1";
+      updateLoading(5, initialStatus, "直连核心数据库与实时上报，绝不伪造种子数据");
+    }
+
+    function updateLoading(percent, statusText, subText) {
+      const bar = document.getElementById("loadingBarFill");
+      const pct = document.getElementById("loadingPercent");
+      const st = document.getElementById("loadingStatusText");
+      const sub = document.getElementById("loadingSubText");
+      const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+      if (bar) bar.style.width = safePercent + "%";
+      if (pct) pct.textContent = safePercent + "%";
+      if (st && statusText) st.textContent = statusText;
+      if (sub && subText) sub.textContent = subText;
+    }
+
+    function hideLoading() {
+      const overlay = document.getElementById("loadingOverlay");
+      if (!overlay) return;
+      overlay.style.opacity = "0";
+      setTimeout(() => {
+        overlay.style.display = "none";
+      }, 300);
+    }
+
+    function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+      if (typeof AbortController === "undefined") {
+        return fetch(url, options);
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+        .finally(() => clearTimeout(timeoutId));
+    }
+
+    /**
+     * 核心加载逻辑：从 Komari 核心接口拉取真实节点配置与真实历史时序打点
+     */
+    async function loadAllNodes() {
+      showLoading("正在连接 Komari 核心服务并获取节点列表...");
+      try {
+        // 1. 优先拉取核心管理客户端列表
+        updateLoading(12, "正在连接 Komari 核心服务并获取节点列表...", "请求 /api/admin/client/list");
+        let coreClients = [];
+        try {
+          const clientRes = await fetchWithTimeout("/api/admin/client/list", { cache: "no-store" }, 4000);
+          if (clientRes.ok) {
+            coreClients = await clientRes.json();
+          }
+        } catch (e) {
+          try {
+            const nodeRes = await fetchWithTimeout("/api/nodes", { cache: "no-store" }, 4000);
+            if (nodeRes.ok) {
+              const nd = await nodeRes.json();
+              coreClients = nd.data || nd;
+            }
+          } catch (e2) {}
+        }
+
+        if (!Array.isArray(coreClients) || coreClients.length === 0) {
+          updateLoading(100, "未发现有效节点或核心服务未响应", "请检查 Komari 核心服务与节点状态");
+          state.rawNodes = [];
+          renderFilterBar();
+          renderNodeCards();
+          applyFilter();
+          setTimeout(hideLoading, 500);
+          return;
+        }
+
+        const totalNodes = coreClients.length;
+        let completedNodes = 0;
+        updateLoading(20, `已发现 ${totalNodes} 个节点，开始同步实时状态与历史打点 (0/${totalNodes})...`, "并发请求实时内存计数器与 30 天网络记录");
+
+        // 2. 并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
+        const clientsWithHistory = await Promise.all(coreClients.map(async (client) => {
+          let netTotalUp = Number(client.net_total_up || 0);
+          let netTotalDown = Number(client.net_total_down || 0);
+          let dailyHistory = [];
+          const nodeName = client.name || client.uuid || "未知节点";
+
+          // 优先从 /api/recent/:uuid 提取内存中最新的实时流量累计 (Komari 详情页 46.7G 所在的数据源)
+          try {
+            const recentRes = await fetchWithTimeout(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" }, 3000);
+            if (recentRes.ok) {
+              const recentJson = await recentRes.json();
+              const recList = (recentJson.data && Array.isArray(recentJson.data)) ? recentJson.data : (Array.isArray(recentJson) ? recentJson : []);
+              if (recList.length > 0) {
+                const latest = recList[recList.length - 1];
+                if (latest.network) {
+                  netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
+                  netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+                }
+                if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
+                if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+              }
+            }
+          } catch (e) {}
+
+          // 从 /api/records/load 拉取过去 30 天网络打点并聚合每日增量
+          try {
+            const recRes = await fetchWithTimeout(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" }, 3500);
+            if (recRes.ok) {
+              const recJson = await recRes.json();
+              const recList = (recJson.data && recJson.data.records) || recJson.records || [];
+              if (Array.isArray(recList) && recList.length > 0) {
+                dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown);
+                if (netTotalUp === 0 && netTotalDown === 0) {
+                  const lastRec = recList[recList.length - 1];
+                  if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
+                  if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
+                }
+              }
+            }
+          } catch (err) {}
+
+          if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
+            dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown);
+          }
+
+          completedNodes++;
+          const nodePct = 20 + Math.round((completedNodes / totalNodes) * 60);
+          updateLoading(
+            nodePct,
+            `正在同步节点数据 (${completedNodes}/${totalNodes}): ${nodeName}`,
+            `已聚合 ${dailyHistory.length} 天真实时序记录`
+          );
+
+          return Object.assign({}, client, {
+            net_total_up: netTotalUp,
+            net_total_down: netTotalDown,
+            daily_history: dailyHistory
+          });
+        }));
+
+        // 3. 将真实历史与真实累计一并提交给插件后端进行科学推算
+        updateLoading(85, "正在进行科学预测与限额预警推算...", "根据计费规则自适应累计并推算重置日消耗");
+        const res = await fetchWithTimeout("/api/plugin/net-forecast/overview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clients: clientsWithHistory })
+        }, 6000);
+
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.nodes)) {
+          updateLoading(95, "正在渲染可视化走势图与控制面板...", `共加载 ${json.nodes.length} 个节点图表`);
+          state.rawNodes = json.nodes;
+          renderFilterBar();
+          renderNodeCards();
+          applyFilter();
+          updateLoading(100, "同步就绪！", "全节点流量预测与预警加载完成");
+          setTimeout(hideLoading, 300);
+        } else {
+          updateLoading(100, "推算服务异常", json.error || "未能获取有效推算结果");
+          setTimeout(hideLoading, 600);
+        }
+      } catch (err) {
+        console.error("Failed to load nodes from core:", err);
+        updateLoading(100, "加载异常", err.message || String(err));
+        setTimeout(hideLoading, 600);
+      }
+    }
+
+    // 渲染顶部可点击的筛选器药丸按钮
+    function renderFilterBar() {
+      const filterBar = document.getElementById("filterBar");
+      filterBar.innerHTML = "";
+
+      let criticalCount = 0;
+      let warningCount = 0;
+      let safeCount = 0;
+      let noQuotaCount = 0;
+
+      state.rawNodes.forEach((node) => {
+        if (node.status === "CRITICAL") criticalCount++;
+        else if (node.status === "WARNING") warningCount++;
+        else if (node.status === "SAFE") safeCount++;
+        else noQuotaCount++;
+      });
+
+      const filters = [
+        { key: "ALL", label: `全部节点 (${state.rawNodes.length})`, className: "filter-all" },
+        { key: "CRITICAL", label: `🚨 ${criticalCount} 个超限告警`, className: "filter-critical", count: criticalCount },
+        { key: "WARNING", label: `⚡ ${warningCount} 个接近限额`, className: "filter-warning", count: warningCount },
+        { key: "SAFE", label: `✅ ${safeCount} 个预算安全`, className: "filter-safe", count: safeCount },
+        { key: "NO_QUOTA", label: `⚪ ${noQuotaCount} 个未配额 (仅预测)`, className: "filter-no-quota", count: noQuotaCount },
+      ];
+
+      filters.forEach((f) => {
+        const btn = document.createElement("button");
+        btn.className = `filter-btn ${f.className} ${state.currentFilter === f.key ? "active" : ""}`;
+        btn.innerHTML = f.label;
+        btn.onclick = () => {
+          state.currentFilter = f.key;
+          renderFilterBar();
+          applyFilter();
+        };
+        filterBar.appendChild(btn);
+      });
+    }
+
+    // 渲染所有节点卡片 DOM
+    function renderNodeCards() {
+      const container = document.getElementById("nodesContainer");
+      container.innerHTML = "";
+
+      state.rawNodes.forEach((node) => {
+        const modeKey = (node.traffic_limit_type || "sum").toLowerCase();
+        const modeDef = THRESHOLD_MODES[modeKey] || THRESHOLD_MODES.sum;
+
+        const card = document.createElement("section");
+        card.className = "node-card";
+        card.id = `card-${node.node_id}`;
+        card.setAttribute("data-status", node.status);
+
+        // 状态徽标与告警横幅
+        let badgeHtml = "";
+        let alertBannerHtml = "";
+
+        if (!node.has_quota) {
+          badgeHtml = `<span class="summary-badge badge-neutral">⚪ 未配置限额 (仅预测)</span>`;
+        } else if (node.status === "CRITICAL") {
+          badgeHtml = `<span class="summary-badge badge-critical">🚨 超限严重告警</span>`;
+          alertBannerHtml = `
+            <div class="node-alert-banner critical">
+              <span style="font-size:18px;">🚨</span>
+              <div>${node.warning_message}</div>
+            </div>
+          `;
+        } else if (node.status === "WARNING") {
+          badgeHtml = `<span class="summary-badge badge-warning">⚡ 接近限额预警</span>`;
+          alertBannerHtml = `
+            <div class="node-alert-banner warning">
+              <span style="font-size:18px;">⚡</span>
+              <div>${node.warning_message}</div>
+            </div>
+          `;
+        } else {
+          badgeHtml = `<span class="summary-badge badge-safe">✅ 预算安全</span>`;
+        }
+
+        // 进度条与使用率
+        let progressWidth = "0%";
+        let progressClass = "progress-bar-fill";
+        let usageText = "无配额限制";
+
+        if (node.has_quota && node.traffic_limit_bytes > 0) {
+          const pct = Math.min(100, Math.round(node.usage_ratio * 100));
+          progressWidth = pct + "%";
+          usageText = `预计周期结束达到 ${pct}% 额度`;
+          if (node.status === "CRITICAL") progressClass += " critical";
+          else if (node.status === "WARNING") progressClass += " warning";
+        }
+
+        card.innerHTML = `
+          <div class="node-header">
+            <div class="node-title-wrap">
+              <span class="node-name">${node.node_name || node.node_id}</span>
+              <span class="mode-pill" title="${modeDef.desc}">⚖️ 计费: ${modeDef.badge}</span>
+              <span class="node-quota-meta">
+                <span>📦 限额: <strong>${node.traffic_limit_formatted}</strong></span>
+                <span>·</span>
+                <span>🗓️ ${node.has_expired_at ? `每月 <strong>${node.traffic_reset_day}</strong> 号重置` : `<strong>自然月</strong>重置 (1号)`}</span>
+              </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              ${badgeHtml}
+              <button class="node-edit-btn" onclick="openNodeModal('${node.node_id}')">⚙️ 设置限额</button>
+            </div>
+          </div>
+
+          ${alertBannerHtml}
+
+          <div class="node-kpi-grid">
+            <div class="node-kpi-item">
+              <div class="kpi-title">
+                <span>当月已用计费流量</span>
+                <span style="color:var(--cumulative);">● 累计</span>
+              </div>
+              <div class="kpi-number">${node.cumulative.billable_formatted}</div>
+              <div class="kpi-detail">物理入站: ${node.cumulative.in_formatted} | 物理出站: ${node.cumulative.out_formatted}</div>
+            </div>
+
+            <div class="node-kpi-item">
+              <div class="kpi-title">
+                <span>7日均速消耗 (计费)</span>
+                <span>📈 均速</span>
+              </div>
+              <div class="kpi-number">${node.daily_avg.billable_formatted} / 天</div>
+              <div class="kpi-detail">日入: ${formatBytes(node.daily_avg.in_bytes)}/天 | 日出: ${formatBytes(node.daily_avg.out_bytes)}/天</div>
+            </div>
+
+            <div class="node-kpi-item">
+              <div class="kpi-title">
+                <span>计费周期倒计时</span>
+                <span>${node.cycle.cycleStart} ~ ${node.cycle.cycleEnd}</span>
+              </div>
+              <div class="kpi-number">${node.cycle.daysRemaining} 天</div>
+              <div class="kpi-detail">本月已过 ${node.cycle.daysElapsed} 天 / 共计 ${node.cycle.daysTotal} 天</div>
+            </div>
+
+            <div class="node-kpi-item">
+              <div class="kpi-title">
+                <span>预测周期总计费消耗</span>
+                <span>${node.has_quota ? '配额: ' + node.traffic_limit_formatted : '未配额'}</span>
+              </div>
+              <div class="kpi-number">${node.projected.billable_formatted}</div>
+              <div class="progress-bar-bg">
+                <div class="${progressClass}" style="width: ${progressWidth};"></div>
+              </div>
+              <div class="kpi-detail" style="margin-top:2px;">${usageText}</div>
+            </div>
+          </div>
+
+          <div class="chart-box">
+            <div class="chart-sub-header">
+              <span>最近 30 天每日进出站增量与当前计费规则下的累计走势</span>
+              <div class="chart-legend">
+                <div class="legend-item">
+                  <div class="legend-color" style="background: var(--inbound);"></div>
+                  <span>入站 (Inbound)</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-color" style="background: var(--outbound);"></div>
+                  <span>出站 (Outbound)</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-line" style="background: var(--cumulative);"></div>
+                  <span>${modeDef.lineLabel}</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-line dashed"></div>
+                  <span>周期未来推算 (Forecast)</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="canvas-wrapper" id="wrap-${node.node_id}">
+              <canvas id="chart-${node.node_id}"></canvas>
+              <div class="tooltip" id="tip-${node.node_id}"></div>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // 批量绘制所有节点的图表
+      setTimeout(() => {
+        state.rawNodes.forEach((node) => {
+          drawNodeChart(node);
+        });
+      }, 30);
+    }
+
+    // 绘制高分辨率 Retina Canvas 图表
+    function drawNodeChart(node) {
+      const canvas = document.getElementById(`chart-${node.node_id}`);
+      const tooltip = document.getElementById(`tip-${node.node_id}`);
+      const wrap = document.getElementById(`wrap-${node.node_id}`);
+      if (!canvas || !wrap) return;
+
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const rect = wrap.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.scale(dpr, dpr);
+
+      const pad = { top: 25, right: 70, bottom: 35, left: 70 };
+      const chartW = w - pad.left - pad.right;
+      const chartH = h - pad.top - pad.bottom;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const items = node.chart_series || [];
+      const count = items.length;
+      if (count === 0) return;
+
+      const modeKey = (node.traffic_limit_type || "sum").toLowerCase();
+
+      // 双 Y 轴极值计算 (只从真实打点历史计算柱状图高度上限，未来预测不计入)
+      let maxBar = 0;
+      let maxLine = 0;
+
+      items.forEach((item) => {
+        if (!item.is_forecast && item.has_data) {
+          const barVal = (item.in_bytes || 0) + (item.out_bytes || 0);
+          if (barVal > maxBar) maxBar = barVal;
+        }
+        if (item.cumulative_billable !== null && typeof item.cumulative_billable === "number") {
+          if (item.cumulative_billable > maxLine) maxLine = item.cumulative_billable;
+        }
+      });
+
+      if (node.projected && node.projected.billable_bytes > maxLine) {
+        maxLine = node.projected.billable_bytes;
+      }
+
+      maxBar = maxBar > 0 ? maxBar * 1.25 : 10 * GB;
+      maxLine = maxLine > 0 ? maxLine * 1.15 : maxBar;
+
+      // 绘制水平背景刻度线
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.lineWidth = 1;
+      const steps = 4;
+
+      for (let i = 0; i <= steps; i++) {
+        const y = pad.top + (chartH / steps) * i;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(pad.left + chartW, y);
+        ctx.stroke();
+
+        // 左 Y 轴刻度 (每日增量柱状图)
+        const bVal = maxBar * (1 - i / steps);
+        ctx.fillStyle = "rgba(148, 163, 184, 0.65)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(formatBytes(bVal, 1), pad.left - 8, y + 3);
+
+        // 右 Y 轴刻度 (累计折线与未来推算)
+        const lVal = maxLine * (1 - i / steps);
+        ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
+        ctx.textAlign = "left";
+        ctx.fillText(formatBytes(lVal, 1), pad.left + chartW + 8, y + 3);
+      }
+
+      const stepX = chartW / Math.max(1, count - 1);
+      const barW = Math.max(3, Math.min(18, stepX * 0.52));
+      const screenPts = [];
+
+      // 1. 绘制每日物理进出站柱状图 (未来预测天数严格禁止画柱体！)
+      items.forEach((item, idx) => {
+        const cx = pad.left + stepX * idx;
+        const inBytes = item.in_bytes || 0;
+        const outBytes = item.out_bytes || 0;
+
+        // 仅在真实打点历史及今日绘制柱状图，未来天数绝对不画实心柱
+        if (!item.is_forecast && item.has_data && (inBytes + outBytes > 0)) {
+          const inH = (inBytes / maxBar) * chartH;
+          const outH = (outBytes / maxBar) * chartH;
+          const baseY = pad.top + chartH;
+
+          let inAlpha = 0.90;
+          let outAlpha = 0.90;
+
+          if (modeKey === "upload" || modeKey === "up") {
+            inAlpha = 0.35;
+            outAlpha = 0.95;
+          } else if (modeKey === "download" || modeKey === "down") {
+            inAlpha = 0.95;
+            outAlpha = 0.35;
+          }
+
+          // 入站柱 (底层)
+          const inY = baseY - inH;
+          ctx.globalAlpha = inAlpha;
+          ctx.fillStyle = "#6366f1";
+          ctx.fillRect(cx - barW / 2, inY, barW, inH);
+
+          // 出站柱 (堆叠在入站之上)
+          const outY = inY - outH;
+          ctx.globalAlpha = outAlpha;
+          ctx.fillStyle = "#10b981";
+          ctx.fillRect(cx - barW / 2, outY, barW, outH);
+
+          ctx.globalAlpha = 1.0;
+        }
+
+        screenPts.push({ x: cx, item: item, index: idx });
+      });
+
+      // 2. 绘制累计折线 (拒绝 0 贴地线，支持从第一个有效数据点起笔)
+      const actualPts = [];
+      const forecastPts = [];
+      let todayPt = null;
+
+      items.forEach((item, idx) => {
+        const cx = pad.left + stepX * idx;
+        if (item.cumulative_billable !== null && typeof item.cumulative_billable === "number") {
+          const cy = pad.top + chartH - (item.cumulative_billable / maxLine) * chartH;
+          const pt = { x: cx, y: cy, item, index: idx };
+
+          if (item.is_today) {
+            todayPt = pt;
+            actualPts.push(pt);
+            forecastPts.push(pt); // 预测虚线从今日起点出发
+          } else if (item.is_forecast) {
+            forecastPts.push(pt);
+          } else {
+            actualPts.push(pt);
+          }
+        }
+      });
+
+      // 实线部分 (历史真实累计)
+      if (actualPts.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 2.4;
+        ctx.setLineDash([]);
+        actualPts.forEach((pt, i) => {
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+
+        actualPts.forEach((pt) => {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#f59e0b";
+          ctx.fill();
+        });
+      } else if (actualPts.length === 1) {
+        // 冷启动或安装首日 (仅今日 1 个点)：醒目绘制起点锚点，绝不在前面绘制 0 值贴地线
+        const pt = actualPts[0];
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+
+      // 虚线预测部分 (平滑延伸至账单周期结束日)
+      if (forecastPts.length > 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = "#fb923c";
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([4, 4]);
+        forecastPts.forEach((pt, i) => {
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 终点标注
+        const lastPt = forecastPts[forecastPts.length - 1];
+        ctx.beginPath();
+        ctx.arc(lastPt.x, lastPt.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#fb923c";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(251, 146, 60, 0.4)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+      // 3. 绘制 X 轴刻度标签 (两端对齐重置日，彻底防止文字挤压碰撞)
+      const baseY = pad.top + chartH;
+      const drawnXPositions = [];
+
+      const todayIndex = items.findIndex((it) => it.is_today);
+      const anchorIndices = [0];
+      if (todayIndex >= 0 && todayIndex < count) anchorIndices.push(todayIndex);
+      anchorIndices.push(count - 1);
+
+      anchorIndices.forEach((idx) => {
+        const item = items[idx];
+        const cx = pad.left + stepX * idx;
+        let label = "";
+
+        if (idx === 0) {
+          const dtStr = (node.cycle && node.cycle.cycleStart) || (item && item.date) || "";
+          label = (dtStr.length > 5 ? dtStr.slice(5) : dtStr) + " (重置)";
+          ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(label, cx - 4, baseY + 16);
+          drawnXPositions.push({ x: cx + 18 });
+        } else if (idx === count - 1) {
+          const dtStr = (node.cycle && node.cycle.cycleEnd) || (item && item.date) || "";
+          label = (dtStr.length > 5 ? dtStr.slice(5) : dtStr) + " (重置)";
+          ctx.fillStyle = "rgba(251, 146, 60, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(label, cx + 4, baseY + 16);
+          drawnXPositions.push({ x: cx - 18 });
+        } else if (item && item.is_today) {
+          label = "今日";
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, cx, baseY + 16);
+          drawnXPositions.push({ x: cx });
+        }
+      });
+
+      // 中间常规刻度辅助填充 (步长约每 5-6 天一次，严格检测像素间距防止碰撞)
+      const labelInterval = Math.max(4, Math.round(count / 6));
+      for (let idx = labelInterval; idx < count - 1; idx += labelInterval) {
+        const cx = pad.left + stepX * idx;
+        const item = items[idx];
+        if (!item || item.is_today) continue;
+
+        // 检查与已有已绘制锚点的横向像素距离，< 42px 则跳过
+        const hasCollision = drawnXPositions.some((pos) => Math.abs(cx - pos.x) < 42);
+        if (hasCollision) continue;
+
+        ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        let label = item.date || "";
+        if (label.length > 5) label = label.slice(5);
+        ctx.fillText(label, cx, baseY + 16);
+        drawnXPositions.push({ x: cx });
+      }
+
+      // 4. Tooltip 交互监听
+      canvas.onmousemove = (e) => {
+        const b = canvas.getBoundingClientRect();
+        const mx = e.clientX - b.left;
+        let closest = null;
+        let minDist = Infinity;
+
+        screenPts.forEach((pt) => {
+          const dist = Math.abs(pt.x - mx);
+          if (dist < minDist && dist < 22) {
+            minDist = dist;
+            closest = pt;
+          }
+        });
+
+        if (closest) {
+          const it = closest.item;
+          tooltip.style.display = "block";
+          tooltip.style.left = Math.min(w - 210, Math.max(10, closest.x - 90)) + "px";
+          tooltip.style.top = Math.max(8, pad.top + 8) + "px";
+
+          let dateTag = it.date;
+          if (it.is_today) {
+            dateTag += ' <span style="color:#38bdf8; font-weight:700; font-size:11px;">(今日截至当前)</span>';
+          } else if (it.is_forecast) {
+            dateTag += ' <span style="color:#fb923c; font-size:11px;">(未来预测)</span>';
+          } else if (!it.has_data) {
+            dateTag += ' <span style="color:#94a3b8; font-size:11px;">(无历史采样)</span>';
+          }
+
+          let contentHtml = "";
+          if (it.is_forecast) {
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--text-muted);">● 预计日均增速:</span> <span>${formatBytes(node.daily_avg.billable_bytes)}/天</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--forecast-line);">● 预计周期累计:</span>
+                <strong style="color:var(--forecast-line);">${formatBytes(it.cumulative_billable)}</strong>
+              </div>
+            `;
+          } else if (!it.has_data && !it.is_today) {
+            contentHtml = `
+              <div style="font-size:11px; color:#94a3b8; margin: 4px 0; line-height: 1.4;">未采集到历史时序打点<br/>(冷启动新安装或节点此前未开启监控)</div>
+            `;
+          } else {
+            const inLabel = it.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
+            const outLabel = it.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
+            const totLabel = it.is_today ? "● 今日合计 (当前):" : "● 物理合计:";
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--inbound);">${inLabel}</span> <span>${formatBytes(it.in_bytes)}</span></div>
+              <div class="tooltip-row"><span style="color:var(--outbound);">${outLabel}</span> <span>${formatBytes(it.out_bytes)}</span></div>
+              <div class="tooltip-row"><span>${totLabel}</span> <span>${formatBytes(it.total_bytes)}</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--cumulative);">● 计费累计:</span>
+                <strong style="color:var(--cumulative);">${formatBytes(it.cumulative_billable)}</strong>
+              </div>
+            `;
+          }
+
+          tooltip.innerHTML = `
+            <div class="tooltip-title">${dateTag}</div>
+            ${contentHtml}
+          `;
+        } else {
+          tooltip.style.display = "none";
+        }
+      };
+
+      canvas.onmouseleave = () => {
+        tooltip.style.display = "none";
+      };
+    }
+
+    // 过滤卡片展示
+    function applyFilter() {
+      const cards = document.querySelectorAll(".node-card");
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const status = card.getAttribute("data-status");
+        if (state.currentFilter === "ALL" || status === state.currentFilter) {
+          card.classList.remove("hidden");
+          visibleCount++;
+        } else {
+          card.classList.add("hidden");
+        }
+      });
+
+      const empty = document.getElementById("emptyState");
+      if (empty) {
+        if (visibleCount === 0) {
+          empty.style.display = "block";
+        } else {
+          empty.style.display = "none";
+        }
+      }
+    }
+
+    function openNodeModal(nodeId) {
+      state.editingNodeId = nodeId;
+      const node = state.rawNodes.find((n) => n.node_id === nodeId);
+      if (!node) return;
+
+      document.getElementById("modalNodeName").value = node.node_name || node.node_id;
+      document.getElementById("modalTrafficMode").value = (node.traffic_limit_type || "sum").toLowerCase();
+      document.getElementById("modalQuotaGB").value = node.has_quota ? Math.round(node.traffic_limit_bytes / GB) : 0;
+      document.getElementById("modalResetDayInfo").value = node.reset_day_desc || (node.has_expired_at ? `每月 ${node.traffic_reset_day} 号 (到期日: ${node.expired_at_str})` : "自然月 1 号 (未设置到期日)");
+
+      document.getElementById("nodeConfigModal").style.display = "flex";
+    }
+
+    function closeNodeModal() {
+      document.getElementById("nodeConfigModal").style.display = "none";
+      state.editingNodeId = null;
+    }
+
+    /**
+     * 保存限额设置：直接写入 Komari 核心数据库，插件不作任何本地设置缓存
+     */
+    async function saveNodeModal() {
+      if (!state.editingNodeId) return;
+
+      const saveBtn = document.getElementById("btnSaveNodeModal");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "正在写入核心数据库...";
+
+      const quotaGB = parseFloat(document.getElementById("modalQuotaGB").value) || 0;
+      const quotaBytes = Math.round(quotaGB * GB);
+      const mode = document.getElementById("modalTrafficMode").value;
+
+      try {
+        // 1. 直写 Komari 核心管理接口 (POST /api/admin/client/:uuid/edit)
+        let coreSuccess = false;
+        try {
+          const coreEditRes = await fetch(`/api/admin/client/${encodeURIComponent(state.editingNodeId)}/edit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              traffic_limit: quotaBytes,
+              traffic_limit_type: mode
+            })
+          });
+          if (coreEditRes.ok) {
+            coreSuccess = true;
+          }
+        } catch (coreErr) {
+          console.warn("Direct core API call notice:", coreErr);
+        }
+
+        // 2. 同时通知插件后端 (触发服务端 RPC 调用，双重保障直通核心数据库)
+        try {
+          await fetch("/api/plugin/net-forecast/update-quota", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              uuid: state.editingNodeId,
+              traffic_limit: quotaBytes,
+              traffic_limit_type: mode
+            })
+          });
+        } catch (pluginErr) {
+          console.warn("Plugin proxy notice:", pluginErr);
+        }
+
+        closeNodeModal();
+
+        // 3. 立即从核心重新拉取最新数据并重新推算展示，不依赖任何本地缓存
+        await loadAllNodes();
+      } catch (e) {
+        alert("写入失败：" + (e.message || String(e)));
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "保存并写入数据库";
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadAllNodes();
+
+      document.getElementById("btnRefresh").addEventListener("click", () => {
+        loadAllNodes();
+      });
+
+      window.addEventListener("resize", () => {
+        state.rawNodes.forEach((node) => {
+          drawNodeChart(node);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

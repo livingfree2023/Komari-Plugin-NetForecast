@@ -599,9 +599,41 @@ class TrafficStorage {
 function sendJSON(res, data, statusCode = 200) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.end(JSON.stringify(data));
 }
 
+/**
+ * =========================================================================================
+ * 前端浮出层组件核心实现 (Frontend Floating Widget: WIDGET_HEAD_HTML + WIDGET_BODY_HTML)
+ * =========================================================================================
+ * ⚠️ 【开发者与 AI Agent 避坑守则 - 严禁违背以下原则】：
+ * 
+ * 1. 【模板字符串零反斜杠原则 (Zero-Backslash Hazard)】:
+ *    WIDGET_BODY_HTML 采用 ES6 反引号模板字符串定义。在 Goja/Node 运行时求值时，
+ *    所有单一反斜杠（尤其正则中的斜杠、问号等转义）都会被直接剥离转义符！
+ *    例如 replace 带有斜杠转义会直接变成双斜杠行注释，吞噬后续括号并引发致命 SyntaxError，
+ *    导致整个注入脚本无法加载（按钮消失或事件全灭）。
+ *    👉 守则：WIDGET_BODY_HTML 内部的客户端 JS 必须 100% 使用纯原生字符串方法（如 split、indexOf、slice、
+ *    split("-").join("")），绝对禁止出现反斜杠或包含反斜杠的正则字面量！
+ * 
+ * 2. 【CSS 样式表定位与拖拽冲突 (CSS Specificity vs Drag Inline Styles)】:
+ *    严禁在 CSS 规则 #nf-floating-widget .nf-trigger-sq 中写死 right: 28px !important 或 bottom: 28px !important。
+ *    否则用户拖拽时通过 JS 设置的 left/top 行内样式会被样式表的 right/bottom 强行覆盖锁死，导致按钮无法拖动。
+ *    👉 守则：初始位置完全交由 JS 的 loadSavedPos() 设置行内样式；样式表仅声明 position: fixed !important。
+ * 
+ * 3. 【单节点 Instance 路由匹配鲁棒性 (Robust Instance Matching)】:
+ *    Komari 的路由可能为 /instance/:id、/instances/:id、/node/:id、Hash 路由或 Search 参数。
+ *    节点 ID 可能为标准 UUID、无连字符 UUID、短 UUID 前缀、纯数字或别名。
+ *    👉 守则：使用 findMatchingNode() 实行多层匹配（精确匹配 -> 忽略连字符匹配 -> 前缀匹配），禁止拼接空格或强设长度下限。
+ * 
+ * 4. 【单节点与全节点筛选状态解耦 (Decoupled Filtering)】:
+ *    在 Instance 页面时，默认激活「📌 当前 (1)」过滤，展示当前节点；同时保留全部药丸（全部、预警、正常、免额），
+ *    点击任意药丸均可切换全局过滤，严禁在 instance 路由下强行锁死其他筛选按钮。
+ * 
+ * 5. 【事件捕获与点击机制 (PointerCapture & Drag Separation)】:
+ *    采用经过实测验证的 pointerdown / pointermove / pointerup 拖动模型，位移 > 4px 视为拖拽，未位移则触发 toggle()；
+ *    SVG 图标内部子元素设置 pointer-events: none !important，防止 SVG 节点截获捕获事件。
+ * =========================================================================================
+ */
 const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget, #nf-floating-widget * {
   box-sizing: border-box !important;
@@ -618,8 +650,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   width: 48px !important;
   height: 48px !important;
   position: fixed !important;
-  right: 28px !important;
-  bottom: 28px !important;
   background: rgba(15, 23, 42, 0.92) !important;
   border-radius: 12px !important;
   backdrop-filter: blur(20px) !important;
@@ -636,6 +666,9 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget .nf-trigger-sq:active {
   cursor: grabbing !important;
   transform: scale(0.96) !important;
+}
+#nf-floating-widget .nf-trigger-sq * {
+  pointer-events: none !important;
 }
 /* 无警告状态：绿色外框 */
 #nf-floating-widget .nf-trigger-sq.safe {
@@ -1053,8 +1086,9 @@ const WIDGET_BODY_HTML = `
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#fde68a;">-</span></div>
     </div>
 
-    <!-- 筛选药丸 (单节点页面自动隐藏) -->
+    <!-- 筛选药丸 (单节点页面增加当前节点药丸) -->
     <div class="nf-filter-bar" id="nfFilterBar">
+      <button class="nf-filter-btn" data-filter="CURRENT" id="nfBtnCurrent" style="display:none;">📌 当前 (1)</button>
       <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>
       <button class="nf-filter-btn" data-filter="ALERT" id="nfBtnAlert">🚨 预警 (0)</button>
       <button class="nf-filter-btn" data-filter="SAFE" id="nfBtnSafe">✅ 安全 (0)</button>
@@ -1089,26 +1123,91 @@ const WIDGET_BODY_HTML = `
     widgetRoot.style.display = nfIsAdminPath() ? "none" : "block";
   }
 
-  // 稳健提取当前节点 ID (免正则转义干扰，同时支持 pathname / hash / query)
+  // 稳健提取当前节点 ID (免正则转义干扰，全面支持 pathname / hash / search)
   function getCurrentInstanceUuid() {
     try {
-      var full = (window.location.pathname || "") + " " + (window.location.hash || "");
-      var parts = full.split(/[\/\?#&]+/);
-      for (var i = 0; i < parts.length - 1; i++) {
-        var seg = parts[i].toLowerCase();
-        if (seg === "instance" || seg === "node" || seg === "server" || seg === "client") {
-          var cand = parts[i + 1];
-          if (cand && cand.length >= 8) {
-            return cand;
+      // 1. Pathname (e.g. /instance/:id, /instances/:id, /node/:id, /server/:id)
+      var pathname = (window.location.pathname || "").trim();
+      var pathParts = pathname.split("/").filter(Boolean);
+      for (var i = 0; i < pathParts.length; i++) {
+        var seg = pathParts[i].toLowerCase();
+        if ((seg === "instance" || seg === "instances" || seg === "node" || seg === "nodes" || seg === "server" || seg === "client") && pathParts[i + 1]) {
+          var cand = decodeURIComponent(pathParts[i + 1]).trim();
+          if (cand) return cand;
+        }
+      }
+
+      // 2. Hash (e.g. #/instance/:id)
+      var hash = (window.location.hash || "").trim();
+      if (hash) {
+        var cleanHash = hash.indexOf("#") === 0 ? hash.slice(1) : hash;
+        if (cleanHash.indexOf("/") === 0) cleanHash = cleanHash.slice(1);
+        var hashParts = cleanHash.split("?")[0].split("/").filter(Boolean);
+        for (var j = 0; j < hashParts.length; j++) {
+          var hseg = hashParts[j].toLowerCase();
+          if ((hseg === "instance" || hseg === "instances" || hseg === "node" || hseg === "nodes" || hseg === "server" || hseg === "client") && hashParts[j + 1]) {
+            var hcand = decodeURIComponent(hashParts[j + 1]).trim();
+            if (hcand) return hcand;
           }
         }
       }
-      var q = window.location.search || "";
-      if (q.indexOf("uuid=") !== -1 || q.indexOf("node_id=") !== -1) {
-        var m = q.match(/[?&](?:uuid|node_id)=([a-zA-Z0-9_-]+)/);
-        if (m) return m[1];
+
+      // 3. Search query (?uuid=... or ?node_id=... or ?id=...)
+      var search = window.location.search || "";
+      if (search && (search.indexOf("uuid=") !== -1 || search.indexOf("node_id=") !== -1 || search.indexOf("instance=") !== -1 || search.indexOf("id=") !== -1)) {
+        var searchStr = search.indexOf("?") === 0 ? search.slice(1) : search;
+        var params = searchStr.split("&");
+        for (var p = 0; p < params.length; p++) {
+          var pair = params[p].split("=");
+          var k = (pair[0] || "").toLowerCase();
+          if ((k === "uuid" || k === "node_id" || k === "instance" || k === "node" || k === "id") && pair[1]) {
+            return decodeURIComponent(pair[1]).trim();
+          }
+        }
       }
     } catch (e) {}
+    return null;
+  }
+
+  // 稳健查找目标节点（支持 ID、UUID、连字符兼容与短 UUID 前缀匹配）
+  function findMatchingNode(nodes, targetId) {
+    if (!Array.isArray(nodes) || !targetId) return null;
+    var target = String(targetId).trim().toLowerCase();
+    if (!target) return null;
+
+    // 1. 严格精确匹配 (node_id / uuid / node_name)
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var id = String(n.node_id || n.uuid || "").trim().toLowerCase();
+      var name = String(n.node_name || n.name || "").trim().toLowerCase();
+      if (id === target || name === target) {
+        return n;
+      }
+    }
+
+    // 2. 忽略连字符匹配 (防 URL 省略 uuid 连字符)
+    var targetNoDash = target.split("-").join("");
+    if (targetNoDash.length >= 8) {
+      for (var j = 0; j < nodes.length; j++) {
+        var nj = nodes[j];
+        var idNoDash = String(nj.node_id || nj.uuid || "").split("-").join("").toLowerCase();
+        if (idNoDash && idNoDash === targetNoDash) {
+          return nj;
+        }
+      }
+    }
+
+    // 3. 短 UUID 前缀匹配 (适配前端短路由截取)
+    if (target.length >= 6) {
+      for (var k = 0; k < nodes.length; k++) {
+        var nk = nodes[k];
+        var kid = String(nk.node_id || nk.uuid || "").toLowerCase();
+        if (kid && (kid.indexOf(target) === 0 || target.indexOf(kid) === 0)) {
+          return nk;
+        }
+      }
+    }
+
     return null;
   }
 
@@ -1157,6 +1256,7 @@ const WIDGET_BODY_HTML = `
   var kpiUsedVal = document.getElementById("nfKpiUsedVal");
   var kpiRiskVal = document.getElementById("nfKpiRiskVal");
   var kpiResetVal = document.getElementById("nfKpiResetVal");
+  var btnCurrent = document.getElementById("nfBtnCurrent");
   var btnAll = document.getElementById("nfBtnAll");
   var btnAlert = document.getElementById("nfBtnAlert");
   var btnSafe = document.getElementById("nfBtnSafe");
@@ -1245,28 +1345,41 @@ const WIDGET_BODY_HTML = `
     }
   });
 
+  btn.addEventListener("click", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (isDragging) return;
+    if (!isOpen) {
+      openCard();
+    }
+  });
+
   // 3. 动态定位展开面板 (避免屏幕溢出)
   function positionCard() {
     var bRect = btn.getBoundingClientRect();
     var cardW = Math.min(440, window.innerWidth - 28);
-    card.style.width = cardW + "px";
+    card.style.setProperty("width", cardW + "px", "important");
 
     // 水平方向自适应
     if (bRect.left + cardW > window.innerWidth - 14) {
-      card.style.right = Math.max(12, window.innerWidth - bRect.right) + "px";
-      card.style.left = "auto";
+      var r = Math.max(12, window.innerWidth - bRect.right);
+      card.style.setProperty("right", r + "px", "important");
+      card.style.setProperty("left", "auto", "important");
     } else {
-      card.style.left = Math.max(12, bRect.left) + "px";
-      card.style.right = "auto";
+      var l = Math.max(12, bRect.left);
+      card.style.setProperty("left", l + "px", "important");
+      card.style.setProperty("right", "auto", "important");
     }
 
     // 垂直方向自适应
     if (bRect.top > window.innerHeight / 2) {
-      card.style.bottom = (window.innerHeight - bRect.top + 10) + "px";
-      card.style.top = "auto";
+      var b = Math.max(12, window.innerHeight - bRect.top + 10);
+      card.style.setProperty("bottom", b + "px", "important");
+      card.style.setProperty("top", "auto", "important");
     } else {
-      card.style.top = (bRect.bottom + 10) + "px";
-      card.style.bottom = "auto";
+      var t = Math.max(12, bRect.bottom + 10);
+      card.style.setProperty("top", t + "px", "important");
+      card.style.setProperty("bottom", "auto", "important");
     }
   }
 
@@ -1286,14 +1399,19 @@ const WIDGET_BODY_HTML = `
   function openCard() {
     isOpen = true;
     positionCard();
+    card.style.setProperty("display", "flex", "important");
     card.classList.add("nf-open");
-    if (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0) {
+
+    if (cachedData && cachedData.nodes && cachedData.nodes.length > 0) {
+      renderData(cachedData);
+    } else {
       fetchAndCompute();
     }
   }
 
   function closeCard() {
     isOpen = false;
+    card.style.setProperty("display", "none", "important");
     card.classList.remove("nf-open");
   }
 
@@ -1329,14 +1447,90 @@ const WIDGET_BODY_HTML = `
     }
   });
 
+  function updateKpiAndHeader(singleNode, summary, nodes) {
+    if (currentFilter === "CURRENT" && singleNode) {
+      if (whTitle) {
+        whTitle.textContent = (isEn ? "Forecast: " : "流量预测 · ") + (singleNode.node_name || singleNode.node_id);
+      }
+      var nodeUsedBytes = (singleNode.cumulative && singleNode.cumulative.billable_bytes) || 0;
+      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "USED" : "本期已用";
+      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(nodeUsedBytes);
+
+      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "PROJECTED" : "预测使用率";
+      if (kpiRiskVal) {
+        if (singleNode.has_quota && singleNode.traffic_limit_bytes > 0) {
+          var ratioPct = Math.round((singleNode.usage_ratio || 0) * 100);
+          kpiRiskVal.textContent = ratioPct + "%";
+          kpiRiskVal.style.color = ratioPct >= 100 ? "#ef4444" : (ratioPct >= 90 ? "#fde68a" : "#6ee7b7");
+        } else {
+          kpiRiskVal.textContent = isEn ? "Uncapped" : "免额度";
+          kpiRiskVal.style.color = "#cbd5e1";
+        }
+      }
+
+      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "RESET DAY" : "账单重置";
+      if (kpiResetVal) {
+        var daysLeft = (singleNode.cycle && typeof singleNode.cycle.daysRemaining === "number") ? singleNode.cycle.daysRemaining : 0;
+        kpiResetVal.textContent = singleNode.traffic_reset_day + (isEn ? "th (" + daysLeft + "d)" : "日 (余" + daysLeft + "天)");
+      }
+    } else {
+      if (whTitle) {
+        whTitle.textContent = isEn ? "Traffic & Quota Forecast" : "流量预测与预算监控";
+      }
+      var sum = summary || (cachedData && cachedData.summary) || {};
+      var allNodes = nodes || (cachedData && cachedData.nodes) || [];
+
+      var totalUsedBillable = 0;
+      var minDays = 999;
+      var minNode = null;
+
+      allNodes.forEach(function(n) {
+        if (n.cumulative && n.cumulative.billable_bytes) {
+          totalUsedBillable += n.cumulative.billable_bytes;
+        }
+        if (n.cycle && typeof n.cycle.daysRemaining === "number") {
+          if (n.cycle.daysRemaining < minDays) {
+            minDays = n.cycle.daysRemaining;
+            minNode = n;
+          }
+        }
+      });
+
+      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "TOTAL USED" : "配额总已用";
+      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(totalUsedBillable);
+
+      var crit = sum.critical_count || 0;
+      var warn = sum.warning_count || 0;
+      var totalAlerts = crit + warn;
+      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "AT RISK" : "超限风险";
+      if (kpiRiskVal) {
+        kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
+        kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
+      }
+
+      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "NEXT RESET" : "最近重置";
+      if (kpiResetVal) {
+        if (minNode) {
+          kpiResetVal.textContent = minNode.traffic_reset_day + (isEn ? "th (" + minDays + "d)" : "日 (余" + minDays + "天)");
+        } else {
+          kpiResetVal.textContent = "-";
+        }
+      }
+    }
+  }
+
   function setupFilters() {
-    var btns = [btnAll, btnAlert, btnSafe, btnNoQuota];
+    var btns = [btnCurrent, btnAll, btnAlert, btnSafe, btnNoQuota];
     btns.forEach(function(b) {
       if (!b) return;
       b.onclick = function() {
         btns.forEach(function(x) { if (x) x.classList.remove("active"); });
         b.classList.add("active");
         currentFilter = b.getAttribute("data-filter") || "ALL";
+        var instanceUuid = getCurrentInstanceUuid();
+        var nodes = (cachedData && cachedData.nodes) || [];
+        var singleNode = instanceUuid ? findMatchingNode(nodes, instanceUuid) : null;
+        updateKpiAndHeader(singleNode, cachedData && cachedData.summary, nodes);
         renderList();
       };
     });
@@ -1349,22 +1543,20 @@ const WIDGET_BODY_HTML = `
     var nodes = cachedData.nodes;
     var html = "";
     var instanceUuid = getCurrentInstanceUuid();
+    var matchNode = instanceUuid ? findMatchingNode(nodes, instanceUuid) : null;
 
     var filtered = [];
-    if (instanceUuid) {
-      var matchNode = nodes.find(function(n) {
-        return (n.node_id && n.node_id.toLowerCase() === instanceUuid.toLowerCase()) ||
-               (n.uuid && n.uuid.toLowerCase() === instanceUuid.toLowerCase());
-      });
+    if (currentFilter === "CURRENT") {
       if (matchNode) {
         filtered = [matchNode];
       } else {
         filtered = nodes;
       }
+    } else if (currentFilter === "ALL") {
+      filtered = nodes;
     } else {
       filtered = nodes.filter(function(n) {
         var cat = (n.status === "CRITICAL" || n.status === "WARNING") ? "ALERT" : n.status;
-        if (currentFilter === "ALL") return true;
         return cat === currentFilter;
       });
     }
@@ -1419,13 +1611,14 @@ const WIDGET_BODY_HTML = `
                   '<div class="nf-bar-projected ' + projClass + '" style="width:' + projPct + '%;"></div>';
         metaLeft = (isEn ? "Used: " : "已用 ") + '<strong>' + formatBytes(usedBytes) + '</strong> / ' + formatBytes(quotaBytes);
       } else {
-        barHtml = '<div class="nf-bar-used" style="width:100%; opacity:0.3; background:#94a3b8;"></div>';
-        metaLeft = (isEn ? "Used: " : "已用 ") + '<strong>' + formatBytes(usedBytes) + '</strong>';
-        usedPct = "-";
+        barHtml = '<div class="nf-bar-used" style="width:100%; background:rgba(148, 163, 184, 0.45);"></div>';
+        metaLeft = (isEn ? "Used: " : "已用 ") + '<strong>' + formatBytes(usedBytes) + '</strong> (' + (isEn ? "Uncapped" : "未设限额") + ')';
       }
 
-      var metaSpeed = (isEn ? "Avg: " : "均速 ") + dailyAvg + "/d";
-      var metaReset = (isEn ? ("Reset: " + resetDay + " (" + daysRemaining + "d left)") : (resetDay + "日重置 (余" + daysRemaining + "天)"));
+      var metaSpeed = (isEn ? "Rate: " : "均速 ") + '<strong>' + dailyAvg + '/d</strong>';
+      var metaReset = (isEn ? "Reset: " : "重置 ") + resetDay + (isEn ? "th (" + daysRemaining + "d)" : "日 (余" + daysRemaining + "天)");
+
+      var pctText = (hasQuota && quotaBytes > 0) ? (Math.round((n.usage_ratio || 0) * 100) + "%") : (isEn ? "Uncapped" : "免额");
 
       html += '<div class="nf-node-card">' +
         '<div class="nf-row-head">' +
@@ -1435,7 +1628,7 @@ const WIDGET_BODY_HTML = `
           '</div>' +
           '<div class="nf-status-wrap">' +
             '<span class="nf-badge ' + badgeClass + '">' + badgeText + '</span>' +
-            '<span class="nf-pct ' + pctClass + '">' + (typeof usedPct === "number" ? (usedPct + "%") : usedPct) + '</span>' +
+            '<span class="nf-pct ' + pctClass + '">' + pctText + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="nf-bar-bg">' + barHtml + '</div>' +
@@ -1455,69 +1648,20 @@ const WIDGET_BODY_HTML = `
     var summary = data.summary || {};
     var nodes = data.nodes || [];
     var instanceUuid = getCurrentInstanceUuid();
+    var singleNode = instanceUuid ? findMatchingNode(nodes, instanceUuid) : null;
 
-    var singleNode = null;
-    if (instanceUuid) {
-      singleNode = nodes.find(function(n) {
-        return (n.node_id && n.node_id.toLowerCase() === instanceUuid.toLowerCase()) ||
-               (n.uuid && n.uuid.toLowerCase() === instanceUuid.toLowerCase());
-      });
-    }
-
-    // 模式 A：处于特定节点实例详情页 (e.g. /instance/:uuid)
+    // 1. 设置方形图标状态
     if (singleNode) {
-      var isAlert = singleNode.status === "CRITICAL" || singleNode.status === "WARNING";
-      if (isAlert) {
+      var isSingleAlert = singleNode.status === "CRITICAL" || singleNode.status === "WARNING";
+      if (isSingleAlert) {
         btn.className = "nf-trigger-sq alert";
         if (sqDot) sqDot.className = "nf-sq-dot alert";
       } else {
         btn.className = "nf-trigger-sq safe";
         if (sqDot) sqDot.className = "nf-sq-dot";
       }
-
-      if (filterBar) filterBar.style.display = "none";
-      if (whTitle) {
-        whTitle.textContent = (isEn ? "Forecast: " : "流量预测 · ") + (singleNode.node_name || singleNode.node_id);
-      }
-
-      var nodeUsedBytes = (singleNode.cumulative && singleNode.cumulative.billable_bytes) || 0;
-      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "USED" : "本期已用";
-      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(nodeUsedBytes);
-
-      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "PROJECTED" : "预测使用率";
-      if (kpiRiskVal) {
-        if (singleNode.has_quota && singleNode.traffic_limit_bytes > 0) {
-          var ratioPct = Math.round((singleNode.usage_ratio || 0) * 100);
-          kpiRiskVal.textContent = ratioPct + "%";
-          kpiRiskVal.style.color = ratioPct >= 100 ? "#ef4444" : (ratioPct >= 90 ? "#fde68a" : "#6ee7b7");
-        } else {
-          kpiRiskVal.textContent = isEn ? "Uncapped" : "免额度";
-          kpiRiskVal.style.color = "#cbd5e1";
-        }
-      }
-
-      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "RESET DAY" : "账单重置";
-      if (kpiResetVal) {
-        var daysLeft = (singleNode.cycle && typeof singleNode.cycle.daysRemaining === "number") ? singleNode.cycle.daysRemaining : 0;
-        kpiResetVal.textContent = singleNode.traffic_reset_day + (isEn ? "th (" + daysLeft + "d)" : "日 (余" + daysLeft + "天)");
-      }
-
-      if (footerFullBtn) {
-        footerFullBtn.href = "/api/plugin/net-forecast/pages/public.html?uuid=" + encodeURIComponent(instanceUuid);
-      }
     } else {
-      // 模式 B：处于全局首页 / 全部节点总览
-      if (filterBar) filterBar.style.display = "flex";
-      if (whTitle) {
-        whTitle.textContent = isEn ? "Traffic & Quota Forecast" : "流量预测与预算监控";
-      }
-
-      var crit = summary.critical_count || 0;
-      var warn = summary.warning_count || 0;
-      var safe = summary.safe_count || 0;
-      var noQuota = summary.no_quota_count || 0;
-      var totalAlerts = crit + warn;
-
+      var totalAlerts = (summary.critical_count || 0) + (summary.warning_count || 0);
       if (totalAlerts > 0) {
         btn.className = "nf-trigger-sq alert";
         if (sqDot) sqDot.className = "nf-sq-dot alert";
@@ -1525,51 +1669,60 @@ const WIDGET_BODY_HTML = `
         btn.className = "nf-trigger-sq safe";
         if (sqDot) sqDot.className = "nf-sq-dot";
       }
+    }
 
-      var totalUsedBillable = 0;
-      var minDays = 999;
-      var minNode = null;
-
-      nodes.forEach(function(n) {
-        if (n.cumulative && n.cumulative.billable_bytes) {
-          totalUsedBillable += n.cumulative.billable_bytes;
-        }
-        if (n.cycle && typeof n.cycle.daysRemaining === "number") {
-          if (n.cycle.daysRemaining < minDays) {
-            minDays = n.cycle.daysRemaining;
-            minNode = n;
-          }
-        }
-      });
-
-      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "TOTAL USED" : "配额总已用";
-      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(totalUsedBillable);
-
-      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "AT RISK" : "超限风险";
-      if (kpiRiskVal) {
-        kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
-        kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
+    // 2. 筛选按钮显隐与状态管理
+    if (singleNode) {
+      if (btnCurrent) {
+        btnCurrent.style.display = "inline-flex";
+        btnCurrent.textContent = isEn ? "📌 Current (1)" : "📌 当前 (1)";
       }
-
-      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "NEXT RESET" : "最近重置";
-      if (kpiResetVal) {
-        if (minNode) {
-          kpiResetVal.textContent = minNode.traffic_reset_day + (isEn ? "th (" + minDays + "d)" : "日 (余" + minDays + "天)");
-        } else {
-          kpiResetVal.textContent = "-";
-        }
+      if (!currentFilter || currentFilter === "ALL" || currentFilter === "CURRENT") {
+        currentFilter = "CURRENT";
       }
+    } else {
+      if (btnCurrent) {
+        btnCurrent.style.display = "none";
+      }
+      if (currentFilter === "CURRENT") {
+        currentFilter = "ALL";
+      }
+    }
 
-      if (btnAll) btnAll.textContent = (isEn ? "All (" : "全部 (") + nodes.length + ")";
-      if (btnAlert) btnAlert.textContent = (isEn ? "🚨 Alert (" : "🚨 预警 (") + totalAlerts + ")";
-      if (btnSafe) btnSafe.textContent = (isEn ? "✅ Safe (" : "✅ 安全 (") + safe + ")";
-      if (btnNoQuota) btnNoQuota.textContent = (isEn ? "⚪ Uncapped (" : "⚪ 免额 (") + noQuota + ")";
+    var btns = [btnCurrent, btnAll, btnAlert, btnSafe, btnNoQuota];
+    btns.forEach(function(b) {
+      if (!b) return;
+      if (b.getAttribute("data-filter") === currentFilter) {
+        b.classList.add("active");
+      } else {
+        b.classList.remove("active");
+      }
+    });
 
-      if (footerFullBtn) {
+    var crit = summary.critical_count || 0;
+    var warn = summary.warning_count || 0;
+    var safe = summary.safe_count || 0;
+    var noQuota = summary.no_quota_count || 0;
+    var totalAlertsAll = crit + warn;
+
+    if (btnAll) btnAll.textContent = (isEn ? "All (" : "全部 (") + nodes.length + ")";
+    if (btnAlert) btnAlert.textContent = (isEn ? "🚨 Alert (" : "🚨 预警 (") + totalAlertsAll + ")";
+    if (btnSafe) btnSafe.textContent = (isEn ? "✅ Safe (" : "✅ 安全 (") + safe + ")";
+    if (btnNoQuota) btnNoQuota.textContent = (isEn ? "⚪ Uncapped (" : "⚪ 免额 (") + noQuota + ")";
+
+    // 3. 更新 KPI 和 Header
+    updateKpiAndHeader(singleNode, summary, nodes);
+
+    // 4. 更新底栏跳转链接
+    if (footerFullBtn) {
+      if (singleNode) {
+        footerFullBtn.href = "/api/plugin/net-forecast/pages/public.html?uuid=" + encodeURIComponent(singleNode.node_id || singleNode.uuid || instanceUuid);
+      } else {
         footerFullBtn.href = "/api/plugin/net-forecast/pages/public.html";
       }
     }
 
+    // 5. 渲染列表
     renderList();
   }
 

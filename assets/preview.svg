@@ -1,393 +1,417 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
   <defs>
-    <!-- 背景渐变与光晕 -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b1120"/>
-      <stop offset="50%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#080d1a"/>
+    <!-- 背景渐变与科技光晕 -->
+    <linearGradient id="posterBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060a14"/>
+      <stop offset="45%" stop-color="#0a1022"/>
+      <stop offset="100%" stop-color="#0d152c"/>
     </linearGradient>
-    <radialGradient id="indigoGlow" cx="15%" cy="15%" r="40%">
-      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.18"/>
+    <radialGradient id="purpleGlow" cx="15%" cy="20%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.28"/>
       <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="emeraldGlow" cx="85%" cy="85%" r="40%">
-      <stop offset="0%" stop-color="#10b981" stop-opacity="0.15"/>
+    <radialGradient id="cyanGlow" cx="75%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="emeraldGlow" cx="90%" cy="85%" r="45%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.18"/>
       <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.85"/>
-      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95"/>
+
+    <!-- 卡片材质 -->
+    <linearGradient id="dashWindowBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#172338" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0b1324" stop-opacity="0.98"/>
     </linearGradient>
-    <linearGradient id="barGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="widgetCardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.96"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.99"/>
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#c7d2fe"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="btnGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="50%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
     </linearGradient>
-    <!-- 卡片阴影 -->
-    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.45"/>
+
+    <!-- 网格图案 -->
+    <pattern id="cyberGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1"/>
+    </pattern>
+
+    <!-- 立体阴影效果 -->
+    <filter id="dashShadow" x="-15%" y="-15%" width="135%" height="140%">
+      <feDropShadow dx="-10" dy="25" stdDeviation="28" flood-color="#000000" flood-opacity="0.75"/>
     </filter>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    <filter id="widgetShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="-8" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.85"/>
+    </filter>
+    <filter id="neonRed" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#ef4444" flood-opacity="0.7"/>
     </filter>
   </defs>
 
   <style>
-    .text-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 700; fill: #ffffff; }
-    .text-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; fill: #94a3b8; }
-    .text-label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #64748b; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
-    .text-num { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 20px; font-weight: 700; fill: #f8fafc; }
-    .text-detail { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #94a3b8; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; }
+    .font-sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 
-  <!-- 底图背景 -->
-  <rect width="1200" height="760" fill="url(#bgGrad)"/>
-  <rect width="1200" height="760" fill="url(#indigoGlow)"/>
-  <rect width="1200" height="760" fill="url(#emeraldGlow)"/>
+  <!-- 全画幅背景 -->
+  <rect width="1600" height="900" fill="url(#posterBg)"/>
+  <rect width="1600" height="900" fill="url(#cyberGrid)"/>
+  <rect width="1600" height="900" fill="url(#purpleGlow)"/>
+  <rect width="1600" height="900" fill="url(#cyanGlow)"/>
+  <rect width="1600" height="900" fill="url(#emeraldGlow)"/>
 
-  <!-- 模拟 macOS 窗口外框 -->
-  <rect x="24" y="24" width="1152" height="712" rx="16" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" filter="url(#cardShadow)"/>
-  
-  <!-- 窗口操作点 -->
-  <circle cx="50" cy="50" r="6" fill="#ef4444"/>
-  <circle cx="68" cy="50" r="6" fill="#f59e0b"/>
-  <circle cx="86" cy="50" r="6" fill="#10b981"/>
-  <text x="600" y="54" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12px" fill="#64748b" font-weight="500">Komari NetForecast Dashboard (Real-time)</text>
+  <!-- ========================================================================= -->
+  <!-- 左侧 30% 区域：极简海报标题与 4 项核心特性卡片 (精简多余文本，垂直居中排版) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(80, 160)">
+    <!-- 海报超大主标题 -->
+    <text x="0" y="60" class="font-sans" font-size="58" font-weight="800" fill="url(#titleGrad)" letter-spacing="-0.8">NetForecast</text>
+    <text x="0" y="104" class="font-sans" font-size="24" font-weight="700" fill="#ffffff" letter-spacing="0.3">网络流量预测与限额预警</text>
+    <text x="0" y="132" class="font-sans" font-size="13" fill="#94a3b8" letter-spacing="0.2">面向 Komari 监控面板的智能流量预测引擎</text>
 
-  <!-- 顶部控制条 (Header Bar) -->
-  <g transform="translate(48, 76)">
-    <rect width="1104" height="68" rx="12" fill="url(#cardGrad)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
+    <!-- 核心特性卡片列表 (4 项精简卡片，间距充裕，视觉平衡) -->
+    <g transform="translate(0, 175)">
+      <!-- 特性 1 -->
+      <g transform="translate(0, 0)">
+        <rect width="360" height="66" rx="12" fill="rgba(23, 35, 56, 0.75)" stroke="rgba(255, 255, 255, 0.09)" stroke-width="1"/>
+        <rect x="14" y="14" width="38" height="38" rx="9" fill="rgba(99, 102, 241, 0.22)" stroke="rgba(99, 102, 241, 0.4)"/>
+        <text x="33" y="39" text-anchor="middle" font-size="19">📊</text>
+        <text x="64" y="29" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">全节点 30 天每日增量柱状图</text>
+        <text x="64" y="49" class="font-sans" font-size="11" fill="#94a3b8">进出站增量堆叠，当日实时增量自动计算</text>
+      </g>
+
+      <!-- 特性 2 -->
+      <g transform="translate(0, 84)">
+        <rect width="360" height="66" rx="12" fill="rgba(23, 35, 56, 0.75)" stroke="rgba(255, 255, 255, 0.09)" stroke-width="1"/>
+        <rect x="14" y="14" width="38" height="38" rx="9" fill="rgba(245, 158, 11, 0.2)" stroke="rgba(245, 158, 11, 0.4)"/>
+        <text x="33" y="39" text-anchor="middle" font-size="19">⚖️</text>
+        <text x="64" y="29" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">5 种计费统计模式自适应</text>
+        <text x="64" y="49" class="font-sans" font-size="11" fill="#94a3b8">支持 SUM、MAX、MIN、单向出网与单向入网</text>
+      </g>
+
+      <!-- 特性 3 -->
+      <g transform="translate(0, 168)">
+        <rect width="360" height="66" rx="12" fill="rgba(23, 35, 56, 0.75)" stroke="rgba(255, 255, 255, 0.09)" stroke-width="1"/>
+        <rect x="14" y="14" width="38" height="38" rx="9" fill="rgba(239, 68, 68, 0.2)" stroke="rgba(239, 68, 68, 0.4)"/>
+        <text x="33" y="39" text-anchor="middle" font-size="19">🚨</text>
+        <text x="64" y="29" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">重置日超限耗尽精准推算</text>
+        <text x="64" y="49" class="font-sans" font-size="11" fill="#94a3b8">7 日加权移动均速，精确倒计时天数与超标量</text>
+      </g>
+
+      <!-- 特性 4 -->
+      <g transform="translate(0, 252)">
+        <rect width="360" height="66" rx="12" fill="rgba(23, 35, 56, 0.75)" stroke="rgba(255, 255, 255, 0.09)" stroke-width="1"/>
+        <rect x="14" y="14" width="38" height="38" rx="9" fill="rgba(16, 185, 129, 0.2)" stroke="rgba(16, 185, 129, 0.4)"/>
+        <text x="33" y="39" text-anchor="middle" font-size="19">🪟</text>
+        <text x="64" y="29" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">前台悬浮小组件 (可自由拖拽)</text>
+        <text x="64" y="49" class="font-sans" font-size="11" fill="#94a3b8">单节点详情页自动过滤，全节点全局切换</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- 右侧 70% 区域：两个倾斜透视页面 (主后台看板页面 + 前台浮出层小组件) -->
+  <!-- ========================================================================= -->
+
+  <!-- 页面 1：后台完整管理界面 (微俯视左倾 3D 透视角度: rotate(-2.6deg) skewX(2deg)) -->
+  <g transform="translate(510, 55) rotate(-2.6) skewX(2)" filter="url(#dashShadow)">
+    <!-- 窗口底壳 (980 x 640) -->
+    <rect width="980" height="640" rx="16" fill="url(#dashWindowBg)" stroke="rgba(255, 255, 255, 0.14)" stroke-width="1.2"/>
     
-    <!-- 标题图标 -->
-    <rect x="16" y="14" width="40" height="40" rx="10" fill="rgba(99, 102, 241, 0.25)" stroke="rgba(99, 102, 241, 0.4)" stroke-width="1"/>
-    <text x="36" y="40" text-anchor="middle" font-size="20">📊</text>
+    <!-- macOS 窗口控制顶栏 -->
+    <rect width="980" height="38" rx="16" fill="rgba(15, 23, 42, 0.7)"/>
+    <circle cx="24" cy="19" r="5.5" fill="#ef4444"/>
+    <circle cx="42" cy="19" r="5.5" fill="#f59e0b"/>
+    <circle cx="60" cy="19" r="5.5" fill="#10b981"/>
+    <rect x="280" y="8" width="420" height="22" rx="6" fill="rgba(0, 0, 0, 0.4)" stroke="rgba(255, 255, 255, 0.08)"/>
+    <text x="490" y="23" text-anchor="middle" class="font-sans mono" font-size="11" fill="#64748b">🔒 komari.leohou.org/admin/plugin/net-forecast</text>
 
-    <!-- 标题文字 -->
-    <text x="68" y="32" class="text-title" font-size="16">节点网络流量预测与限额预警 (NetForecast)</text>
-    <text x="68" y="49" class="text-sub" font-size="12">全节点 30 天每日增量柱状图 · 计费规则自适应累计 · 账单重置日耗尽推算（直连核心数据库）</text>
+    <!-- 看板主区域 Header -->
+    <g transform="translate(20, 50)">
+      <rect width="940" height="58" rx="10" fill="rgba(30, 41, 59, 0.6)" stroke="rgba(255, 255, 255, 0.08)"/>
+      <rect x="14" y="11" width="36" height="36" rx="8" fill="rgba(99, 102, 241, 0.25)"/>
+      <text x="32" y="35" text-anchor="middle" font-size="18">📊</text>
+      <text x="60" y="27" class="font-sans" font-size="15" font-weight="700" fill="#ffffff">节点网络流量预测看板</text>
+      <text x="60" y="43" class="font-sans" font-size="11" fill="#94a3b8">全节点 30 天进出站增量堆叠柱状图与计费规则自适应折线</text>
 
-    <!-- 交互式 Filter 药丸栏 -->
-    <g transform="translate(620, 18)">
-      <!-- 全部节点 -->
-      <rect x="0" y="0" width="94" height="32" rx="8" fill="rgba(255, 255, 255, 0.12)" stroke="rgba(255, 255, 255, 0.25)"/>
-      <text x="47" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">全部节点 (6)</text>
-
-      <!-- 告警 -->
-      <rect x="102" y="0" width="86" height="32" rx="8" fill="rgba(239, 68, 68, 0.15)" stroke="rgba(239, 68, 68, 0.3)"/>
-      <text x="145" y="20" text-anchor="middle" font-size="12" fill="#fca5a5">🚨 1 个超限</text>
-
-      <!-- 接近 -->
-      <rect x="196" y="0" width="86" height="32" rx="8" fill="rgba(245, 158, 11, 0.15)" stroke="rgba(245, 158, 11, 0.3)"/>
-      <text x="239" y="20" text-anchor="middle" font-size="12" fill="#fde68a">⚡ 1 个预警</text>
-
-      <!-- 安全 -->
-      <rect x="290" y="0" width="86" height="32" rx="8" fill="rgba(16, 185, 129, 0.15)" stroke="rgba(16, 185, 129, 0.3)"/>
-      <text x="333" y="20" text-anchor="middle" font-size="12" fill="#a7f3d0">✅ 3 个安全</text>
-
-      <!-- 刷新按钮 -->
-      <rect x="388" y="0" width="86" height="32" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="rgba(255, 255, 255, 0.1)"/>
-      <text x="431" y="20" text-anchor="middle" font-size="12" fill="#94a3b8">🔄 刷新</text>
+      <!-- 筛选按钮 -->
+      <g transform="translate(540, 14)">
+        <rect x="0" y="0" width="75" height="30" rx="6" fill="rgba(255, 255, 255, 0.12)" stroke="rgba(255, 255, 255, 0.25)"/>
+        <text x="37" y="19" text-anchor="middle" class="font-sans" font-size="11" font-weight="700" fill="#ffffff">全部 (18)</text>
+        <rect x="82" y="0" width="80" height="30" rx="6" fill="rgba(239, 68, 68, 0.2)" stroke="rgba(239, 68, 68, 0.4)"/>
+        <text x="122" y="19" text-anchor="middle" class="font-sans" font-size="11" font-weight="600" fill="#fca5a5">🚨 预警 (3)</text>
+        <rect x="169" y="0" width="80" height="30" rx="6" fill="rgba(16, 185, 129, 0.15)" stroke="rgba(16, 185, 129, 0.35)"/>
+        <text x="209" y="19" text-anchor="middle" class="font-sans" font-size="11" font-weight="600" fill="#a7f3d0">✅ 安全 (14)</text>
+        <rect x="256" y="0" width="70" height="30" rx="6" fill="rgba(148, 163, 184, 0.12)"/>
+        <text x="291" y="19" text-anchor="middle" class="font-sans" font-size="11" font-weight="600" fill="#cbd5e1">⚪ 免额(1)</text>
+      </g>
     </g>
-  </g>
 
-  <!-- 节点卡片 1 (主卡片: US.VMISS - 安全预算) -->
-  <g transform="translate(48, 160)">
-    <rect width="1104" height="420" rx="14" fill="url(#cardGrad)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" filter="url(#cardShadow)"/>
-
-    <!-- 节点 Header -->
-    <g transform="translate(24, 24)">
-      <!-- 节点名称 -->
-      <text x="0" y="16" class="text-title" font-size="17">US.VMISS</text>
+    <!-- 节点卡片 1：香港 CN2 (超限耗尽告警情景) -->
+    <g transform="translate(20, 120)">
+      <rect width="940" height="240" rx="12" fill="rgba(30, 41, 59, 0.55)" stroke="rgba(239, 68, 68, 0.35)" stroke-width="1"/>
       
-      <!-- 计费标签 -->
-      <rect x="100" y="0" width="138" height="22" rx="6" fill="rgba(99, 102, 241, 0.15)" stroke="rgba(99, 102, 241, 0.35)"/>
-      <text x="169" y="15" text-anchor="middle" font-size="11" font-weight="600" fill="#a5b4fc">⚖️ 计费: 仅计出网 (Upload)</text>
-
-      <!-- 配额与重置日 -->
-      <rect x="246" y="0" width="232" height="22" rx="6" fill="rgba(15, 23, 42, 0.6)" stroke="rgba(255, 255, 255, 0.08)"/>
-      <text x="254" y="15" font-size="11" fill="#94a3b8">📦 限额: <tspan fill="#ffffff" font-weight="700">200 GB</tspan> · 🗓️ 每月 <tspan fill="#ffffff" font-weight="700">8</tspan> 号重置</text>
-
-      <!-- 状态与按钮 -->
-      <g transform="translate(860, 0)">
-        <rect x="0" y="0" width="88" height="24" rx="6" fill="rgba(16, 185, 129, 0.15)" stroke="rgba(16, 185, 129, 0.35)"/>
-        <text x="44" y="16" text-anchor="middle" font-size="11" font-weight="600" fill="#a7f3d0">✅ 预算安全</text>
-
-        <rect x="98" y="0" width="94" height="24" rx="6" fill="rgba(15, 23, 42, 0.8)" stroke="rgba(255, 255, 255, 0.1)"/>
-        <text x="145" y="16" text-anchor="middle" font-size="11" fill="#cbd5e1">⚙️ 设置限额</text>
-      </g>
-    </g>
-
-    <!-- 4 列 KPI 卡片网格 -->
-    <g transform="translate(24, 62)">
-      <!-- KPI 1: 当月已用计费流量 -->
-      <rect x="0" y="0" width="252" height="74" rx="10" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.06)"/>
-      <text x="14" y="20" class="text-label">当月已用计费流量</text>
-      <text x="238" y="20" text-anchor="end" font-size="11" fill="#f59e0b">● 累计</text>
-      <text x="14" y="46" class="text-num mono">46.70 GB</text>
-      <text x="14" y="63" class="text-detail">物理入站: 12.4 GB | 物理出站: 46.7 GB</text>
-
-      <!-- KPI 2: 7日均速消耗 -->
-      <rect x="268" y="0" width="252" height="74" rx="10" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.06)"/>
-      <text x="282" y="20" class="text-label">7日均速消耗 (计费)</text>
-      <text x="506" y="20" text-anchor="end" font-size="11" fill="#94a3b8">📈 均速</text>
-      <text x="282" y="46" class="text-num mono">1.82 GB <tspan font-size="13" font-weight="normal" fill="#94a3b8">/ 天</tspan></text>
-      <text x="282" y="63" class="text-detail">日入: 0.48 GB/天 | 日出: 1.82 GB/天</text>
-
-      <!-- KPI 3: 计费周期倒计时 -->
-      <rect x="536" y="0" width="252" height="74" rx="10" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.06)"/>
-      <text x="550" y="20" class="text-label">计费周期倒计时</text>
-      <text x="774" y="20" text-anchor="end" font-size="10" fill="#94a3b8" class="mono">10-08 ~ 11-08</text>
-      <text x="550" y="46" class="text-num mono">23 <tspan font-size="14" font-weight="normal" fill="#94a3b8">天</tspan></text>
-      <text x="550" y="63" class="text-detail">本月已过 8 天 / 共计 31 天</text>
-
-      <!-- KPI 4: 预测周期总消耗 -->
-      <rect x="804" y="0" width="252" height="74" rx="10" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.06)"/>
-      <text x="818" y="20" class="text-label">预测周期总计费消耗</text>
-      <text x="1042" y="20" text-anchor="end" font-size="10" fill="#94a3b8">配额: 200 GB</text>
-      <text x="818" y="46" class="text-num mono">88.56 GB</text>
-      <!-- 进度条背景 -->
-      <rect x="818" y="52" width="224" height="5" rx="3" fill="rgba(255, 255, 255, 0.08)"/>
-      <rect x="818" y="52" width="98" height="5" rx="3" fill="#10b981"/>
-      <text x="818" y="68" class="text-detail">预计周期结束达到 44.3% 额度</text>
-    </g>
-
-    <!-- 图表容器 -->
-    <g transform="translate(24, 150)">
-      <!-- 图表图例 -->
-      <text x="0" y="10" class="text-sub" font-size="11">最近 30 天每日进出站增量与当前计费规则下的累计走势</text>
-      <g transform="translate(730, 0)">
-        <rect x="0" y="2" width="10" height="10" rx="2" fill="#6366f1" opacity="0.3"/>
-        <text x="15" y="11" font-size="11" fill="#94a3b8">入站(弱化)</text>
-
-        <rect x="80" y="2" width="10" height="10" rx="2" fill="#10b981"/>
-        <text x="95" y="11" font-size="11" fill="#94a3b8">出站(计费)</text>
-
-        <line x1="165" y1="7" x2="180" y2="7" stroke="#f59e0b" stroke-width="2.5"/>
-        <text x="186" y="11" font-size="11" fill="#f59e0b">当月累计(实线)</text>
-
-        <line x1="265" y1="7" x2="280" y2="7" stroke="#fb923c" stroke-width="2" stroke-dasharray="3,3"/>
-        <text x="286" y="11" font-size="11" fill="#fb923c">预测外推(虚线)</text>
-      </g>
-
-      <!-- 图表画布区域 -->
-      <rect x="0" y="22" width="1056" height="230" rx="10" fill="rgba(15, 23, 42, 0.45)" stroke="rgba(255, 255, 255, 0.05)"/>
-
-      <!-- 刻度参考线 -->
-      <line x1="60" y1="50" x2="996" y2="50" stroke="rgba(255, 255, 255, 0.05)"/>
-      <text x="50" y="53" text-anchor="end" font-size="10" fill="#64748b" class="mono">3.0 GB</text>
-      <text x="1006" y="53" font-size="10" fill="#f59e0b" class="mono">150 GB</text>
-
-      <line x1="60" y1="100" x2="996" y2="100" stroke="rgba(255, 255, 255, 0.05)"/>
-      <text x="50" y="103" text-anchor="end" font-size="10" fill="#64748b" class="mono">2.0 GB</text>
-      <text x="1006" y="103" font-size="10" fill="#f59e0b" class="mono">100 GB</text>
-
-      <line x1="60" y1="150" x2="996" y2="150" stroke="rgba(255, 255, 255, 0.05)"/>
-      <text x="50" y="153" text-anchor="end" font-size="10" fill="#64748b" class="mono">1.0 GB</text>
-      <text x="1006" y="153" font-size="10" fill="#f59e0b" class="mono">50 GB</text>
-
-      <line x1="60" y1="200" x2="996" y2="200" stroke="rgba(255, 255, 255, 0.08)"/>
-      <text x="50" y="203" text-anchor="end" font-size="10" fill="#64748b" class="mono">0 B</text>
-      <text x="1006" y="203" font-size="10" fill="#f59e0b" class="mono">0 B</text>
-
-      <!-- 柱状图阵列 (30天 + 14天预测) -->
-      <!-- 历史天数柱状图 (过去29天) -->
-      <g transform="translate(68, 0)">
-        <!-- 抽样代表性柱子 -->
-        <!-- Day 1-5 -->
-        <rect x="0" y="172" width="10" height="28" fill="#6366f1" opacity="0.25"/>
-        <rect x="0" y="125" width="10" height="47" fill="#10b981" opacity="0.95"/>
-
-        <rect x="22" y="176" width="10" height="24" fill="#6366f1" opacity="0.25"/>
-        <rect x="22" y="138" width="10" height="38" fill="#10b981" opacity="0.95"/>
-
-        <rect x="44" y="170" width="10" height="30" fill="#6366f1" opacity="0.25"/>
-        <rect x="44" y="118" width="10" height="52" fill="#10b981" opacity="0.95"/>
-
-        <rect x="66" y="174" width="10" height="26" fill="#6366f1" opacity="0.25"/>
-        <rect x="66" y="130" width="10" height="44" fill="#10b981" opacity="0.95"/>
-
-        <rect x="88" y="178" width="10" height="22" fill="#6366f1" opacity="0.25"/>
-        <rect x="88" y="142" width="10" height="36" fill="#10b981" opacity="0.95"/>
-
-        <!-- Day 6-10 -->
-        <rect x="110" y="168" width="10" height="32" fill="#6366f1" opacity="0.25"/>
-        <rect x="110" y="112" width="10" height="56" fill="#10b981" opacity="0.95"/>
-
-        <rect x="132" y="175" width="10" height="25" fill="#6366f1" opacity="0.25"/>
-        <rect x="132" y="135" width="10" height="40" fill="#10b981" opacity="0.95"/>
-
-        <rect x="154" y="170" width="10" height="30" fill="#6366f1" opacity="0.25"/>
-        <rect x="154" y="122" width="10" height="48" fill="#10b981" opacity="0.95"/>
-
-        <rect x="176" y="174" width="10" height="26" fill="#6366f1" opacity="0.25"/>
-        <rect x="176" y="128" width="10" height="46" fill="#10b981" opacity="0.95"/>
-
-        <rect x="198" y="180" width="10" height="20" fill="#6366f1" opacity="0.25"/>
-        <rect x="198" y="148" width="10" height="32" fill="#10b981" opacity="0.95"/>
-
-        <!-- Day 11-15 (周期重置点) -->
-        <rect x="220" y="166" width="10" height="34" fill="#6366f1" opacity="0.25"/>
-        <rect x="220" y="110" width="10" height="56" fill="#10b981" opacity="0.95"/>
-
-        <rect x="242" y="172" width="10" height="28" fill="#6366f1" opacity="0.25"/>
-        <rect x="242" y="126" width="10" height="46" fill="#10b981" opacity="0.95"/>
-
-        <rect x="264" y="176" width="10" height="24" fill="#6366f1" opacity="0.25"/>
-        <rect x="264" y="136" width="10" height="40" fill="#10b981" opacity="0.95"/>
-
-        <rect x="286" y="168" width="10" height="32" fill="#6366f1" opacity="0.25"/>
-        <rect x="286" y="115" width="10" height="53" fill="#10b981" opacity="0.95"/>
-
-        <rect x="308" y="174" width="10" height="26" fill="#6366f1" opacity="0.25"/>
-        <rect x="308" y="132" width="10" height="42" fill="#10b981" opacity="0.95"/>
-
-        <!-- Day 16-20 -->
-        <rect x="330" y="178" width="10" height="22" fill="#6366f1" opacity="0.25"/>
-        <rect x="330" y="140" width="10" height="38" fill="#10b981" opacity="0.95"/>
-
-        <rect x="352" y="165" width="10" height="35" fill="#6366f1" opacity="0.25"/>
-        <rect x="352" y="108" width="10" height="57" fill="#10b981" opacity="0.95"/>
-
-        <rect x="374" y="172" width="10" height="28" fill="#6366f1" opacity="0.25"/>
-        <rect x="374" y="125" width="10" height="47" fill="#10b981" opacity="0.95"/>
-
-        <rect x="396" y="170" width="10" height="30" fill="#6366f1" opacity="0.25"/>
-        <rect x="396" y="120" width="10" height="50" fill="#10b981" opacity="0.95"/>
-
-        <rect x="418" y="175" width="10" height="25" fill="#6366f1" opacity="0.25"/>
-        <rect x="418" y="134" width="10" height="41" fill="#10b981" opacity="0.95"/>
-
-        <!-- Day 21-25 (新周期已开始) -->
-        <rect x="440" y="172" width="10" height="28" fill="#6366f1" opacity="0.25"/>
-        <rect x="440" y="124" width="10" height="48" fill="#10b981" opacity="0.95"/>
-
-        <rect x="462" y="176" width="10" height="24" fill="#6366f1" opacity="0.25"/>
-        <rect x="462" y="135" width="10" height="41" fill="#10b981" opacity="0.95"/>
-
-        <rect x="484" y="168" width="10" height="32" fill="#6366f1" opacity="0.25"/>
-        <rect x="484" y="116" width="10" height="52" fill="#10b981" opacity="0.95"/>
-
-        <rect x="506" y="174" width="10" height="26" fill="#6366f1" opacity="0.25"/>
-        <rect x="506" y="129" width="10" height="45" fill="#10b981" opacity="0.95"/>
-
-        <rect x="528" y="178" width="10" height="22" fill="#6366f1" opacity="0.25"/>
-        <rect x="528" y="140" width="10" height="38" fill="#10b981" opacity="0.95"/>
-
-        <!-- Day 26-29 -->
-        <rect x="550" y="169" width="10" height="31" fill="#6366f1" opacity="0.25"/>
-        <rect x="550" y="118" width="10" height="51" fill="#10b981" opacity="0.95"/>
-
-        <rect x="572" y="175" width="10" height="25" fill="#6366f1" opacity="0.25"/>
-        <rect x="572" y="132" width="10" height="43" fill="#10b981" opacity="0.95"/>
-
-        <rect x="594" y="171" width="10" height="29" fill="#6366f1" opacity="0.25"/>
-        <rect x="594" y="122" width="10" height="49" fill="#10b981" opacity="0.95"/>
-
-        <rect x="616" y="173" width="10" height="27" fill="#6366f1" opacity="0.25"/>
-        <rect x="616" y="127" width="10" height="46" fill="#10b981" opacity="0.95"/>
-
-        <!-- ★ 今日 (第30天，实时打点，高亮标注) ★ -->
-        <rect x="638" y="179" width="11" height="21" fill="#6366f1" opacity="0.35"/>
-        <rect x="638" y="144" width="11" height="35" fill="#10b981" filter="url(#glow)"/>
-        <!-- 今日标签 -->
-        <text x="643" y="216" text-anchor="middle" font-size="10" font-weight="700" fill="#38bdf8">今日</text>
-
-        <!-- 未来预测虚化柱 (10天) -->
-        <rect x="660" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="660" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="682" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="682" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="704" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="704" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="726" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="726" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="748" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="748" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="770" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="770" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="792" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="792" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="814" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="814" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="836" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="836" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-        <rect x="858" y="176" width="9" height="24" fill="#6366f1" opacity="0.12"/>
-        <rect x="858" y="140" width="9" height="36" fill="#10b981" opacity="0.28"/>
-      </g>
-
-      <!-- X 轴日期刻度 -->
-      <g transform="translate(68, 216)">
-        <text x="5" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">09-08</text>
-        <text x="137" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">09-14</text>
-        <text x="247" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">09-20</text>
-        <text x="357" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">09-26</text>
-        <text x="467" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">10-02</text>
-        <text x="577" y="0" text-anchor="middle" font-size="10" fill="#64748b" class="mono">10-07</text>
-        <!-- 643 是今日 -->
-        <text x="750" y="0" text-anchor="middle" font-size="10" fill="#fb923c" class="mono">10-14</text>
-        <text x="860" y="0" text-anchor="middle" font-size="10" fill="#fb923c" class="mono">10-20</text>
-      </g>
-
-      <!-- 累计折线 (实线: 09-08 -> 10-08 计费模式重置累计) -->
-      <!-- 周期从 10-01 (x=467) 重新累计至今日 10-08 (x=643) = 46.7GB (y=153) -->
-      <path d="M 68 185 Q 260 178 460 198 L 467 200 L 510 188 L 550 174 L 594 162 L 643 153" 
-            fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
-      
-      <!-- 今日点光斑 -->
-      <circle cx="711" cy="153" r="4" fill="#f59e0b" filter="url(#glow)"/>
-      <circle cx="711" cy="153" r="2" fill="#ffffff"/>
-
-      <!-- 预测折线 (虚线: 从今日 46.7GB 外推至 10-20 = 88.5GB, y=110) -->
-      <path d="M 711 153 L 755 142 L 800 131 L 845 120 L 926 110" 
-            fill="none" stroke="#fb923c" stroke-width="2.2" stroke-dasharray="4,4" stroke-linecap="round"/>
-
-      <!-- 交互 Tooltip (悬浮在今日上方演示) -->
-      <g transform="translate(620, 36)" filter="url(#cardShadow)">
-        <rect width="186" height="98" rx="8" fill="rgba(15, 23, 42, 0.95)" stroke="rgba(255, 255, 255, 0.16)" stroke-width="1"/>
-        <text x="12" y="18" font-size="11" font-weight="700" fill="#ffffff">2026-10-08 <tspan fill="#38bdf8">(今日实时)</tspan></text>
-        <line x1="12" y1="25" x2="174" y2="25" stroke="rgba(255, 255, 255, 0.1)"/>
+      <!-- 卡片头 (告警徽标居左，避免被前景浮窗遮挡) -->
+      <g transform="translate(16, 14)">
+        <text x="0" y="16" class="font-sans" font-size="15" font-weight="700" fill="#ffffff">🇭🇰 香港沙田 CN2 GIA (HK.CN2-01)</text>
+        <rect x="260" y="1" width="100" height="20" rx="4" fill="rgba(99, 102, 241, 0.2)" stroke="rgba(99, 102, 241, 0.4)"/>
+        <text x="310" y="15" text-anchor="middle" class="font-sans" font-size="10" font-weight="600" fill="#a5b4fc">双向求和 (SUM)</text>
         
-        <text x="12" y="42" font-size="11" fill="#6366f1">● 今日入站 (当前):</text>
-        <text x="174" y="42" text-anchor="end" font-size="11" fill="#f8fafc" class="mono">0.42 GB</text>
+        <rect x="375" y="-1" width="150" height="24" rx="6" fill="rgba(239, 68, 68, 0.25)" stroke="rgba(239, 68, 68, 0.55)"/>
+        <text x="450" y="15" text-anchor="middle" class="font-sans" font-size="11" font-weight="700" fill="#fca5a5">🚨 预计将在 4 天后耗尽</text>
+      </g>
 
-        <text x="12" y="58" font-size="11" fill="#10b981">● 今日出站 (当前):</text>
-        <text x="174" y="58" text-anchor="end" font-size="11" fill="#f8fafc" class="mono">1.82 GB</text>
+      <!-- 告警条 -->
+      <rect x="16" y="44" width="520" height="24" rx="5" fill="rgba(239, 68, 68, 0.15)" stroke="rgba(239, 68, 68, 0.3)"/>
+      <text x="26" y="60" class="font-sans" font-size="11" fill="#fca5a5">⚠️ 已用 880 GB / 限额 1000 GB (88%)，均速 45.2 GB/d，预计 10-13 耗尽超标！</text>
 
-        <text x="12" y="74" font-size="11" fill="#94a3b8">● 今日合计 (当前):</text>
-        <text x="174" y="74" text-anchor="end" font-size="11" fill="#f8fafc" class="mono">2.24 GB</text>
+      <!-- 指标行 (左侧紧凑排布) -->
+      <g transform="translate(16, 76)">
+        <text x="0" y="14" class="font-sans" font-size="11" fill="#94a3b8">当月已用: <tspan font-weight="700" fill="#ef4444">880.00 GB</tspan></text>
+        <text x="180" y="14" class="font-sans" font-size="11" fill="#94a3b8">7日均速: <tspan font-weight="700" fill="#ffffff">45.20 GB/d</tspan></text>
+        <text x="350" y="14" class="font-sans" font-size="11" fill="#94a3b8">重置: <tspan font-weight="700" fill="#fde68a">每月 20 号 (余 11 天)</tspan></text>
+      </g>
 
-        <line x1="12" y1="81" x2="174" y2="81" stroke="rgba(255, 255, 255, 0.1)" stroke-dasharray="2,2"/>
-        <text x="12" y="93" font-size="11" font-weight="700" fill="#f59e0b">● 计费累计:</text>
-        <text x="174" y="93" text-anchor="end" font-size="11" font-weight="700" fill="#f59e0b" class="mono">46.70 GB</text>
+      <!-- 图表画框 (30天增量柱 + 红色冲顶虚线) -->
+      <g transform="translate(16, 102)">
+        <rect width="908" height="122" rx="6" fill="rgba(15, 23, 42, 0.6)"/>
+        <line x1="40" y1="20" x2="890" y2="20" stroke="rgba(239, 68, 68, 0.45)" stroke-dasharray="3 3" stroke-width="1.5"/>
+        <text x="35" y="23" text-anchor="end" class="font-sans mono" font-size="9" fill="#ef4444">1000G 限额</text>
+        <line x1="40" y1="105" x2="890" y2="105" stroke="rgba(255, 255, 255, 0.15)"/>
+
+        <!-- 柱状图 -->
+        <g transform="translate(45, 0)">
+          <rect x="0" y="88" width="12" height="8" fill="#6366f1"/><rect x="0" y="75" width="12" height="13" fill="#10b981"/>
+          <rect x="16" y="85" width="12" height="11" fill="#6366f1"/><rect x="16" y="65" width="12" height="20" fill="#10b981"/>
+          <rect x="32" y="82" width="12" height="14" fill="#6366f1"/><rect x="32" y="60" width="12" height="22" fill="#10b981"/>
+          <rect x="48" y="80" width="12" height="16" fill="#6366f1"/><rect x="48" y="50" width="12" height="30" fill="#10b981"/>
+          <rect x="64" y="78" width="12" height="18" fill="#6366f1"/><rect x="64" y="45" width="12" height="33" fill="#10b981"/>
+          <rect x="80" y="75" width="12" height="21" fill="#6366f1"/><rect x="80" y="40" width="12" height="35" fill="#10b981"/>
+          <rect x="96" y="70" width="12" height="26" fill="#6366f1"/><rect x="96" y="32" width="12" height="38" fill="#10b981"/>
+          <rect x="112" y="65" width="12" height="31" fill="#6366f1"/><rect x="112" y="25" width="12" height="40" fill="#10b981"/>
+          <rect x="128" y="62" width="12" height="34" fill="#6366f1"/><rect x="128" y="20" width="12" height="42" fill="#10b981"/>
+          <rect x="144" y="60" width="12" height="36" fill="#6366f1"/><rect x="144" y="16" width="12" height="44" fill="#10b981"/>
+          <!-- 今日实时 -->
+          <rect x="160" y="64" width="12" height="28" fill="#818cf8"/><rect x="160" y="28" width="12" height="36" fill="#34d399"/>
+          <text x="166" y="116" text-anchor="middle" class="font-sans" font-size="9" fill="#38bdf8" font-weight="700">今日</text>
+
+          <!-- 累计实线折线 -->
+          <path d="M 6 100 Q 80 85 166 30" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+          <!-- 预测超限红虚线 -->
+          <path d="M 166 30 Q 240 12 360 2" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="4 3"/>
+          <circle cx="220" cy="20" r="4" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+          <text x="220" y="12" text-anchor="middle" class="font-sans mono" font-size="9" font-weight="700" fill="#ef4444">10-13 耗尽</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- 节点卡片 2：美西圣何塞 (预算安全充裕情景) -->
+    <g transform="translate(20, 370)">
+      <rect width="940" height="250" rx="12" fill="rgba(30, 41, 59, 0.55)" stroke="rgba(16, 185, 129, 0.3)" stroke-width="1"/>
+      
+      <!-- 卡片头 (安全徽标居左) -->
+      <g transform="translate(16, 14)">
+        <text x="0" y="16" class="font-sans" font-size="15" font-weight="700" fill="#ffffff">🇺🇸 美西圣何塞 9929 (US.SJC-02)</text>
+        <rect x="260" y="1" width="110" height="20" rx="4" fill="rgba(16, 185, 129, 0.18)" stroke="rgba(16, 185, 129, 0.35)"/>
+        <text x="315" y="15" text-anchor="middle" class="font-sans" font-size="10" font-weight="600" fill="#34d399">仅计出站 (UPLOAD)</text>
+
+        <rect x="385" y="-1" width="130" height="24" rx="6" fill="rgba(16, 185, 129, 0.2)" stroke="rgba(16, 185, 129, 0.45)"/>
+        <text x="450" y="15" text-anchor="middle" class="font-sans" font-size="11" font-weight="700" fill="#a7f3d0">✅ 流量在安全预算内</text>
+      </g>
+
+      <!-- 状态条 -->
+      <rect x="16" y="44" width="520" height="24" rx="5" fill="rgba(16, 185, 129, 0.12)" stroke="rgba(16, 185, 129, 0.25)"/>
+      <text x="26" y="60" class="font-sans" font-size="11" fill="#a7f3d0">🌿 当前已用 210 GB / 限额 1000 GB (21%)，均速 7.8 GB/d，重置日预计使用 45.2%。</text>
+
+      <!-- 指标行 -->
+      <g transform="translate(16, 76)">
+        <text x="0" y="14" class="font-sans" font-size="11" fill="#94a3b8">当月已用: <tspan font-weight="700" fill="#38bdf8">210.00 GB</tspan></text>
+        <text x="180" y="14" class="font-sans" font-size="11" fill="#94a3b8">7日均速: <tspan font-weight="700" fill="#ffffff">7.80 GB/d</tspan></text>
+        <text x="350" y="14" class="font-sans" font-size="11" fill="#94a3b8">重置: <tspan font-weight="700" fill="#a7f3d0">每月 1 号 (余 21 天)</tspan></text>
+      </g>
+
+      <!-- 图表画框 (平稳绿蓝柱 + 平缓走势折线) -->
+      <g transform="translate(16, 102)">
+        <rect width="908" height="130" rx="6" fill="rgba(15, 23, 42, 0.6)"/>
+        <line x1="40" y1="20" x2="890" y2="20" stroke="rgba(255, 255, 255, 0.2)" stroke-dasharray="3 3"/>
+        <text x="35" y="23" text-anchor="end" class="font-sans mono" font-size="9" fill="#94a3b8">1000G 限额</text>
+        <line x1="40" y1="115" x2="890" y2="115" stroke="rgba(255, 255, 255, 0.15)"/>
+
+        <!-- 历史柱状图 (平缓) -->
+        <g transform="translate(45, 0)">
+          <rect x="0" y="105" width="12" height="7" fill="#10b981"/>
+          <rect x="18" y="103" width="12" height="9" fill="#10b981"/>
+          <rect x="36" y="104" width="12" height="8" fill="#10b981"/>
+          <rect x="54" y="102" width="12" height="10" fill="#10b981"/>
+          <rect x="72" y="103" width="12" height="9" fill="#10b981"/>
+          <rect x="90" y="101" width="12" height="11" fill="#10b981"/>
+          <rect x="108" y="104" width="12" height="8" fill="#10b981"/>
+          <rect x="126" y="102" width="12" height="10" fill="#34d399"/>
+          <text x="132" y="126" text-anchor="middle" class="font-sans" font-size="9" fill="#38bdf8" font-weight="700">今日</text>
+
+          <path d="M 6 112 Q 60 108 132 101" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+          <path d="M 132 101 Q 260 88 420 75" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="4 3"/>
+          <circle cx="420" cy="75" r="4" fill="#10b981" stroke="#ffffff" stroke-width="1.5"/>
+          <text x="420" y="65" text-anchor="middle" class="font-sans" font-size="9" font-weight="700" fill="#34d399">重置日: 452 GB</text>
+        </g>
       </g>
     </g>
   </g>
 
-  <!-- 节点卡片 2 (次卡片: 折叠略缩预览 - HK.BGP-Premium 预警节点) -->
-  <g transform="translate(48, 594)">
-    <rect width="1104" height="120" rx="14" fill="url(#cardGrad)" stroke="rgba(245, 158, 11, 0.35)" stroke-width="1" filter="url(#cardShadow)"/>
+  <!-- ========================================================================= -->
+  <!-- 页面 2：前台悬浮小组件 (微仰视右倾透视与重叠在主面板右下角上方) -->
+  <!-- rotate(1.2deg) skewY(-0.8deg) 深度立体重叠 -->
+  <!-- ========================================================================= -->
+  <g transform="translate(1060, 230) rotate(1.2) skewY(-0.8)" filter="url(#widgetShadow)">
+    <!-- 浮窗卡片外框 (440 x 560) -->
+    <rect width="440" height="560" rx="20" fill="url(#widgetCardBg)" stroke="rgba(255, 255, 255, 0.18)" stroke-width="1.5"/>
 
-    <g transform="translate(24, 20)">
-      <text x="0" y="16" class="text-title" font-size="16">HK.BGP-Premium</text>
-      <rect x="150" y="0" width="138" height="22" rx="6" fill="rgba(99, 102, 241, 0.15)" stroke="rgba(99, 102, 241, 0.35)"/>
-      <text x="219" y="15" text-anchor="middle" font-size="11" font-weight="600" fill="#a5b4fc">⚖️ 计费: 双向求和 (SUM)</text>
-      <text x="300" y="15" font-size="11" fill="#94a3b8">📦 限额: <tspan fill="#ffffff" font-weight="700">1000 GB</tspan> · 🗓️ 自然月 (1号) 重置</text>
+    <!-- 浮窗 Header -->
+    <g transform="translate(20, 18)">
+      <rect width="400" height="44" rx="10" fill="rgba(30, 41, 59, 0.55)" stroke="rgba(255, 255, 255, 0.08)"/>
+      <rect x="8" y="7" width="30" height="30" rx="8" fill="rgba(99, 102, 241, 0.25)" stroke="rgba(99, 102, 241, 0.45)"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">📊</text>
+      <text x="48" y="27" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">流量预测与预算监控</text>
 
-      <g transform="translate(940, 0)">
-        <rect x="0" y="0" width="114" height="24" rx="6" fill="rgba(245, 158, 11, 0.15)" stroke="rgba(245, 158, 11, 0.4)"/>
-        <text x="57" y="16" text-anchor="middle" font-size="11" font-weight="600" fill="#fde68a">⚡ 接近限额预警</text>
+      <!-- ✕ 关闭按钮 -->
+      <rect x="362" y="7" width="30" height="30" rx="8" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.12)"/>
+      <text x="377" y="27" text-anchor="middle" class="font-sans" font-size="14" font-weight="700" fill="#94a3b8">✕</text>
+    </g>
+
+    <!-- 浮窗 KPI 条 (3 列紧凑) -->
+    <g transform="translate(20, 72)">
+      <rect width="400" height="56" rx="10" fill="rgba(15, 23, 42, 0.65)" stroke="rgba(255, 255, 255, 0.06)"/>
+      <g transform="translate(12, 10)">
+        <text x="0" y="12" class="font-sans" font-size="10" fill="#94a3b8">配额总已用</text>
+        <text x="0" y="33" class="font-sans mono" font-size="15" font-weight="700" fill="#38bdf8">1.51 TB</text>
+      </g>
+      <line x1="136" y1="10" x2="136" y2="46" stroke="rgba(255, 255, 255, 0.08)"/>
+      <g transform="translate(148, 10)">
+        <text x="0" y="12" class="font-sans" font-size="10" fill="#94a3b8">超限风险</text>
+        <text x="0" y="33" class="font-sans mono" font-size="15" font-weight="700" fill="#fca5a5">🚨 3 台预警</text>
+      </g>
+      <line x1="272" y1="10" x2="272" y2="46" stroke="rgba(255, 255, 255, 0.08)"/>
+      <g transform="translate(284, 10)">
+        <text x="0" y="12" class="font-sans" font-size="10" fill="#94a3b8">最近重置</text>
+        <text x="0" y="33" class="font-sans mono" font-size="14" font-weight="700" fill="#fde68a">8日 (余3天)</text>
       </g>
     </g>
 
-    <!-- 告警横幅 -->
-    <g transform="translate(24, 56)">
-      <rect width="1056" height="44" rx="8" fill="rgba(245, 158, 11, 0.12)" stroke="rgba(245, 158, 11, 0.3)"/>
-      <text x="16" y="27" font-size="16">⚡</text>
-      <text x="44" y="27" font-size="12" fill="#fde68a">
-        当前已用 <tspan fill="#ffffff" font-weight="700">642.5 GB</tspan>，日均消耗 <tspan fill="#ffffff" font-weight="700">28.4 GB/天</tspan>，预计在重置日前总消耗将达到 <tspan fill="#ffffff" font-weight="700">926.5 GB (92.6%)</tspan>，接近设定的 90% 告警阈值！
-      </text>
+    <!-- 筛选药丸栏 (含单节点专用的 📌 当前) -->
+    <g transform="translate(20, 138)">
+      <!-- 📌 当前 (1) 激活态 -->
+      <rect x="0" y="0" width="76" height="26" rx="13" fill="rgba(99, 102, 241, 0.35)" stroke="rgba(99, 102, 241, 0.75)"/>
+      <text x="38" y="17" text-anchor="middle" class="font-sans" font-size="11" font-weight="700" fill="#a5b4fc">📌 当前(1)</text>
+
+      <!-- 全部 (18) -->
+      <rect x="84" y="0" width="70" height="26" rx="13" fill="rgba(255, 255, 255, 0.07)" stroke="rgba(255, 255, 255, 0.1)"/>
+      <text x="119" y="17" text-anchor="middle" class="font-sans" font-size="11" fill="#94a3b8">全部(18)</text>
+
+      <!-- 🚨 预警 (3) -->
+      <rect x="162" y="0" width="74" height="26" rx="13" fill="rgba(255, 255, 255, 0.07)" stroke="rgba(255, 255, 255, 0.1)"/>
+      <text x="199" y="17" text-anchor="middle" class="font-sans" font-size="11" fill="#fca5a5">🚨 预警(3)</text>
+
+      <!-- ✅ 安全 (14) -->
+      <rect x="244" y="0" width="74" height="26" rx="13" fill="rgba(255, 255, 255, 0.07)" stroke="rgba(255, 255, 255, 0.1)"/>
+      <text x="281" y="17" text-anchor="middle" class="font-sans" font-size="11" fill="#a7f3d0">✅ 安全(14)</text>
+
+      <!-- ⚪ 免额 (1) -->
+      <rect x="326" y="0" width="68" height="26" rx="13" fill="rgba(255, 255, 255, 0.07)" stroke="rgba(255, 255, 255, 0.1)"/>
+      <text x="360" y="17" text-anchor="middle" class="font-sans" font-size="11" fill="#cbd5e1">⚪ 免额(1)</text>
+    </g>
+
+    <!-- 浮出层单节点卡片 A (香港预警节点，标签微调呼吸感) -->
+    <g transform="translate(20, 178)">
+      <rect width="400" height="135" rx="12" fill="rgba(30, 41, 59, 0.8)" stroke="rgba(255, 255, 255, 0.12)"/>
+      <g transform="translate(14, 14)">
+        <text x="0" y="15" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">🇭🇰 香港沙田 CN2 GIA</text>
+        <rect x="170" y="1" width="46" height="18" rx="4" fill="rgba(99, 102, 241, 0.2)" stroke="rgba(99, 102, 241, 0.4)"/>
+        <text x="193" y="14" text-anchor="middle" class="font-sans" font-size="10" font-weight="600" fill="#a5b4fc">SUM</text>
+
+        <rect x="235" y="0" width="50" height="20" rx="5" fill="rgba(239, 68, 68, 0.25)" stroke="rgba(239, 68, 68, 0.5)"/>
+        <text x="260" y="14" text-anchor="middle" class="font-sans" font-size="10" font-weight="700" fill="#fca5a5">超限</text>
+        <text x="372" y="15" text-anchor="end" class="font-sans mono" font-size="14" font-weight="700" fill="#ef4444">88%</text>
+      </g>
+      
+      <!-- 双色进度条 -->
+      <g transform="translate(14, 52)">
+        <rect width="372" height="9" rx="4.5" fill="rgba(15, 23, 42, 0.85)"/>
+        <rect width="260" height="9" rx="4.5" fill="#6366f1"/>
+        <rect x="260" y="0" width="85" height="9" fill="#fb923c" fill-opacity="0.85" stroke="#fb923c" stroke-dasharray="3 2"/>
+      </g>
+
+      <!-- 指标三列 -->
+      <g transform="translate(14, 82)">
+        <text x="0" y="12" class="font-sans" font-size="11" fill="#94a3b8">已用 <tspan font-weight="700" fill="#ffffff">880 GB</tspan> / 1000 GB</text>
+        <text x="190" y="12" text-anchor="middle" class="font-sans" font-size="11" fill="#94a3b8">均速 <tspan font-weight="700" fill="#ffffff">45.2 GB/d</tspan></text>
+        <text x="372" y="12" text-anchor="end" class="font-sans" font-size="11" fill="#94a3b8">重置 <tspan font-weight="700" fill="#fde68a">20日 (余11天)</tspan></text>
+      </g>
+      <g transform="translate(14, 105)">
+        <rect width="372" height="20" rx="5" fill="rgba(239, 68, 68, 0.16)"/>
+        <text x="8" y="14" class="font-sans" font-size="10" fill="#fca5a5">⚠️ 预计将在 4 天后耗尽限额，重置日前超标 377 GB</text>
+      </g>
+    </g>
+
+    <!-- 浮出层单节点卡片 B (美西安全节点) -->
+    <g transform="translate(20, 325)">
+      <rect width="400" height="125" rx="12" fill="rgba(30, 41, 59, 0.8)" stroke="rgba(255, 255, 255, 0.12)"/>
+      <g transform="translate(14, 14)">
+        <text x="0" y="15" class="font-sans" font-size="14" font-weight="700" fill="#ffffff">🇺🇸 美西圣何塞 9929</text>
+        <rect x="170" y="1" width="60" height="18" rx="4" fill="rgba(99, 102, 241, 0.2)" stroke="rgba(99, 102, 241, 0.4)"/>
+        <text x="200" y="14" text-anchor="middle" class="font-sans" font-size="10" font-weight="600" fill="#a5b4fc">UPLOAD</text>
+
+        <rect x="240" y="0" width="50" height="20" rx="5" fill="rgba(16, 185, 129, 0.2)" stroke="rgba(16, 185, 129, 0.4)"/>
+        <text x="265" y="14" text-anchor="middle" class="font-sans" font-size="10" font-weight="700" fill="#a7f3d0">正常</text>
+        <text x="372" y="15" text-anchor="end" class="font-sans mono" font-size="14" font-weight="700" fill="#38bdf8">21%</text>
+      </g>
+      
+      <g transform="translate(14, 52)">
+        <rect width="372" height="9" rx="4.5" fill="rgba(15, 23, 42, 0.85)"/>
+        <rect width="78" height="9" rx="4.5" fill="#6366f1"/>
+        <rect x="78" y="0" width="92" height="9" fill="#34d399" fill-opacity="0.8"/>
+      </g>
+
+      <g transform="translate(14, 82)">
+        <text x="0" y="12" class="font-sans" font-size="11" fill="#94a3b8">已用 <tspan font-weight="700" fill="#ffffff">210 GB</tspan> / 1000 GB</text>
+        <text x="190" y="12" text-anchor="middle" class="font-sans" font-size="11" fill="#94a3b8">均速 <tspan font-weight="700" fill="#ffffff">7.8 GB/d</tspan></text>
+        <text x="372" y="12" text-anchor="end" class="font-sans" font-size="11" fill="#94a3b8">重置 <tspan font-weight="700" fill="#a7f3d0">1日 (余21天)</tspan></text>
+      </g>
+      <text x="14" y="112" class="font-sans" font-size="10" fill="#34d399">🌿 流量在安全预算内，预计重置日使用率仅 45.2%</text>
+    </g>
+
+    <!-- 浮出层底栏 -->
+    <g transform="translate(20, 462)">
+      <rect width="400" height="46" rx="10" fill="rgba(30, 41, 59, 0.55)" stroke="rgba(255, 255, 255, 0.08)"/>
+      <circle cx="22" cy="23" r="4.5" fill="#10b981"/>
+      <text x="36" y="27" class="font-sans" font-size="12" fill="#94a3b8">实时监测中 (45秒刷新)</text>
+      
+      <rect x="290" y="8" width="100" height="30" rx="7" fill="url(#btnGrad)"/>
+      <text x="340" y="27" text-anchor="middle" class="font-sans" font-size="12" font-weight="700" fill="#ffffff">完整图表 ↗</text>
+    </g>
+
+    <!-- 右下角悬浮触发方形按钮 (48x48，带预警霓虹红光与红点) -->
+    <g transform="translate(372, 518)" filter="url(#neonRed)">
+      <rect width="48" height="48" rx="12" fill="rgba(15, 23, 42, 0.98)" stroke="#ef4444" stroke-width="2.5"/>
+      <g stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <line x1="34" y1="38" x2="34" y2="20"/>
+        <line x1="24" y1="38" x2="24" y2="10"/>
+        <line x1="14" y1="38" x2="14" y2="28"/>
+        <path d="M10 28 L 18 20 L 26 25 L 38 12"/>
+      </g>
+      <circle cx="45" cy="3" r="5" fill="#ef4444" stroke="#0f172a" stroke-width="2"/>
+    </g>
+
+    <!-- 浮窗悬浮小标签 -->
+    <g transform="translate(180, 528)">
+      <rect width="180" height="26" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="rgba(255, 255, 255, 0.2)"/>
+      <text x="90" y="17" text-anchor="middle" class="font-sans" font-size="11" fill="#cbd5e1">👆 浮窗按钮 (可拖拽自由停靠)</text>
     </g>
   </g>
 </svg>

@@ -1202,9 +1202,14 @@
           let nodes = json.nodes;
           try {
             const urlParams = new URLSearchParams(window.location.search);
-            const targetUuid = urlParams.get("uuid") || urlParams.get("node_id");
+            const targetUuid = (urlParams.get("uuid") || urlParams.get("node_id") || "").trim();
             if (targetUuid) {
-              const matched = nodes.filter(n => (n.node_id && n.node_id.toLowerCase() === targetUuid.toLowerCase()) || (n.uuid && n.uuid.toLowerCase() === targetUuid.toLowerCase()));
+              const matched = nodes.filter(n => {
+                const id = String(n.node_id || n.uuid || "").trim().toLowerCase();
+                const name = String(n.node_name || n.name || "").trim().toLowerCase();
+                const q = targetUuid.toLowerCase();
+                return id === q || name === q || (id.length >= 8 && (id.indexOf(q) === 0 || q.indexOf(id) === 0)) || (id.replace(/-/g, "") === q.replace(/-/g, ""));
+              });
               if (matched.length > 0) nodes = matched;
             }
           } catch (e) {}

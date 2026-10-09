@@ -718,6 +718,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   display: flex !important;
   align-items: center !important;
   gap: 10px !important;
+  min-width: 0 !important;
 }
 #nf-floating-widget .nf-header-icon {
   font-size: 15px !important;
@@ -729,11 +730,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   justify-content: center !important;
   border-radius: 8px !important;
   border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-header-text {
   font-size: 14px !important;
   font-weight: 700 !important;
   color: #fff !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 #nf-floating-widget .nf-close-btn {
   background: rgba(255, 255, 255, 0.08) !important;
@@ -749,6 +754,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   justify-content: center !important;
   border-radius: 8px !important;
   transition: all 0.2s !important;
+  flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-close-btn:hover {
   color: #fff !important;
@@ -1046,7 +1052,7 @@ const WIDGET_BODY_HTML = `
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#fde68a;">-</span></div>
     </div>
 
-    <!-- 筛选药丸 -->
+    <!-- 筛选药丸 (单节点页面自动隐藏) -->
     <div class="nf-filter-bar" id="nfFilterBar">
       <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>
       <button class="nf-filter-btn" data-filter="ALERT" id="nfBtnAlert">🚨 预警 (0)</button>
@@ -1087,6 +1093,17 @@ const WIDGET_BODY_HTML = `
     widgetRoot.style.display = "block";
   }
 
+  // 识别当前 URL 是否为单个节点实例页面 (e.g. /instance/70ecf483... 或 /node/...)
+  function getCurrentInstanceUuid() {
+    var path = window.location.pathname || "";
+    var m = path.match(/\/(?:instance|node|server|client)\/([a-fA-F0-9-]+)/i);
+    if (m) return m[1];
+    var hash = window.location.hash || "";
+    var hm = hash.match(/(?:instance|node|server|client)\/([a-fA-F0-9-]+)/i);
+    if (hm) return hm[1];
+    return null;
+  }
+
   function nfCheckRoute() {
     var el = document.getElementById("nf-floating-widget");
     if (!el) return;
@@ -1094,16 +1111,37 @@ const WIDGET_BODY_HTML = `
       el.style.display = "none";
     } else {
       el.style.display = "block";
+      if (cachedData && cachedData.nodes) {
+        renderData(cachedData);
+      }
     }
   }
   window.addEventListener("popstate", nfCheckRoute);
   window.addEventListener("hashchange", nfCheckRoute);
+
+  var origPushState = history.pushState;
+  if (origPushState) {
+    history.pushState = function() {
+      var ret = origPushState.apply(this, arguments);
+      setTimeout(nfCheckRoute, 50);
+      return ret;
+    };
+  }
+  var origReplaceState = history.replaceState;
+  if (origReplaceState) {
+    history.replaceState = function() {
+      var ret = origReplaceState.apply(this, arguments);
+      setTimeout(nfCheckRoute, 50);
+      return ret;
+    };
+  }
 
   var isEn = (navigator.language || "").toLowerCase().startsWith("en");
   var btn = document.getElementById("nfTriggerBtn");
   var card = document.getElementById("nfWidgetCard");
   var closeBtn = document.getElementById("nfCloseBtn");
   var sqDot = document.getElementById("nfSqDot");
+  var filterBar = document.getElementById("nfFilterBar");
   var whTitle = document.getElementById("nfWhTitle");
   var kpiUsedLbl = document.getElementById("nfKpiUsedLbl");
   var kpiRiskLbl = document.getElementById("nfKpiRiskLbl");
@@ -1118,16 +1156,6 @@ const WIDGET_BODY_HTML = `
   var nodeList = document.getElementById("nfNodeList");
   var footerStatus = document.getElementById("nfFooterStatus");
   var footerFullBtn = document.getElementById("nfFooterFullBtn");
-
-  if (isEn) {
-    if (btn) btn.title = "Traffic Forecast (Drag to move)";
-    if (whTitle) whTitle.textContent = "Traffic & Quota Forecast";
-    if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
-    if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
-    if (kpiResetLbl) kpiResetLbl.textContent = "NEXT RESET";
-    if (footerStatus) footerStatus.textContent = "Live Monitoring";
-    if (footerFullBtn) footerFullBtn.textContent = "Full Chart ↗";
-  }
 
   // 2. 拖拽与记住最后位置 (Draggable & Persisted Position)
   var posKey = "nf_btn_pos_v2";
@@ -1259,7 +1287,7 @@ const WIDGET_BODY_HTML = `
     }
   }
 
-  // 关闭按钮点击绑定 (强制生效，阻止事件冒泡)
+  // 关闭按钮点击绑定
   if (closeBtn) {
     closeBtn.addEventListener("click", function(e) {
       e.stopPropagation();
@@ -1268,7 +1296,7 @@ const WIDGET_BODY_HTML = `
     });
   }
 
-  // 点击外部自动关闭
+  // 点击外部空白区域自动关闭
   document.addEventListener("pointerdown", function(e) {
     if (!isOpen) return;
     if (card && card.contains(e.target)) return;
@@ -1297,17 +1325,31 @@ const WIDGET_BODY_HTML = `
   }
   setupFilters();
 
-  // 4. 精炼卡片渲染 (去杂乱，精简布局)
+  // 4. 精炼卡片渲染 (区分单节点视图 vs 全局列表视图)
   function renderList() {
     if (!cachedData || !cachedData.nodes) return;
     var nodes = cachedData.nodes;
     var html = "";
+    var instanceUuid = getCurrentInstanceUuid();
 
-    var filtered = nodes.filter(function(n) {
-      var cat = (n.status === "CRITICAL" || n.status === "WARNING") ? "ALERT" : n.status;
-      if (currentFilter === "ALL") return true;
-      return cat === currentFilter;
-    });
+    var filtered = [];
+    if (instanceUuid) {
+      var matchNode = nodes.find(function(n) {
+        return (n.node_id && n.node_id.toLowerCase() === instanceUuid.toLowerCase()) ||
+               (n.uuid && n.uuid.toLowerCase() === instanceUuid.toLowerCase());
+      });
+      if (matchNode) {
+        filtered = [matchNode];
+      } else {
+        filtered = nodes;
+      }
+    } else {
+      filtered = nodes.filter(function(n) {
+        var cat = (n.status === "CRITICAL" || n.status === "WARNING") ? "ALERT" : n.status;
+        if (currentFilter === "ALL") return true;
+        return cat === currentFilter;
+      });
+    }
 
     if (filtered.length === 0) {
       nodeList.innerHTML = '<div style="text-align:center; padding:32px; color:#94a3b8; font-size:12px;">' + (isEn ? "No matching nodes" : "无符合条件的节点") + '</div>';
@@ -1394,54 +1436,121 @@ const WIDGET_BODY_HTML = `
     cachedData = data;
     var summary = data.summary || {};
     var nodes = data.nodes || [];
-    var crit = summary.critical_count || 0;
-    var warn = summary.warning_count || 0;
-    var safe = summary.safe_count || 0;
-    var noQuota = summary.no_quota_count || 0;
-    var totalAlerts = crit + warn;
+    var instanceUuid = getCurrentInstanceUuid();
 
-    // 更新方形按钮外观：无警报为绿色，有警报为红色
-    if (totalAlerts > 0) {
-      btn.className = "nf-trigger-sq alert";
-      if (sqDot) sqDot.className = "nf-sq-dot alert";
-    } else {
-      btn.className = "nf-trigger-sq safe";
-      if (sqDot) sqDot.className = "nf-sq-dot";
+    var singleNode = null;
+    if (instanceUuid) {
+      singleNode = nodes.find(function(n) {
+        return (n.node_id && n.node_id.toLowerCase() === instanceUuid.toLowerCase()) ||
+               (n.uuid && n.uuid.toLowerCase() === instanceUuid.toLowerCase());
+      });
     }
 
-    var totalUsedBillable = 0;
-    var minDays = 999;
-    var minNode = null;
-
-    nodes.forEach(function(n) {
-      if (n.cumulative && n.cumulative.billable_bytes) {
-        totalUsedBillable += n.cumulative.billable_bytes;
+    // 模式 A：处于特定节点实例详情页 (e.g. /instance/:uuid)
+    if (singleNode) {
+      var isAlert = singleNode.status === "CRITICAL" || singleNode.status === "WARNING";
+      if (isAlert) {
+        btn.className = "nf-trigger-sq alert";
+        if (sqDot) sqDot.className = "nf-sq-dot alert";
+      } else {
+        btn.className = "nf-trigger-sq safe";
+        if (sqDot) sqDot.className = "nf-sq-dot";
       }
-      if (n.cycle && typeof n.cycle.daysRemaining === "number") {
-        if (n.cycle.daysRemaining < minDays) {
-          minDays = n.cycle.daysRemaining;
-          minNode = n;
+
+      if (filterBar) filterBar.style.display = "none";
+      if (whTitle) {
+        whTitle.textContent = (isEn ? "Forecast: " : "流量预测 · ") + (singleNode.node_name || singleNode.node_id);
+      }
+
+      var nodeUsedBytes = (singleNode.cumulative && singleNode.cumulative.billable_bytes) || 0;
+      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "USED" : "本期已用";
+      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(nodeUsedBytes);
+
+      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "PROJECTED" : "预测使用率";
+      if (kpiRiskVal) {
+        if (singleNode.has_quota && singleNode.traffic_limit_bytes > 0) {
+          var ratioPct = Math.round((singleNode.usage_ratio || 0) * 100);
+          kpiRiskVal.textContent = ratioPct + "%";
+          kpiRiskVal.style.color = ratioPct >= 100 ? "#ef4444" : (ratioPct >= 90 ? "#fde68a" : "#6ee7b7");
+        } else {
+          kpiRiskVal.textContent = isEn ? "Uncapped" : "免额度";
+          kpiRiskVal.style.color = "#cbd5e1";
         }
       }
-    });
 
-    if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(totalUsedBillable);
-    if (kpiRiskVal) {
-      kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
-      kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
-    }
-    if (kpiResetVal) {
-      if (minNode) {
-        kpiResetVal.textContent = minNode.traffic_reset_day + (isEn ? "th (" + minDays + "d)" : "日 (余" + minDays + "天)");
+      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "RESET DAY" : "账单重置";
+      if (kpiResetVal) {
+        var daysLeft = (singleNode.cycle && typeof singleNode.cycle.daysRemaining === "number") ? singleNode.cycle.daysRemaining : 0;
+        kpiResetVal.textContent = singleNode.traffic_reset_day + (isEn ? "th (" + daysLeft + "d)" : "日 (余" + daysLeft + "天)");
+      }
+
+      if (footerFullBtn) {
+        footerFullBtn.href = "/api/plugin/net-forecast/pages/public.html?uuid=" + encodeURIComponent(instanceUuid);
+      }
+    } else {
+      // 模式 B：处于全局首页 / 全部节点总览
+      if (filterBar) filterBar.style.display = "flex";
+      if (whTitle) {
+        whTitle.textContent = isEn ? "Traffic & Quota Forecast" : "流量预测与预算监控";
+      }
+
+      var crit = summary.critical_count || 0;
+      var warn = summary.warning_count || 0;
+      var safe = summary.safe_count || 0;
+      var noQuota = summary.no_quota_count || 0;
+      var totalAlerts = crit + warn;
+
+      if (totalAlerts > 0) {
+        btn.className = "nf-trigger-sq alert";
+        if (sqDot) sqDot.className = "nf-sq-dot alert";
       } else {
-        kpiResetVal.textContent = "-";
+        btn.className = "nf-trigger-sq safe";
+        if (sqDot) sqDot.className = "nf-sq-dot";
+      }
+
+      var totalUsedBillable = 0;
+      var minDays = 999;
+      var minNode = null;
+
+      nodes.forEach(function(n) {
+        if (n.cumulative && n.cumulative.billable_bytes) {
+          totalUsedBillable += n.cumulative.billable_bytes;
+        }
+        if (n.cycle && typeof n.cycle.daysRemaining === "number") {
+          if (n.cycle.daysRemaining < minDays) {
+            minDays = n.cycle.daysRemaining;
+            minNode = n;
+          }
+        }
+      });
+
+      if (kpiUsedLbl) kpiUsedLbl.textContent = isEn ? "TOTAL USED" : "配额总已用";
+      if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(totalUsedBillable);
+
+      if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "AT RISK" : "超限风险";
+      if (kpiRiskVal) {
+        kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
+        kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
+      }
+
+      if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "NEXT RESET" : "最近重置";
+      if (kpiResetVal) {
+        if (minNode) {
+          kpiResetVal.textContent = minNode.traffic_reset_day + (isEn ? "th (" + minDays + "d)" : "日 (余" + minDays + "天)");
+        } else {
+          kpiResetVal.textContent = "-";
+        }
+      }
+
+      if (btnAll) btnAll.textContent = (isEn ? "All (" : "全部 (") + nodes.length + ")";
+      if (btnAlert) btnAlert.textContent = (isEn ? "🚨 Alert (" : "🚨 预警 (") + totalAlerts + ")";
+      if (btnSafe) btnSafe.textContent = (isEn ? "✅ Safe (" : "✅ 安全 (") + safe + ")";
+      if (btnNoQuota) btnNoQuota.textContent = (isEn ? "⚪ Uncapped (" : "⚪ 免额 (") + noQuota + ")";
+
+      if (footerFullBtn) {
+        footerFullBtn.href = "/api/plugin/net-forecast/pages/public.html";
       }
     }
-
-    if (btnAll) btnAll.textContent = (isEn ? "All (" : "全部 (") + nodes.length + ")";
-    if (btnAlert) btnAlert.textContent = (isEn ? "🚨 Alert (" : "🚨 预警 (") + totalAlerts + ")";
-    if (btnSafe) btnSafe.textContent = (isEn ? "✅ Safe (" : "✅ 安全 (") + safe + ")";
-    if (btnNoQuota) btnNoQuota.textContent = (isEn ? "⚪ Uncapped (" : "⚪ 免额 (") + noQuota + ")";
 
     renderList();
   }

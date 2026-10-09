@@ -1199,7 +1199,16 @@
         const json = await res.json();
         if (json.ok && Array.isArray(json.nodes)) {
           updateLoading(95, "正在渲染可视化走势图与控制面板...", `共加载 ${json.nodes.length} 个节点图表`);
-          state.rawNodes = json.nodes;
+          let nodes = json.nodes;
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetUuid = urlParams.get("uuid") || urlParams.get("node_id");
+            if (targetUuid) {
+              const matched = nodes.filter(n => (n.node_id && n.node_id.toLowerCase() === targetUuid.toLowerCase()) || (n.uuid && n.uuid.toLowerCase() === targetUuid.toLowerCase()));
+              if (matched.length > 0) nodes = matched;
+            }
+          } catch (e) {}
+          state.rawNodes = nodes;
           renderFilterBar();
           renderNodeCards();
           applyFilter();

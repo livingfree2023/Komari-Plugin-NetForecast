@@ -1737,6 +1737,31 @@
       };
     }
 
+    // 过滤卡片展示
+    function applyFilter() {
+      const cards = document.querySelectorAll(".node-card");
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const status = card.getAttribute("data-status");
+        if (state.currentFilter === "ALL" || status === state.currentFilter) {
+          card.classList.remove("hidden");
+          visibleCount++;
+        } else {
+          card.classList.add("hidden");
+        }
+      });
+
+      const empty = document.getElementById("emptyState");
+      if (empty) {
+        if (visibleCount === 0) {
+          empty.style.display = "block";
+        } else {
+          empty.style.display = "none";
+        }
+      }
+    }
+
     function openNodeModal(nodeId) {
       state.editingNodeId = nodeId;
       const node = state.rawNodes.find((n) => n.node_id === nodeId);

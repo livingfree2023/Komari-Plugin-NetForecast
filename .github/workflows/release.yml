@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Create Plugin Distribution ZIP
         run: |
@@ -39,3 +41,36 @@ jobs:
           files: net-forecast.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-update v1.json and commit to main
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          SHA256=$(sha256sum net-forecast.zip | awk '{print $1}')
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG_NAME}/net-forecast.zip"
+          UPDATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+          # 切换并同步 main 分支
+          git checkout main
+          git pull origin main
+
+          # 更新根目录下 v1.json 中的版本、下载链接与真实 SHA256
+          python3 -c "
+          import json
+          with open('v1.json', 'r', encoding='utf-8') as f:
+              data = json.load(f)
+          data['updated_at'] = '${UPDATED_AT}'
+          data['plugins'][0]['version'] = '${VERSION}'
+          data['plugins'][0]['download'] = '${DOWNLOAD_URL}'
+          data['plugins'][0]['sha256'] = '${SHA256}'
+          with open('v1.json', 'w', encoding='utf-8') as f:
+              json.dump(data, f, indent=2, ensure_ascii=False)
+              f.write('\n')
+          "
+
+          # 提交并推送至 main 分支
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add v1.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto-update v1.json for ${TAG_NAME} [skip ci]" && git push origin main)

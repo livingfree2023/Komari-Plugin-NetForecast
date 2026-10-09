@@ -80,27 +80,31 @@
 
 ### 2. 本地打包与构建
 1. 更新版本号：根据上述规则同步更新 `package.json` 和 `komari-plugin.json` 中的 `version` 字段。
-2. 打包分发包：
+2. 本地验证打包：
    ```bash
    rm -f net-forecast.zip
    zip -r net-forecast.zip komari-plugin.json script.js pages assets README.md LICENSE
    ```
-3. 计算并输出 SHA256：
-   ```bash
-   shasum -a 256 net-forecast.zip
-   ```
 
-### 3. Git 提交与 Tag 检查（防止发布落空）
-- 提交所有修改，严禁遗漏任何核心文件。
-- **必须打对应的 Git Tag**（例如 `v26.10.08.1`）：
-  - 只有打上 `v*` 格式的 tag 并推送到 GitHub，仓库的 `.github/workflows/release.yml` 才会触发自动创建 GitHub Release 并附加 `net-forecast.zip`。
+### 3. Git 提交、Tag 检查与自动发布（全自动回写 v1.json）
+- 提交所有代码修改：
+  ```bash
+  git add .
+  git commit -m "feat/fix: <description>"
+  ```
+- **创建并推送对应的 Git Tag**（例如 `v26.10.08.1`）：
+  - 必须打上 `v*` 格式的 tag 并推送到 GitHub，仓库的 `.github/workflows/release.yml` 才会触发自动发布流水线。
 - **推送验证要求（重要！）**：
   - macOS 沙箱环境下，若未配置 SSH 信任文件，常规 push 可能会报错 `hostkeys_foreach failed for ~/.ssh/known_hosts: Operation not permitted` 或出现无响应静默假象。
-  - 推送时若使用 SSH，必须指定安全参数：
+  - 推送时必须指定安全参数：
     ```bash
     GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git push origin main --tags
     ```
-  - **推送后必须显式校验**：通过检查远程 ref 或运行 `git ls-remote --tags origin`，确认该 tag 确实已被 GitHub 接收，绝不能在未验证的情况下宣告发布成功。
+  - **推送后必须显式校验**：通过运行 `git ls-remote --tags origin`，确认该 tag 确实已被 GitHub 接收，绝不能在未验证的情况下宣告发布成功。
+- **v1.json 自动回写流水线保障（无需人工介入）**：
+  - `.github/workflows/release.yml` 已经内置了自动更新步骤。
+  - GitHub Actions 创建 Release 后，会**自动计算线上包的真实 SHA256**，自动更新根目录下的 `v1.json` 并由 `github-actions[bot]` 提交推送到 `main` 分支。
+  - **严禁开发者/Agent 手动计算 SHA256 并二次提交 `v1.json`**，发布完成后只需在本地执行 `git pull origin main` 同步即可。
 
 ### 4. 插件市场提交与专属订阅源规范（Komari Plugin Market）
 - **本地没有、也不需要维护 `komari-plugin-market` 仓库目录**：
@@ -110,9 +114,8 @@
   - 引用与订阅该文件时，**必须使用带 `refs/heads/main` 的完整路径**：
     `https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`
     普通 `.../main/v1.json` 容易命中 GitHub Fastly CDN 的陈旧缓存，而使用 `refs/heads/main` 能确保 Komari 面板或用户拉取时 100% 拿到最新提交的版本。
-- 每次发布新版本后，应向用户输出清晰的 Market Issue 提交模板，包括：
+- 每次发布新版本后，向用户输出清晰的 Market Issue 提交模板，包括：
   - 插件名称：`NetForecast (流量预测)`
-  - 版本号（Version）：`x.y.z`
+  - 版本号（Version）：`x.y.z` 或 `x.y.z.n`
   - 仓库地址：`https://github.com/livingfree2023/Komari-Plugin-NetForecast/`
-  - SHA256 校验和：`[生成的 64 位 hash]`
-  - 专属源地址：`https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`
+  - 专属订阅源：`https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`

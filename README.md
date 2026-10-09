@@ -35,7 +35,14 @@
 
 ## 🚀 快速安装与使用
 
-### 方式一：通过 Komari 官方插件市场安装（推荐）
+### 方式一：通过专属插件源订阅安装（推荐实时获取最新版）
+
+在 Komari 插件市场设置中添加本仓库专属的自定义插件源订阅地址（直连 `refs/heads/main`，穿透 GitHub CDN 缓存，确保第一时间获取最新版本）：
+```text
+https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json
+```
+
+### 方式二：通过 Komari 官方插件市场安装（版本可能有滞后）
 
 1. 登录您的 Komari 管理后台。
 2. 导航至左侧 **插件市场 (Plugin Market)**。
@@ -43,19 +50,13 @@
 4. 找到插件后点击 **安装 (Install)**，系统将自动从官方市场目录拉取最新版本并一键安装。
 5. 安装完成后在「插件管理」中点击 **启用**，左侧菜单即会出现 **流量预测** 仪表盘入口。
 
-### 方式二：从 GitHub Releases 手动上传安装
+### 方式三：从 GitHub Releases 手动上传安装
 
 1. 前往本仓库 [Releases 页面](https://github.com/livingfree2023/Komari-Plugin-NetForecast/releases) 下载最新版本的 **`net-forecast.zip`**。
 2. 登录您的 Komari 管理后台，进入 **插件管理 (Plugins)**。
 3. 点击右上角 **上传插件**，选择下载好的 `net-forecast.zip`。
 4. 上传完成后点击启用即可。
 
-### 方式三：通过专属插件源订阅安装（实时获取最新版）
-
-在 Komari 插件市场设置中添加本仓库专属的自定义插件源订阅地址（直连 `refs/heads/main`，穿透 GitHub CDN 缓存，确保第一时间获取最新版本）：
-```text
-https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json
-```
 
 ---
 

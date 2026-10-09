@@ -62,6 +62,11 @@
 2. `script.js`：插件在 Komari Goja 运行时中直接加载的主脚本；
 3. `pages/admin.html`：插件前端交互与 Canvas 可视化页面。
 
+### 4. 服务端 HTTP 响应与连接终止规范（Goja HTTP Response Conventions）
+- **必须显式调用 `res.end()`**：
+  Komari 的后端插件运行在基于 Goja 的 JS 运行时中。在 `sendJSON(res, data, statusCode)` 或任何自定义路由处理中，必须显式调用 `res.end(JSON.stringify(data))` 彻底关闭 HTTP 响应流。
+  若遗漏 `res.end()`，底层 HTTP 连接不会被关闭并无限挂起，导致前台悬浮小组件与看板公开页请求 `/api/plugin/net-forecast/overview` 时一直处于 Loading 卡死状态并最终超时报错。
+
 ---
 
 ## 四、版本发布与打包流程（Release & Git Workflow - 关键守则）

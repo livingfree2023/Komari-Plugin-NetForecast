@@ -596,9 +596,20 @@ class TrafficStorage {
   }
 }
 
+/**
+ * 发送 JSON 响应辅助函数
+ * 
+ * ⚠️【高危避坑警告 - 严禁修改或删除 res.end()】：
+ * Komari 插件运行在基于 Goja 的底层 HTTP 驱动中。
+ * 必须显式调用 res.end(JSON.stringify(data)) 彻底终结并发送 HTTP 响应流！
+ * 若遗漏 res.end()，服务端将永久挂起连接，导致客户端（前台悬浮小组件与看板公开页）
+ * 请求 /api/plugin/net-forecast/overview 时无限处于 loading 卡死状态并最终超时报错！
+ */
 function sendJSON(res, data, statusCode = 200) {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
+  // 必须调用 res.end 结束响应流，切勿遗漏或删除！
+  res.end(JSON.stringify(data));
 }
 
 /**

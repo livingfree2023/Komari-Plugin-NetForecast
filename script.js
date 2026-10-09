@@ -607,9 +607,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   display: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #f8fafc;
-  position: fixed;
-  bottom: 24px;
-  right: 28px;
   z-index: 99999;
 }
 #nf-floating-widget * {
@@ -617,78 +614,79 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   margin: 0;
   padding: 0;
 }
-.nf-trigger-pill {
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(99, 102, 241, 0.45);
+
+/* 1. 可拖拽方形触发图标按钮 (无文字，状态边框变色) */
+.nf-trigger-sq {
+  width: 46px;
+  height: 46px;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 12px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  color: #fff;
-  padding: 9px 18px;
-  border-radius: 40px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.25);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  justify-content: center;
+  cursor: grab;
   user-select: none;
+  touch-action: none;
+  position: fixed;
+  z-index: 99999;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s;
 }
-.nf-trigger-pill:hover {
-  background: rgba(30, 41, 59, 0.95);
-  border-color: #818cf8;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.45);
+.nf-trigger-sq:active {
+  cursor: grabbing;
+  transform: scale(0.96);
 }
-.nf-pulse-dot {
-  width: 9px;
-  height: 9px;
-  background: #10b981;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #10b981;
-  transition: all 0.3s;
+/* 无警告状态：绿色外框 */
+.nf-trigger-sq.safe {
+  border: 2px solid #10b981;
+  color: #10b981;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 14px rgba(16, 185, 129, 0.4);
 }
-.nf-pulse-dot.alert {
-  background: #ef4444;
-  box-shadow: 0 0 12px #ef4444;
-  animation: nfPulse 1.6s infinite;
+.nf-trigger-sq.safe:hover {
+  border-color: #34d399;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 18px rgba(16, 185, 129, 0.6);
 }
-@keyframes nfPulse {
-  0% { transform: scale(0.95); opacity: 0.85; }
-  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 16px #ef4444; }
-  100% { transform: scale(0.95); opacity: 0.85; }
+/* 有警告状态：红色外框与脉冲 */
+.nf-trigger-sq.alert {
+  border: 2px solid #ef4444;
+  color: #ef4444;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(239, 68, 68, 0.55);
+  animation: nfSqPulse 1.8s infinite;
 }
-.nf-trigger-title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.nf-trigger-sq.alert:hover {
+  border-color: #f87171;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 22px rgba(239, 68, 68, 0.75);
 }
-.nf-trigger-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
+@keyframes nfSqPulse {
+  0% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 22px rgba(239, 68, 68, 0.8); }
+  100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(239, 68, 68, 0.4); }
 }
-.nf-trigger-badge.alert {
-  background: rgba(239, 68, 68, 0.25);
-  border: 1px solid rgba(239, 68, 68, 0.6);
-  color: #fca5a5;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
-}
-.nf-trigger-badge.safe {
-  background: rgba(16, 185, 129, 0.2);
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  color: #6ee7b7;
-}
-.nf-widget-card {
+.nf-sq-dot {
   position: absolute;
-  bottom: 58px;
-  right: 0;
-  width: 450px;
-  max-width: calc(100vw - 32px);
-  max-height: 82vh;
-  background: rgba(15, 23, 42, 0.95);
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0f172a;
+  display: none;
+}
+.nf-sq-dot.alert {
+  display: block;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+
+/* 2. 展开面板 (精致排版、呼吸边距、精简紧凑) */
+.nf-widget-card {
+  position: fixed;
+  z-index: 99998;
+  width: 440px;
+  max-width: calc(100vw - 28px);
+  max-height: 80vh;
+  background: rgba(15, 23, 42, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
@@ -696,20 +694,22 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(99, 102, 241, 0.18);
   display: flex;
   flex-direction: column;
-  animation: nfSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: nfSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 @keyframes nfSlideUp {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* 顶部 Header */
 .nf-header {
-  padding: 15px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(30, 41, 59, 0.45);
+  background: rgba(30, 41, 59, 0.4);
 }
 .nf-header-title {
   display: flex;
@@ -717,8 +717,8 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   gap: 10px;
 }
 .nf-header-icon {
-  font-size: 16px;
-  background: rgba(99, 102, 241, 0.25);
+  font-size: 15px;
+  background: rgba(99, 102, 241, 0.22);
   width: 30px;
   height: 30px;
   display: flex;
@@ -733,10 +733,10 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color: #fff;
 }
 .nf-close-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   width: 28px;
   height: 28px;
@@ -751,13 +751,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* KPI 统计条 */
 .nf-kpi-bar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 12px 18px;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .nf-kpi-item {
   background: rgba(30, 41, 59, 0.5);
@@ -766,13 +768,13 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 .nf-kpi-lbl {
   font-size: 10px;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 .nf-kpi-val {
   font-size: 13px;
@@ -782,13 +784,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* 过滤筛选按钮栏 */
 .nf-filter-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 18px;
-  background: rgba(15, 23, 42, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 7px;
+  padding: 10px 20px 8px 20px;
+  background: rgba(15, 23, 42, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   overflow-x: auto;
 }
 .nf-filter-bar::-webkit-scrollbar {
@@ -796,9 +800,9 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 .nf-filter-btn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   color: #94a3b8;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
@@ -812,17 +816,19 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 .nf-filter-btn.active {
   background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: rgba(99, 102, 241, 0.55);
   color: #a5b4fc;
   font-weight: 700;
 }
+
+/* 节点精简卡片列表 (留出充分内边距，去除杂乱) */
 .nf-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 18px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 .nf-list::-webkit-scrollbar {
   width: 5px;
@@ -831,52 +837,66 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
+
+/* 单节点精炼卡片 (3行式优雅排版) */
 .nf-node-card {
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  transition: all 0.2s ease;
+  gap: 8px;
+  transition: all 0.18s ease;
 }
 .nf-node-card:hover {
   background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.15);
   transform: translateY(-1px);
 }
-.nf-node-header {
+.nf-row-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
 }
-.nf-node-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
+.nf-node-name-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+.nf-node-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .nf-mode-badge {
   font-size: 10px;
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.35);
   color: #a5b4fc;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   font-weight: 600;
+  flex-shrink: 0;
+}
+.nf-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 .nf-badge {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
 }
 .nf-badge.critical {
   background: rgba(239, 68, 68, 0.2);
@@ -898,19 +918,19 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color: #cbd5e1;
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
-.nf-progress-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #94a3b8;
+.nf-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
 }
-.nf-progress-meta strong {
-  color: #fff;
+.nf-pct.critical {
+  color: #ef4444;
 }
+
 .nf-bar-bg {
   width: 100%;
-  height: 8px;
-  background: rgba(15, 23, 42, 0.85);
+  height: 7px;
+  background: rgba(15, 23, 42, 0.8);
   border-radius: 4px;
   overflow: hidden;
   position: relative;
@@ -930,15 +950,22 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 .nf-bar-projected.critical {
   background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.55), rgba(239, 68, 68, 0.55) 4px, rgba(239, 68, 68, 0.9) 4px, rgba(239, 68, 68, 0.9) 8px);
 }
-.nf-node-footer {
+
+.nf-row-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
   color: #94a3b8;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 7px;
 }
+.nf-row-meta strong {
+  color: #f1f5f9;
+}
+.nf-row-meta .nf-speed {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
 .nf-footer {
   padding: 12px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -980,36 +1007,51 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 
 const WIDGET_BODY_HTML = `
 <div id="nf-floating-widget">
-  <div class="nf-trigger-pill" id="nfTriggerPill">
-    <div class="nf-pulse-dot" id="nfPulseDot"></div>
-    <span class="nf-trigger-title" id="nfTriggerTitle">流量预测</span>
-    <span class="nf-trigger-badge safe" id="nfTriggerBadge">✓ 正常</span>
+  <!-- 1. 可拖拽方形图标按钮 (无文字，状态边框变色) -->
+  <div class="nf-trigger-sq safe" id="nfTriggerBtn" title="流量预测 (可拖拽移动位置)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"></line>
+      <line x1="12" y1="20" x2="12" y2="4"></line>
+      <line x1="6" y1="20" x2="6" y2="14"></line>
+      <path d="M3 14l5-4 5 3 7-7"></path>
+    </svg>
+    <div class="nf-sq-dot" id="nfSqDot"></div>
   </div>
+
+  <!-- 2. 精致展开看板 (留足边距，精简布局) -->
   <div class="nf-widget-card" id="nfWidgetCard" style="display:none;">
     <div class="nf-header">
       <div class="nf-header-title">
         <div class="nf-header-icon">📊</div>
-        <span class="nf-header-text" id="nfWhTitle">节点流量预测与预算</span>
+        <span class="nf-header-text" id="nfWhTitle">流量预测与预算监控</span>
       </div>
       <button class="nf-close-btn" id="nfCloseBtn" title="关闭">✕</button>
     </div>
+
+    <!-- 顶部 KPI -->
     <div class="nf-kpi-bar">
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal" style="color:#38bdf8;">-</span></div>
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal">-</span></div>
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#fde68a;">-</span></div>
     </div>
+
+    <!-- 筛选药丸 -->
     <div class="nf-filter-bar" id="nfFilterBar">
       <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>
       <button class="nf-filter-btn" data-filter="ALERT" id="nfBtnAlert">🚨 预警 (0)</button>
       <button class="nf-filter-btn" data-filter="SAFE" id="nfBtnSafe">✅ 安全 (0)</button>
       <button class="nf-filter-btn" data-filter="NO_QUOTA" id="nfBtnNoQuota">⚪ 免额 (0)</button>
     </div>
+
+    <!-- 精简节点列表 -->
     <div class="nf-list" id="nfNodeList">
-      <div style="text-align:center; padding:24px; color:#94a3b8; font-size:12px;">正在计算全节点流量与预算预测...</div>
+      <div style="text-align:center; padding:28px; color:#94a3b8; font-size:12px;">正在计算全节点流量与预算预测...</div>
     </div>
+
+    <!-- 底部动作条 -->
     <div class="nf-footer">
       <div class="nf-footer-status"><div class="nf-live-dot"></div><span id="nfFooterStatus">实时监测中</span></div>
-      <a href="/api/plugin/net-forecast/pages/public.html" target="_blank" class="nf-btn-full" id="nfFooterFullBtn">查看完整图表 ↗</a>
+      <a href="/api/plugin/net-forecast/pages/public.html" target="_blank" class="nf-btn-full" id="nfFooterFullBtn">完整图表 ↗</a>
     </div>
   </div>
 </div>
@@ -1047,12 +1089,10 @@ const WIDGET_BODY_HTML = `
   window.addEventListener("hashchange", nfCheckRoute);
 
   var isEn = (navigator.language || "").toLowerCase().startsWith("en");
-  var pill = document.getElementById("nfTriggerPill");
+  var btn = document.getElementById("nfTriggerBtn");
   var card = document.getElementById("nfWidgetCard");
   var closeBtn = document.getElementById("nfCloseBtn");
-  var pulseDot = document.getElementById("nfPulseDot");
-  var triggerTitle = document.getElementById("nfTriggerTitle");
-  var triggerBadge = document.getElementById("nfTriggerBadge");
+  var sqDot = document.getElementById("nfSqDot");
   var whTitle = document.getElementById("nfWhTitle");
   var kpiUsedLbl = document.getElementById("nfKpiUsedLbl");
   var kpiRiskLbl = document.getElementById("nfKpiRiskLbl");
@@ -1069,14 +1109,108 @@ const WIDGET_BODY_HTML = `
   var footerFullBtn = document.getElementById("nfFooterFullBtn");
 
   if (isEn) {
-    if (triggerTitle) triggerTitle.textContent = "NetForecast";
-    if (triggerBadge) triggerBadge.textContent = "✓ Safe";
-    if (whTitle) whTitle.textContent = "Node Traffic Forecast";
+    if (btn) btn.title = "Traffic Forecast (Drag to move)";
+    if (whTitle) whTitle.textContent = "Traffic & Quota Forecast";
     if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
     if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
     if (kpiResetLbl) kpiResetLbl.textContent = "NEXT RESET";
     if (footerStatus) footerStatus.textContent = "Live Monitoring";
-    if (footerFullBtn) footerFullBtn.textContent = "View Full Chart ↗";
+    if (footerFullBtn) footerFullBtn.textContent = "Full Chart ↗";
+  }
+
+  // 2. 拖拽与记住最后位置 (Draggable & Persisted Position)
+  var posKey = "nf_btn_pos_v2";
+  function loadSavedPos() {
+    try {
+      var raw = localStorage.getItem(posKey);
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (typeof p.left === "number" && typeof p.top === "number") {
+          var maxL = Math.max(10, window.innerWidth - 60);
+          var maxT = Math.max(10, window.innerHeight - 60);
+          var l = Math.max(10, Math.min(maxL, p.left));
+          var t = Math.max(10, Math.min(maxT, p.top));
+          btn.style.left = l + "px";
+          btn.style.top = t + "px";
+          btn.style.right = "auto";
+          btn.style.bottom = "auto";
+          return;
+        }
+      }
+    } catch (e) {}
+    btn.style.right = "28px";
+    btn.style.bottom = "28px";
+    btn.style.left = "auto";
+    btn.style.top = "auto";
+  }
+  loadSavedPos();
+
+  var isDragging = false;
+  var startX = 0, startY = 0;
+  var origL = 0, origT = 0;
+
+  btn.addEventListener("pointerdown", function(e) {
+    if (e.button !== 0) return;
+    btn.setPointerCapture(e.pointerId);
+    isDragging = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    var rect = btn.getBoundingClientRect();
+    origL = rect.left;
+    origT = rect.top;
+  });
+
+  btn.addEventListener("pointermove", function(e) {
+    if (!btn.hasPointerCapture(e.pointerId)) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      isDragging = true;
+      var newL = Math.max(10, Math.min(window.innerWidth - 56, origL + dx));
+      var newT = Math.max(10, Math.min(window.innerHeight - 56, origT + dy));
+      btn.style.left = newL + "px";
+      btn.style.top = newT + "px";
+      btn.style.right = "auto";
+      btn.style.bottom = "auto";
+    }
+  });
+
+  btn.addEventListener("pointerup", function(e) {
+    if (!btn.hasPointerCapture(e.pointerId)) return;
+    btn.releasePointerCapture(e.pointerId);
+    if (isDragging) {
+      var rect = btn.getBoundingClientRect();
+      try {
+        localStorage.setItem(posKey, JSON.stringify({ left: rect.left, top: rect.top }));
+      } catch (err) {}
+    } else {
+      toggle();
+    }
+  });
+
+  // 3. 动态定位展开面板 (避免屏幕溢出)
+  function positionCard() {
+    var bRect = btn.getBoundingClientRect();
+    var cardW = Math.min(440, window.innerWidth - 28);
+    card.style.width = cardW + "px";
+
+    // 水平方向自适应
+    if (bRect.left + cardW > window.innerWidth - 14) {
+      card.style.right = Math.max(12, window.innerWidth - bRect.right) + "px";
+      card.style.left = "auto";
+    } else {
+      card.style.left = Math.max(12, bRect.left) + "px";
+      card.style.right = "auto";
+    }
+
+    // 垂直方向自适应
+    if (bRect.top > window.innerHeight / 2) {
+      card.style.bottom = (window.innerHeight - bRect.top + 10) + "px";
+      card.style.top = "auto";
+    } else {
+      card.style.top = (bRect.bottom + 10) + "px";
+      card.style.bottom = "auto";
+    }
   }
 
   var isOpen = false;
@@ -1094,13 +1228,17 @@ const WIDGET_BODY_HTML = `
 
   function toggle() {
     isOpen = !isOpen;
-    card.style.display = isOpen ? "flex" : "none";
-    if (isOpen && (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0)) {
-      fetchAndCompute();
+    if (isOpen) {
+      positionCard();
+      card.style.display = "flex";
+      if (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0) {
+        fetchAndCompute();
+      }
+    } else {
+      card.style.display = "none";
     }
   }
 
-  if (pill) pill.onclick = toggle;
   if (closeBtn) closeBtn.onclick = toggle;
 
   function setupFilters() {
@@ -1117,6 +1255,7 @@ const WIDGET_BODY_HTML = `
   }
   setupFilters();
 
+  // 4. 精炼卡片渲染 (去杂乱，精简布局)
   function renderList() {
     if (!cachedData || !cachedData.nodes) return;
     var nodes = cachedData.nodes;
@@ -1129,7 +1268,7 @@ const WIDGET_BODY_HTML = `
     });
 
     if (filtered.length === 0) {
-      nodeList.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8; font-size:12px;">' + (isEn ? "No matching nodes" : "无符合当前筛选的节点") + '</div>';
+      nodeList.innerHTML = '<div style="text-align:center; padding:32px; color:#94a3b8; font-size:12px;">' + (isEn ? "No matching nodes" : "无符合条件的节点") + '</div>';
       return;
     }
 
@@ -1142,28 +1281,30 @@ const WIDGET_BODY_HTML = `
       var daysRemaining = (n.cycle && n.cycle.daysRemaining !== undefined) ? n.cycle.daysRemaining : 0;
       var resetDay = n.traffic_reset_day || 1;
 
-      var mode = (n.traffic_limit_type || "sum").toLowerCase();
-      var modeLabel = mode === "sum" ? "双向求和" : (mode === "max" ? "双向取大" : (mode === "min" ? "双向取小" : (mode === "upload" ? "仅出站" : "仅入站")));
-      if (isEn) modeLabel = mode.toUpperCase();
+      var mode = (n.traffic_limit_type || "sum").toUpperCase();
 
       var badgeClass = "safe";
-      var badgeText = isEn ? "✓ Safe" : "✓ 预算充足";
+      var badgeText = isEn ? "Safe" : "正常";
+      var pctClass = "";
       if (status === "CRITICAL") {
         badgeClass = "critical";
-        badgeText = isEn ? "🚨 Over Quota" : "🚨 超额预警";
+        badgeText = isEn ? "Alert" : "超限";
+        pctClass = "critical";
       } else if (status === "WARNING") {
         badgeClass = "warning";
-        badgeText = isEn ? "⚡ Warning" : "⚡ 接近限额";
+        badgeText = isEn ? "Warn" : "预警";
       } else if (status === "NO_QUOTA") {
         badgeClass = "no-quota";
-        badgeText = isEn ? "⚪ No Quota" : "⚪ 免额预测";
+        badgeText = isEn ? "Uncapped" : "免额";
       }
 
       var barHtml = "";
-      var metaHtml = "";
+      var usedPct = 0;
+      var metaLeft = "";
+
       if (hasQuota && quotaBytes > 0) {
         var usedRatio = usedBytes / quotaBytes;
-        var usedPct = Math.min(100, Math.round(usedRatio * 100));
+        usedPct = Math.min(100, Math.round(usedRatio * 100));
         var projBytes = (n.projected && n.projected.billable_bytes) || usedBytes;
         var projPct = 0;
         if (projBytes > usedBytes) {
@@ -1174,29 +1315,32 @@ const WIDGET_BODY_HTML = `
         var projClass = isCrit ? "critical" : "";
         barHtml = '<div class="nf-bar-used" style="width:' + usedPct + '%; background:' + usedColor + ';"></div>' +
                   '<div class="nf-bar-projected ' + projClass + '" style="width:' + projPct + '%;"></div>';
-        metaHtml = '<span>' + (isEn ? "Used: " : "已用: ") + '<strong>' + formatBytes(usedBytes) + '</strong> / ' + (isEn ? "Quota: " : "限额: ") + formatBytes(quotaBytes) + '</span>' +
-                   '<span style="font-weight:700; color:' + (isCrit ? '#ef4444' : '#38bdf8') + ';">' + usedPct + '%</span>';
+        metaLeft = (isEn ? "Used: " : "已用 ") + '<strong>' + formatBytes(usedBytes) + '</strong> / ' + formatBytes(quotaBytes);
       } else {
         barHtml = '<div class="nf-bar-used" style="width:100%; opacity:0.3; background:#94a3b8;"></div>';
-        metaHtml = '<span>' + (isEn ? "Used: " : "已用: ") + '<strong>' + formatBytes(usedBytes) + '</strong> · ' + (isEn ? "Projected: " : "预测: ") + formatBytes((n.projected && n.projected.billable_bytes) || 0) + '</span>' +
-                   '<span style="opacity:0.6;">' + (isEn ? "Uncapped" : "免额度") + '</span>';
+        metaLeft = (isEn ? "Used: " : "已用 ") + '<strong>' + formatBytes(usedBytes) + '</strong>';
+        usedPct = "-";
       }
 
-      var resetText = isEn ? ("Reset day: " + resetDay + " (" + daysRemaining + "d left)") : ("每月 " + resetDay + " 号重置 (倒计时 " + daysRemaining + " 天)");
-      var speedText = isEn ? ("Avg: " + dailyAvg + "/d") : ("均速: " + dailyAvg + "/天");
+      var metaSpeed = (isEn ? "Avg: " : "均速 ") + dailyAvg + "/d";
+      var metaReset = (isEn ? ("Reset: " + resetDay + " (" + daysRemaining + "d left)") : (resetDay + "日重置 (余" + daysRemaining + "天)"));
 
       html += '<div class="nf-node-card">' +
-        '<div class="nf-node-header">' +
-          '<div class="nf-node-title"><span>' + (n.node_name || n.node_id) + '</span><span class="nf-mode-badge">' + modeLabel + '</span></div>' +
-          '<span class="nf-badge ' + badgeClass + '">' + badgeText + '</span>' +
+        '<div class="nf-row-head">' +
+          '<div class="nf-node-name-wrap">' +
+            '<span class="nf-node-name">' + (n.node_name || n.node_id) + '</span>' +
+            '<span class="nf-mode-badge">' + mode + '</span>' +
+          '</div>' +
+          '<div class="nf-status-wrap">' +
+            '<span class="nf-badge ' + badgeClass + '">' + badgeText + '</span>' +
+            '<span class="nf-pct ' + pctClass + '">' + (typeof usedPct === "number" ? (usedPct + "%") : usedPct) + '</span>' +
+          '</div>' +
         '</div>' +
-        '<div style="display:flex; flex-direction:column; gap:4px;">' +
-          '<div class="nf-progress-meta">' + metaHtml + '</div>' +
-          '<div class="nf-bar-bg">' + barHtml + '</div>' +
-        '</div>' +
-        '<div class="nf-node-footer">' +
-          '<span>' + speedText + '</span>' +
-          '<span>' + resetText + '</span>' +
+        '<div class="nf-bar-bg">' + barHtml + '</div>' +
+        '<div class="nf-row-meta">' +
+          '<span>' + metaLeft + '</span>' +
+          '<span class="nf-speed">' + metaSpeed + '</span>' +
+          '<span>' + metaReset + '</span>' +
         '</div>' +
       '</div>';
     });
@@ -1214,14 +1358,13 @@ const WIDGET_BODY_HTML = `
     var noQuota = summary.no_quota_count || 0;
     var totalAlerts = crit + warn;
 
+    // 更新方形按钮外观：无警报为绿色，有警报为红色
     if (totalAlerts > 0) {
-      triggerBadge.className = "nf-trigger-badge alert";
-      triggerBadge.textContent = totalAlerts + (isEn ? " Alerts" : " 预警");
-      pulseDot.className = "nf-pulse-dot alert";
+      btn.className = "nf-trigger-sq alert";
+      if (sqDot) sqDot.className = "nf-sq-dot alert";
     } else {
-      triggerBadge.className = "nf-trigger-badge safe";
-      triggerBadge.textContent = isEn ? "✓ Safe" : "✓ 正常";
-      pulseDot.className = "nf-pulse-dot";
+      btn.className = "nf-trigger-sq safe";
+      if (sqDot) sqDot.className = "nf-sq-dot";
     }
 
     var totalUsedBillable = 0;
@@ -1242,12 +1385,12 @@ const WIDGET_BODY_HTML = `
 
     if (kpiUsedVal) kpiUsedVal.textContent = formatBytes(totalUsedBillable);
     if (kpiRiskVal) {
-      kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes" : " 台节点")) : (isEn ? "None" : "无风险");
-      kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#a7f3d0";
+      kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
+      kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
     }
     if (kpiResetVal) {
       if (minNode) {
-        kpiResetVal.textContent = minDays + (isEn ? "d (" + minNode.node_name + ")" : "天后 (" + minNode.node_name + ")");
+        kpiResetVal.textContent = minNode.traffic_reset_day + (isEn ? "th (" + minDays + "d)" : "日 (余" + minDays + "天)");
       } else {
         kpiResetVal.textContent = "-";
       }
@@ -1261,10 +1404,9 @@ const WIDGET_BODY_HTML = `
     renderList();
   }
 
-  // 2. 深度数据计算与同步：直接拉取 Komari 核心实时代打点并重新推算
+  // 深度数据计算与同步
   async function fetchAndCompute() {
     try {
-      // (1) 先拉取基础配置列表
       var baseRes = await fetch("/api/plugin/net-forecast/overview");
       if (!baseRes.ok) return;
       var baseJson = await baseRes.json();
@@ -1273,7 +1415,6 @@ const WIDGET_BODY_HTML = `
       var nodes = baseJson.nodes;
       renderData(baseJson);
 
-      // (2) 并发拉取各节点的 /api/recent/:uuid 实时流量上报并聚合
       var enrichedClients = await Promise.all(nodes.map(async function(node) {
         var netTotalUp = (node.cumulative && node.cumulative.out_bytes) || 0;
         var netTotalDown = (node.cumulative && node.cumulative.in_bytes) || 0;
@@ -1307,7 +1448,6 @@ const WIDGET_BODY_HTML = `
         };
       }));
 
-      // (3) 将附带实时累计的 Client 数据提交给 /overview 进行科学预测计算
       var calcRes = await fetch("/api/plugin/net-forecast/overview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

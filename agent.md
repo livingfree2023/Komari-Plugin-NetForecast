@@ -143,8 +143,10 @@
      - GitHub Actions 创建 Release 后，会**自动计算线上包的真实 SHA256**，自动更新根目录下的 `v1.json` 并由 `github-actions[bot]` 提交推送到 `main` 分支。
      - **严禁开发者/Agent 手动计算 SHA256 并二次提交 `v1.json`**，发布完成后只需在本地执行 `git pull origin main` 同步即可。
 
-5. **发布中英双语 Release 总结（Bilingual Release Notes）**：
-   - 每次发版必须在 GitHub Release 页面及报告中提供详尽的中英双语变更说明，结构如下：
+5. **发布中英双语 Release 总结（Bilingual Release Notes - 自动发布至 GitHub Release）**：
+   - 每次发版时，必须在根目录下维护 `RELEASE_NOTES.md`，并在其中写入详尽的中英双语变更说明。
+   - GitHub Actions 流水线中 `softprops/action-gh-release` 已配置 `body_path: RELEASE_NOTES.md`，Tag 推送后会自动将该文件作为 GitHub Release 的页面正文直接发布，无需人工手动复制粘贴！
+   - 中英双语更新日志结构：
      ```markdown
      ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
      ### 🚀 新增功能 (Features)
@@ -164,17 +166,6 @@
      ### ⚡ Improvements
      - ...
      ```
-
-6. **插件市场提交与专属订阅源规范（Komari Plugin Market）**：
-   - 本地没有、也不需要维护 `komari-plugin-market` 仓库目录，向 [komari-plugin-market](https://github.com/komari-monitor/komari-plugin-market) 提交 GitHub Issue 申请更新。
-   - **专属插件源 `v1.json` 规范（穿透 CDN 缓存）**：
-     引用与订阅该文件时，**必须使用带 `refs/heads/main` 的完整路径**：
-     `https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`
-   - 向用户输出清晰的 Market Issue 提交模板，包括：
-     - 插件名称：`NetForecast (网络流量预测)`
-     - 版本号（Version）：`x.y.z`
-     - 仓库地址：`https://github.com/livingfree2023/Komari-Plugin-NetForecast/`
-     - 专属订阅源：`https://raw.githubusercontent.com/livingfree2023/Komari-Plugin-NetForecast/refs/heads/main/v1.json`
 
 ---
 

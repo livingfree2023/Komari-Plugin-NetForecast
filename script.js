@@ -678,8 +678,9 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   box-shadow: 0 0 8px #ef4444 !important;
 }
 
-/* 2. 展开看板面板主体 (带有充裕边距与现代毛玻璃投影) */
+/* 2. 展开看板面板主体 (默认严格隐藏，仅带有 .nf-open 时以 flex 显现) */
 #nf-floating-widget .nf-widget-card {
+  display: none !important;
   position: fixed !important;
   z-index: 99998 !important;
   width: 440px !important;
@@ -691,10 +692,12 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   -webkit-backdrop-filter: blur(28px) !important;
   border-radius: 20px !important;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(99, 102, 241, 0.18) !important;
-  display: flex !important;
   flex-direction: column !important;
-  animation: nfSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
   overflow: hidden !important;
+}
+#nf-floating-widget .nf-widget-card.nf-open {
+  display: flex !important;
+  animation: nfSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 @keyframes nfSlideUp {
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
@@ -733,13 +736,14 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color: #fff !important;
 }
 #nf-floating-widget .nf-close-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   color: #94a3b8 !important;
   font-size: 14px !important;
+  font-weight: 700 !important;
   cursor: pointer !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 30px !important;
+  height: 30px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -748,8 +752,8 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 #nf-floating-widget .nf-close-btn:hover {
   color: #fff !important;
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
 }
 
 /* KPI 统计条 */
@@ -857,7 +861,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   border-color: rgba(255, 255, 255, 0.18) !important;
   transform: translateY(-1px) !important;
 }
-/* 卡片第一行：名称 + 计费模式 vs 状态徽标 + 比例 */
 #nf-floating-widget .nf-row-head {
   display: flex !important;
   justify-content: space-between !important;
@@ -931,7 +934,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color: #ef4444 !important;
 }
 
-/* 卡片第二行：细致双层预测进度条 (带上下独立边距) */
 #nf-floating-widget .nf-bar-bg {
   width: 100% !important;
   height: 8px !important;
@@ -957,7 +959,6 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.55), rgba(239, 68, 68, 0.55) 4px, rgba(239, 68, 68, 0.9) 4px, rgba(239, 68, 68, 0.9) 8px) !important;
 }
 
-/* 卡片第三行：精炼一行式核心数据 (已用/限额 · 均速 · 重置倒计时) */
 #nf-floating-widget .nf-row-meta {
   display: flex !important;
   justify-content: space-between !important;
@@ -1029,13 +1030,13 @@ const WIDGET_BODY_HTML = `
   </div>
 
   <!-- 2. 精致展开看板 (留足边距，精简布局) -->
-  <div class="nf-widget-card" id="nfWidgetCard" style="display:none;">
+  <div class="nf-widget-card" id="nfWidgetCard">
     <div class="nf-header">
       <div class="nf-header-title">
         <div class="nf-header-icon">📊</div>
         <span class="nf-header-text" id="nfWhTitle">流量预测与预算监控</span>
       </div>
-      <button class="nf-close-btn" id="nfCloseBtn" title="关闭">✕</button>
+      <button class="nf-close-btn" id="nfCloseBtn" title="关闭 (✕)">✕</button>
     </div>
 
     <!-- 顶部 KPI -->
@@ -1236,20 +1237,51 @@ const WIDGET_BODY_HTML = `
     return (bytes / Math.pow(k, idx)).toFixed(idx === 0 ? 0 : 1) + " " + sizes[idx];
   }
 
-  function toggle() {
-    isOpen = !isOpen;
-    if (isOpen) {
-      positionCard();
-      card.style.display = "flex";
-      if (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0) {
-        fetchAndCompute();
-      }
-    } else {
-      card.style.display = "none";
+  function openCard() {
+    isOpen = true;
+    positionCard();
+    card.classList.add("nf-open");
+    if (!cachedData || !cachedData.nodes || cachedData.nodes.length === 0) {
+      fetchAndCompute();
     }
   }
 
-  if (closeBtn) closeBtn.onclick = toggle;
+  function closeCard() {
+    isOpen = false;
+    card.classList.remove("nf-open");
+  }
+
+  function toggle() {
+    if (isOpen) {
+      closeCard();
+    } else {
+      openCard();
+    }
+  }
+
+  // 关闭按钮点击绑定 (强制生效，阻止事件冒泡)
+  if (closeBtn) {
+    closeBtn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      closeCard();
+    });
+  }
+
+  // 点击外部自动关闭
+  document.addEventListener("pointerdown", function(e) {
+    if (!isOpen) return;
+    if (card && card.contains(e.target)) return;
+    if (btn && btn.contains(e.target)) return;
+    closeCard();
+  });
+
+  // ESC 键关闭
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape" && isOpen) {
+      closeCard();
+    }
+  });
 
   function setupFilters() {
     var btns = [btnAll, btnAlert, btnSafe, btnNoQuota];

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at": "2026-10-09T01:44:00.000Z",
+  "updated_at": "2026-10-09T01:45:00.000Z",
   "plugins": [
     {
       "name": {
@@ -17,7 +17,7 @@
       "komari": "",
       "url": "https://github.com/livingfree2023/Komari-Plugin-NetForecast",
       "download": "https://github.com/livingfree2023/Komari-Plugin-NetForecast/releases/download/v26.10.08.1/net-forecast.zip",
-      "sha256": "76cc38d2cd52f5b5485a781ca812c7753541280e2aa8a6bb6f14cc53401a90f2"
+      "sha256": "84c220118cd4ed7e4d70dcf6c0b41280c044354f770b7890318eeea993efab10"
     }
   ]
 }

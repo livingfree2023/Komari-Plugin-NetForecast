@@ -1424,7 +1424,7 @@
       canvas.height = h * dpr;
       ctx.scale(dpr, dpr);
 
-      const pad = { top: 25, right: 65, bottom: 35, left: 65 };
+      const pad = { top: 25, right: 70, bottom: 35, left: 70 };
       const chartW = w - pad.left - pad.right;
       const chartH = h - pad.top - pad.bottom;
 
@@ -1436,19 +1436,25 @@
 
       const modeKey = (node.traffic_limit_type || "sum").toLowerCase();
 
-      // 双 Y 轴极值计算
+      // 双 Y 轴极值计算 (只从真实打点历史计算柱状图高度上限，未来预测不计入)
       let maxBar = 0;
       let maxLine = 0;
 
       items.forEach((item) => {
-        const barVal = (item.in_bytes || 0) + (item.out_bytes || 0);
-        if (barVal > maxBar) maxBar = barVal;
-        if (item.cumulative_billable && item.cumulative_billable > maxLine) {
-          maxLine = item.cumulative_billable;
+        if (!item.is_forecast && item.has_data) {
+          const barVal = (item.in_bytes || 0) + (item.out_bytes || 0);
+          if (barVal > maxBar) maxBar = barVal;
+        }
+        if (item.cumulative_billable !== null && typeof item.cumulative_billable === "number") {
+          if (item.cumulative_billable > maxLine) maxLine = item.cumulative_billable;
         }
       });
 
-      maxBar = maxBar > 0 ? maxBar * 1.15 : 10 * GB;
+      if (node.projected && node.projected.billable_bytes > maxLine) {
+        maxLine = node.projected.billable_bytes;
+      }
+
+      maxBar = maxBar > 0 ? maxBar * 1.25 : 10 * GB;
       maxLine = maxLine > 0 ? maxLine * 1.15 : maxBar;
 
       // 绘制水平背景刻度线
@@ -1465,116 +1471,91 @@
 
         // 左 Y 轴刻度 (每日增量柱状图)
         const bVal = maxBar * (1 - i / steps);
-        ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
+        ctx.fillStyle = "rgba(148, 163, 184, 0.65)";
         ctx.font = "10px sans-serif";
         ctx.textAlign = "right";
         ctx.fillText(formatBytes(bVal, 1), pad.left - 8, y + 3);
 
-        // 右 Y 轴刻度 (累计折线)
+        // 右 Y 轴刻度 (累计折线与未来推算)
         const lVal = maxLine * (1 - i / steps);
-        ctx.fillStyle = "rgba(245, 158, 11, 0.75)";
+        ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
         ctx.textAlign = "left";
         ctx.fillText(formatBytes(lVal, 1), pad.left + chartW + 8, y + 3);
       }
 
-      const stepX = chartW / count;
-      const barW = Math.max(3, Math.min(22, stepX * 0.58));
+      const stepX = chartW / Math.max(1, count - 1);
+      const barW = Math.max(3, Math.min(18, stepX * 0.52));
       const screenPts = [];
 
-      // 1. 绘制堆叠柱状图 (入站 + 出站)，根据当前计费模式进行高亮与弱化透明度调整
+      // 1. 绘制每日物理进出站柱状图 (未来预测天数严格禁止画柱体！)
       items.forEach((item, idx) => {
-        const cx = pad.left + stepX * idx + stepX / 2;
+        const cx = pad.left + stepX * idx;
         const inBytes = item.in_bytes || 0;
         const outBytes = item.out_bytes || 0;
 
-        const inH = (inBytes / maxBar) * chartH;
-        const outH = (outBytes / maxBar) * chartH;
-        const baseY = pad.top + chartH;
+        // 仅在真实打点历史及今日绘制柱状图，未来天数绝对不画实心柱
+        if (!item.is_forecast && item.has_data && (inBytes + outBytes > 0)) {
+          const inH = (inBytes / maxBar) * chartH;
+          const outH = (outBytes / maxBar) * chartH;
+          const baseY = pad.top + chartH;
 
-        let inAlpha = 0.85;
-        let outAlpha = 0.85;
+          let inAlpha = 0.90;
+          let outAlpha = 0.90;
 
-        if (modeKey === "upload" || modeKey === "up") {
-          inAlpha = 0.28;
-          outAlpha = 0.95;
-        } else if (modeKey === "download" || modeKey === "down") {
-          inAlpha = 0.95;
-          outAlpha = 0.28;
-        } else if (modeKey === "max") {
-          if (inBytes > outBytes) {
-            inAlpha = 0.95;
-            outAlpha = 0.35;
-          } else {
+          if (modeKey === "upload" || modeKey === "up") {
             inAlpha = 0.35;
             outAlpha = 0.95;
-          }
-        } else if (modeKey === "min") {
-          if (inBytes < outBytes) {
+          } else if (modeKey === "download" || modeKey === "down") {
             inAlpha = 0.95;
             outAlpha = 0.35;
-          } else {
-            inAlpha = 0.35;
-            outAlpha = 0.95;
           }
+
+          // 入站柱 (底层)
+          const inY = baseY - inH;
+          ctx.globalAlpha = inAlpha;
+          ctx.fillStyle = "#6366f1";
+          ctx.fillRect(cx - barW / 2, inY, barW, inH);
+
+          // 出站柱 (堆叠在入站之上)
+          const outY = inY - outH;
+          ctx.globalAlpha = outAlpha;
+          ctx.fillStyle = "#10b981";
+          ctx.fillRect(cx - barW / 2, outY, barW, outH);
+
+          ctx.globalAlpha = 1.0;
         }
 
-        if (item.is_forecast) {
-          inAlpha *= 0.35;
-          outAlpha *= 0.35;
-        }
-
-        // 入站柱 (底层)
-        const inY = baseY - inH;
-        ctx.globalAlpha = inAlpha;
-        ctx.fillStyle = "#6366f1";
-        ctx.fillRect(cx - barW / 2, inY, barW, inH);
-
-        // 出站柱 (堆叠在入站之上)
-        const outY = inY - outH;
-        ctx.globalAlpha = outAlpha;
-        ctx.fillStyle = "#10b981";
-        ctx.fillRect(cx - barW / 2, outY, barW, outH);
-
-        ctx.globalAlpha = 1.0;
-
-        // X 轴日期刻度（突出标出今日）
-        if (idx % Math.ceil(count / 10) === 0 || idx === count - 1 || item.is_today) {
-          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : (item.is_today ? "#38bdf8" : "rgba(148, 163, 184, 0.75)");
-          ctx.font = item.is_today ? "bold 10px sans-serif" : "10px sans-serif";
-          ctx.textAlign = "center";
-          let lbl = item.date || "";
-          if (item.is_today) lbl = "今日";
-          else if (lbl.length > 5) lbl = lbl.slice(5);
-          ctx.fillText(lbl, cx, baseY + 16);
-        }
-
-        screenPts.push({ x: cx, y: outY, item: item });
+        screenPts.push({ x: cx, item: item, index: idx });
       });
 
-      // 2. 绘制累计折线 (实线) 与外推走势 (虚线)
+      // 2. 绘制累计折线 (拒绝 0 贴地线，支持从第一个有效数据点起笔)
       const actualPts = [];
       const forecastPts = [];
+      let todayPt = null;
 
       items.forEach((item, idx) => {
-        const cx = pad.left + stepX * idx + stepX / 2;
-        const cum = item.cumulative_billable || 0;
-        const cy = pad.top + chartH - (cum / maxLine) * chartH;
+        const cx = pad.left + stepX * idx;
+        if (item.cumulative_billable !== null && typeof item.cumulative_billable === "number") {
+          const cy = pad.top + chartH - (item.cumulative_billable / maxLine) * chartH;
+          const pt = { x: cx, y: cy, item, index: idx };
 
-        if (item.is_forecast) {
-          if (forecastPts.length === 0 && actualPts.length > 0) {
-            forecastPts.push(actualPts[actualPts.length - 1]);
+          if (item.is_today) {
+            todayPt = pt;
+            actualPts.push(pt);
+            forecastPts.push(pt); // 预测虚线从今日起点出发
+          } else if (item.is_forecast) {
+            forecastPts.push(pt);
+          } else {
+            actualPts.push(pt);
           }
-          forecastPts.push({ x: cx, y: cy });
-        } else {
-          actualPts.push({ x: cx, y: cy });
         }
       });
 
-      // 实线部分
+      // 实线部分 (历史真实累计)
       if (actualPts.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#f59e0b";
-        ctx.lineWidth = 2.2;
+        ctx.lineWidth = 2.4;
         ctx.setLineDash([]);
         actualPts.forEach((pt, i) => {
           if (i === 0) ctx.moveTo(pt.x, pt.y);
@@ -1588,9 +1569,19 @@
           ctx.fillStyle = "#f59e0b";
           ctx.fill();
         });
+      } else if (actualPts.length === 1) {
+        // 冷启动或安装首日 (仅今日 1 个点)：醒目绘制起点锚点，绝不在前面绘制 0 值贴地线
+        const pt = actualPts[0];
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
       }
 
-      // 虚线预测部分
+      // 虚线预测部分 (平滑延伸至账单周期结束日)
       if (forecastPts.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#fb923c";
@@ -1603,15 +1594,78 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        forecastPts.forEach((pt) => {
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = "#fb923c";
-          ctx.fill();
-        });
+        // 终点标注
+        const lastPt = forecastPts[forecastPts.length - 1];
+        ctx.beginPath();
+        ctx.arc(lastPt.x, lastPt.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#fb923c";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(251, 146, 60, 0.4)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
       }
 
-      // Tooltip 交互监听
+      // 3. 绘制 X 轴刻度标签 (两端对齐重置日，彻底防止文字挤压碰撞)
+      const baseY = pad.top + chartH;
+      const drawnXPositions = [];
+
+      const todayIndex = items.findIndex((it) => it.is_today);
+      const anchorIndices = [0];
+      if (todayIndex >= 0 && todayIndex < count) anchorIndices.push(todayIndex);
+      anchorIndices.push(count - 1);
+
+      anchorIndices.forEach((idx) => {
+        const item = items[idx];
+        const cx = pad.left + stepX * idx;
+        let label = "";
+
+        if (idx === 0) {
+          const dtStr = (node.cycle && node.cycle.cycleStart) || (item && item.date) || "";
+          label = (dtStr.length > 5 ? dtStr.slice(5) : dtStr) + " (重置)";
+          ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(label, cx - 4, baseY + 16);
+          drawnXPositions.push({ x: cx + 18 });
+        } else if (idx === count - 1) {
+          const dtStr = (node.cycle && node.cycle.cycleEnd) || (item && item.date) || "";
+          label = (dtStr.length > 5 ? dtStr.slice(5) : dtStr) + " (重置)";
+          ctx.fillStyle = "rgba(251, 146, 60, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(label, cx + 4, baseY + 16);
+          drawnXPositions.push({ x: cx - 18 });
+        } else if (item && item.is_today) {
+          label = "今日";
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, cx, baseY + 16);
+          drawnXPositions.push({ x: cx });
+        }
+      });
+
+      // 中间常规刻度辅助填充 (步长约每 5-6 天一次，严格检测像素间距防止碰撞)
+      const labelInterval = Math.max(4, Math.round(count / 6));
+      for (let idx = labelInterval; idx < count - 1; idx += labelInterval) {
+        const cx = pad.left + stepX * idx;
+        const item = items[idx];
+        if (!item || item.is_today) continue;
+
+        // 检查与已有已绘制锚点的横向像素距离，< 42px 则跳过
+        const hasCollision = drawnXPositions.some((pos) => Math.abs(cx - pos.x) < 42);
+        if (hasCollision) continue;
+
+        ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        let label = item.date || "";
+        if (label.length > 5) label = label.slice(5);
+        ctx.fillText(label, cx, baseY + 16);
+        drawnXPositions.push({ x: cx });
+      }
+
+      // 4. Tooltip 交互监听
       canvas.onmousemove = (e) => {
         const b = canvas.getBoundingClientRect();
         const mx = e.clientX - b.left;
@@ -1620,7 +1674,7 @@
 
         screenPts.forEach((pt) => {
           const dist = Math.abs(pt.x - mx);
-          if (dist < minDist && dist < 25) {
+          if (dist < minDist && dist < 22) {
             minDist = dist;
             closest = pt;
           }
@@ -1629,29 +1683,49 @@
         if (closest) {
           const it = closest.item;
           tooltip.style.display = "block";
-          tooltip.style.left = Math.min(w - 200, Math.max(10, closest.x - 90)) + "px";
-          tooltip.style.top = Math.max(8, closest.y - 110) + "px";
+          tooltip.style.left = Math.min(w - 210, Math.max(10, closest.x - 90)) + "px";
+          tooltip.style.top = Math.max(8, pad.top + 8) + "px";
 
           let dateTag = it.date;
-          if (it.is_forecast) {
-            dateTag += ' <span style="color:#fb923c;">(预测)</span>';
-          } else if (it.is_today) {
-            dateTag += ' <span style="color:#38bdf8; font-weight:700;">(今日截至当前)</span>';
+          if (it.is_today) {
+            dateTag += ' <span style="color:#38bdf8; font-weight:700; font-size:11px;">(今日截至当前)</span>';
+          } else if (it.is_forecast) {
+            dateTag += ' <span style="color:#fb923c; font-size:11px;">(未来预测)</span>';
+          } else if (!it.has_data) {
+            dateTag += ' <span style="color:#94a3b8; font-size:11px;">(无历史采样)</span>';
           }
 
-          const inLabel = it.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
-          const outLabel = it.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
-          const totLabel = it.is_today ? "● 今日合计 (当前):" : "● 物理合计:";
+          let contentHtml = "";
+          if (it.is_forecast) {
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--text-muted);">● 预计日均增速:</span> <span>${formatBytes(node.daily_avg.billable_bytes)}/天</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--forecast-line);">● 预计周期累计:</span>
+                <strong style="color:var(--forecast-line);">${formatBytes(it.cumulative_billable)}</strong>
+              </div>
+            `;
+          } else if (!it.has_data && !it.is_today) {
+            contentHtml = `
+              <div style="font-size:11px; color:#94a3b8; margin: 4px 0; line-height: 1.4;">未采集到历史时序打点<br/>(冷启动新安装或节点此前未开启监控)</div>
+            `;
+          } else {
+            const inLabel = it.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
+            const outLabel = it.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
+            const totLabel = it.is_today ? "● 今日合计 (当前):" : "● 物理合计:";
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--inbound);">${inLabel}</span> <span>${formatBytes(it.in_bytes)}</span></div>
+              <div class="tooltip-row"><span style="color:var(--outbound);">${outLabel}</span> <span>${formatBytes(it.out_bytes)}</span></div>
+              <div class="tooltip-row"><span>${totLabel}</span> <span>${formatBytes(it.total_bytes)}</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--cumulative);">● 计费累计:</span>
+                <strong style="color:var(--cumulative);">${formatBytes(it.cumulative_billable)}</strong>
+              </div>
+            `;
+          }
 
           tooltip.innerHTML = `
             <div class="tooltip-title">${dateTag}</div>
-            <div class="tooltip-row"><span style="color:var(--inbound);">${inLabel}</span> <span>${formatBytes(it.in_bytes)}</span></div>
-            <div class="tooltip-row"><span style="color:var(--outbound);">${outLabel}</span> <span>${formatBytes(it.out_bytes)}</span></div>
-            <div class="tooltip-row"><span>${totLabel}</span> <span>${formatBytes(it.total_bytes)}</span></div>
-            <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
-              <span style="color:var(--cumulative);">● 计费累计:</span>
-              <strong style="color:var(--cumulative);">${formatBytes(it.cumulative_billable)}</strong>
-            </div>
+            ${contentHtml}
           `;
         } else {
           tooltip.style.display = "none";
@@ -1663,30 +1737,6 @@
       };
     }
 
-    // 过滤卡片展示
-    function applyFilter() {
-      const cards = document.querySelectorAll(".node-card");
-      let visibleCount = 0;
-
-      cards.forEach((card) => {
-        const status = card.getAttribute("data-status");
-        if (state.currentFilter === "ALL" || status === state.currentFilter) {
-          card.classList.remove("hidden");
-          visibleCount++;
-        } else {
-          card.classList.add("hidden");
-        }
-      });
-
-      const empty = document.getElementById("emptyState");
-      if (visibleCount === 0) {
-        empty.style.display = "block";
-      } else {
-        empty.style.display = "none";
-      }
-    }
-
-    // 打开编辑弹窗
     function openNodeModal(nodeId) {
       state.editingNodeId = nodeId;
       const node = state.rawNodes.find((n) => n.node_id === nodeId);

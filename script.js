@@ -132,7 +132,14 @@ function calculateBillingCycle(resetDay = 1, now = new Date()) {
 /**
  * 历史与预测时间序列构建（真实按日打点，无数据即为 0，绝不伪造）
  */
-function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date()) {
+/**
+ * 构建以当前账单周期为时间域的时间序列 (X 轴以 [cycleStart, cycleEnd] 为严格左右边界)
+ * - X 轴左侧：上个重置日 (cycleStart)，理论累计从 0 开始
+ * - X 轴右侧：下个重置日 (cycleEnd)，预测折线平滑延伸至此
+ * - 过去无数据天：cumulative_billable 为 null，不画 0 贴地折线
+ * - 未来推算天：in_bytes / out_bytes 严格为 0，坚决不画任何柱体！
+ */
+function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date()) {
   const historyMap = {};
   (history || []).forEach((item) => {
     if (item.date) {
@@ -141,65 +148,91 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
   });
 
   const points = [];
-  const cycleStartMs = cycle.cycleStartDate.getTime();
+  const cycleStart = cycle.cycleStartDate;
+  const daysTotal = cycle.daysTotal;
+  const todayStr = formatDateToYMD(now);
+  const nowMs = now.getTime();
+
   let runningIn = 0;
   let runningOut = 0;
+  let todayIndex = -1;
 
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
-    const dateStr = d.toISOString().split("T")[0];
+  for (let i = 0; i <= daysTotal; i++) {
+    const d = new Date(cycleStart.getTime() + i * 24 * 3600 * 1000);
+    const dateStr = formatDateToYMD(d);
+    const isToday = (dateStr === todayStr);
+    const isPast = (d.getTime() < nowMs) && !isToday;
+    const isFuture = (d.getTime() > nowMs) && !isToday;
+
+    if (isToday) {
+      todayIndex = i;
+    }
+
     const rec = historyMap[dateStr];
 
-    const inB = rec ? (rec.in_bytes || 0) : 0;
-    const outB = rec ? (rec.out_bytes || 0) : 0;
-    const totB = inB + outB;
-
-    if (d.getTime() >= cycleStartMs && d.getTime() <= now.getTime()) {
-      runningIn += inB;
-      runningOut += outB;
-    }
-    let cumBillable = computeBillableAmount(runningIn, runningOut, mode);
-
-    // 今天如果获取到真实累计量且历史采样未完全覆盖过去所有天数，使折线今天点锚定在真实的当前累计值上
-    // 注意：柱状图（inB/outB）必须忠实反映单日增量，绝不能将历史整周期的累计流量错误倒灌进今日！
-    if (i === 0 && currentCycleBillable > 0 && cumBillable < currentCycleBillable) {
-      cumBillable = currentCycleBillable;
-    }
-
-    points.push({
-      date: dateStr,
-      timestamp: d.getTime(),
-      in_bytes: inB,
-      out_bytes: outB,
-      total_bytes: totB,
-      cumulative_bytes: runningIn + runningOut,
-      cumulative_billable: cumBillable,
-      is_forecast: false,
-      is_today: i === 0,
-    });
-  }
-
-  // 仅在有日均消耗且剩余天数大于 0 时外推未来预测点
-  if (cycle.daysRemaining > 0 && (dailyAvgIn > 0 || dailyAvgOut > 0)) {
-    let fCumBillable = points.length > 0 && points[points.length - 1].cumulative_billable
-      ? points[points.length - 1].cumulative_billable
-      : currentCycleBillable;
-
-    const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
-    const maxForecastDays = Math.min(cycle.daysRemaining, 14);
-
-    for (let i = 1; i <= maxForecastDays; i++) {
-      const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
-      fCumBillable += dailyForecastBillable;
+    if (isPast) {
+      if (rec && ((rec.in_bytes || 0) + (rec.out_bytes || 0) > 0)) {
+        runningIn += (rec.in_bytes || 0);
+        runningOut += (rec.out_bytes || 0);
+        const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+        points.push({
+          date: dateStr,
+          timestamp: d.getTime(),
+          has_data: true,
+          in_bytes: rec.in_bytes || 0,
+          out_bytes: rec.out_bytes || 0,
+          total_bytes: (rec.in_bytes || 0) + (rec.out_bytes || 0),
+          cumulative_bytes: runningIn + runningOut,
+          cumulative_billable: cumBillable,
+          is_today: false,
+          is_forecast: false,
+        });
+      } else {
+        // 过去无打点数据（如冷启动安装前）：绝不输出 0 贴地折线，cumulative_billable 为 null
+        points.push({
+          date: dateStr,
+          timestamp: d.getTime(),
+          has_data: false,
+          in_bytes: 0,
+          out_bytes: 0,
+          total_bytes: 0,
+          cumulative_bytes: 0,
+          cumulative_billable: null,
+          is_today: false,
+          is_forecast: false,
+        });
+      }
+    } else if (isToday) {
+      const inB = rec ? (rec.in_bytes || 0) : 0;
+      const outB = rec ? (rec.out_bytes || 0) : 0;
+      points.push({
+        date: dateStr,
+        timestamp: d.getTime(),
+        has_data: true,
+        in_bytes: inB,
+        out_bytes: outB,
+        total_bytes: inB + outB,
+        cumulative_bytes: cumulativeIn + cumulativeOut,
+        cumulative_billable: currentCycleBillable,
+        is_today: true,
+        is_forecast: false,
+      });
+    } else {
+      // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
+      const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
+      const futureStep = i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed);
+      const fCumBillable = currentCycleBillable + dailyForecastBillable * Math.max(0, futureStep);
 
       points.push({
-        date: fd.toISOString().split("T")[0],
-        timestamp: fd.getTime(),
-        in_bytes: dailyAvgIn,
-        out_bytes: dailyAvgOut,
-        total_bytes: dailyAvgIn + dailyAvgOut,
+        date: dateStr,
+        timestamp: d.getTime(),
+        has_data: false,
+        in_bytes: 0,
+        out_bytes: 0,
+        total_bytes: 0,
         cumulative_bytes: fCumBillable,
         cumulative_billable: fCumBillable,
+        is_today: false,
         is_forecast: true,
       });
     }
@@ -207,6 +240,8 @@ function build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
 
   return points;
 }
+
+const build30DaySeries = buildCycleSeries;
 
 /**
  * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
@@ -396,7 +431,7 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     }
   }
 
-  const chartSeries = build30DaySeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
+  const chartSeries = buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
 
   return {
     node_id: node.uuid,

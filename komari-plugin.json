@@ -9,7 +9,7 @@
     "en": "All-nodes 30-day stacked bar and billing-adaptive cumulative charts, directly synced with core database, forecasting reset day usage and exhaustion alerts"
   },
   "author": "livingfree2023",
-  "version": "26.10.10",
+  "version": "26.10.08.1",
   "icon": "assets/icon.svg",
   "entry": "script.js",
   "permissions": {

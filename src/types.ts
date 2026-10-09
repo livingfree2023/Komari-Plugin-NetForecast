@@ -7,7 +7,8 @@ export interface TrafficRecord {
   out_bytes: number;
   total_bytes: number;
   cumulative_bytes?: number;
-  cumulative_billable?: number;
+  cumulative_billable?: number | null;
+  has_data?: boolean;
   is_forecast?: boolean;
   is_today?: boolean;
 }

@@ -890,90 +890,93 @@
      */
     const MOCK_NODES = [
       {
-        node_id: "tokyo-prod-01",
-        node_name: "🇯🇵 日本东京 (Tokyo-01)",
+        node_id: "sg-oci",
+        node_name: "SG.OCI (新安装冷启动 · 缺失前期打点)",
         has_quota: true,
-        traffic_mode: "sum", // 模式1：双向求和 (sum)
-        quota_bytes: 1000 * GB, // 1000 GB
-        expired_at: "2027-10-01T00:00:00Z", // 1 号到期重置
-        daily_base_gb: 34,
-        weekend_boost: 1.5,
-        inbound_ratio: 0.38
+        traffic_mode: "sum", // 双向求和
+        quota_bytes: 500 * GB,
+        reset_day: 3,
+        expired_at: "2027-11-03T00:00:00Z", // 每月 3 号重置
+        cold_start: true,
+        mock_cumulative_in: 16.13 * GB,
+        mock_cumulative_out: 17.72 * GB,
+        mock_daily_avg_in: 2.30 * GB,
+        mock_daily_avg_out: 2.53 * GB
       },
       {
-        node_id: "us-west-02",
-        node_name: "🇺🇸 美西硅谷 (US-West-02)",
+        node_id: "jp-aws",
+        node_name: "JP.AWS (周期临近结束 · 剩余 4 天)",
         has_quota: true,
-        traffic_mode: "upload", // 模式2：仅计出站 (upload only)
-        quota_bytes: 1000 * GB, // 1000 GB 出站限额
-        expired_at: "2027-10-15T00:00:00Z", // 15 号到期重置
-        daily_base_gb: 24,
-        weekend_boost: 1.2,
-        inbound_ratio: 0.40 // 出站约 14.4 GB/天
-      },
-      {
-        node_id: "eu-central-03",
-        node_name: "🇩🇪 德国法兰克福 (Frankfurt-03)",
-        has_quota: true,
-        traffic_mode: "max", // 模式3：双向取大 (max)
-        quota_bytes: 500 * GB, // 500 GB
-        expired_at: "2027-10-05T00:00:00Z", // 5 号到期重置
-        daily_base_gb: 20,
-        weekend_boost: 1.1,
-        inbound_ratio: 0.30 // 出站为主 70% (~14GB/天)
-      },
-      {
-        node_id: "hk-edge-05",
-        node_name: "🇭🇰 中国香港 (HK-Edge-05)",
-        has_quota: true,
-        traffic_mode: "download", // 模式4：仅计入站 (download only)
-        quota_bytes: 800 * GB,
-        expired_at: "2027-10-08T00:00:00Z", // 8 号到期重置 (与用户示例一致)
-        daily_base_gb: 26,
-        weekend_boost: 1.25,
-        inbound_ratio: 0.65 // 入站为主 65% (~16.9GB/天)
-      },
-      {
-        node_id: "singapore-edge-04",
-        node_name: "🇸🇬 新加坡测试节点 (Singapore-04 · 未设限额)",
-        has_quota: false,
         traffic_mode: "sum",
-        quota_bytes: 0, // 节点自身未配置流量限额
-        expired_at: null, // 未配置到期时间，默认按自然月推算
-        daily_base_gb: 19,
-        weekend_boost: 1.3,
-        inbound_ratio: 0.40
+        quota_bytes: 200 * GB,
+        reset_day: 14,
+        expired_at: "2027-10-14T00:00:00Z", // 每月 14 号重置
+        cold_start: true,
+        mock_cumulative_in: 12.14 * GB,
+        mock_cumulative_out: 12.36 * GB,
+        mock_daily_avg_in: 478.17 * 1024 * 1024,
+        mock_daily_avg_out: 486.77 * 1024 * 1024
+      },
+      {
+        node_id: "jp-zouter-djj",
+        node_name: "JP.Zouter.DJJ (双向取大 MAX 计费)",
+        has_quota: true,
+        traffic_mode: "max", // 双向取大
+        quota_bytes: 300 * GB,
+        reset_day: 15,
+        expired_at: "2027-10-15T00:00:00Z", // 每月 15 号重置
+        cold_start: true,
+        mock_cumulative_in: 888.03 * 1024 * 1024,
+        mock_cumulative_out: 928.01 * 1024 * 1024,
+        mock_daily_avg_in: 35.52 * 1024 * 1024,
+        mock_daily_avg_out: 37.12 * 1024 * 1024
+      },
+      {
+        node_id: "jp-zt-plus",
+        node_name: "JP.ZT.Plus (超限严重警告 · 19日重置)",
+        has_quota: true,
+        traffic_mode: "sum",
+        quota_bytes: 1000 * GB, // 1 TB
+        reset_day: 19,
+        expired_at: "2027-10-19T00:00:00Z", // 每月 19 号重置
+        cold_start: true,
+        mock_cumulative_in: 580 * GB,
+        mock_cumulative_out: 600 * GB, // 1.18 TB > 1 TB
+        mock_daily_avg_in: 28 * GB,
+        mock_daily_avg_out: 32 * GB
+      },
+      {
+        node_id: "tokyo-full-01",
+        node_name: "🇯🇵 日本东京 (全量连续打点 · 理想运行对比)",
+        has_quota: true,
+        traffic_mode: "sum",
+        quota_bytes: 1000 * GB,
+        reset_day: 1,
+        expired_at: "2027-11-01T00:00:00Z", // 每月 1 号重置
+        cold_start: false,
+        daily_base_gb: 26,
+        inbound_ratio: 0.42
       }
     ];
 
     let currentFilter = "ALL";
     let editingNodeId = null;
 
-    // 生成过去 30 天的历史增量数据
-    function generateNodeHistory(node) {
-      const records = [];
-      const now = new Date();
+    function formatDateToYMD(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
 
-      for (let i = 30; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = d.toISOString().split("T")[0];
-        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-        const wave = ((i * 7) % 15 - 7) / 100;
-        const dayTotalGB = node.daily_base_gb * (isWeekend ? node.weekend_boost : 0.95) * (1 + wave);
-        const totalBytes = Math.round(dayTotalGB * GB);
-        const inBytes = Math.round(totalBytes * node.inbound_ratio);
-        const outBytes = totalBytes - inBytes;
+    function formatDateToMD(d) {
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${m}-${day}`;
+    }
 
-        records.push({
-          date: dateStr,
-          timestamp: d.getTime(),
-          in_bytes: inBytes,
-          out_bytes: outBytes,
-          total_bytes: totalBytes,
-          is_today: i === 0
-        });
-      }
-      return records;
+    function getDaysInMonth(year, month) {
+      return new Date(year, month + 1, 0).getDate();
     }
 
     /**
@@ -982,8 +985,10 @@
     function computeBillableAmount(inBytes, outBytes, mode = "sum") {
       switch (mode) {
         case "upload":
+        case "up":
           return outBytes;
         case "download":
+        case "down":
           return inBytes;
         case "max":
           return Math.max(inBytes, outBytes);
@@ -995,78 +1000,89 @@
       }
     }
 
-    // 周期与预测推算
-    function computeForecast(history, node, now = new Date()) {
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const date = now.getDate();
+    /**
+     * 计算标准的账单周期范围 (以节点每月重置日为严格边界)
+     */
+    function calculateBillingCycle(resetDay = 1, now = new Date()) {
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const currentDate = now.getDate();
 
-      // 从节点 expired_at 提取账单重置日 (Date of Month)
-      let resetDay = 1;
-      let hasExpiredAt = false;
-      let expiredAtStr = "";
-      if (node.expired_at) {
-        const d = new Date(node.expired_at);
-        if (!isNaN(d.getTime())) {
-          resetDay = d.getDate();
-          hasExpiredAt = true;
-          expiredAtStr = d.toISOString().split("T")[0];
-        }
-      }
-      node.reset_day = resetDay;
-      node.has_expired_at = hasExpiredAt;
-      node.expired_at_str = expiredAtStr;
-      const mode = node.traffic_mode || "sum";
-      const modeDef = THRESHOLD_MODES[mode] || THRESHOLD_MODES.sum;
+      const safeResetDay = Math.max(1, Math.min(31, Math.floor(Number(resetDay) || 1)));
+      const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
+      const actualResetDayThisMonth = Math.min(safeResetDay, maxDayThisMonth);
 
-      let cycleStart, cycleEnd;
-      if (date >= resetDay) {
-        cycleStart = new Date(year, month, resetDay, 0, 0, 0, 0);
-        cycleEnd = new Date(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, resetDay, 0, 0, 0, 0);
+      let cycleStartDate, cycleEndDate;
+
+      if (currentDate >= actualResetDayThisMonth) {
+        cycleStartDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
+
+        const nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+        const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+        const maxDayNextMonth = getDaysInMonth(nextMonthYear, nextMonth);
+        const actualEndDay = Math.min(safeResetDay, maxDayNextMonth);
+        cycleEndDate = new Date(nextMonthYear, nextMonth, actualEndDay, 0, 0, 0, 0);
       } else {
-        cycleStart = new Date(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1, resetDay, 0, 0, 0, 0);
-        cycleEnd = new Date(year, month, resetDay, 0, 0, 0, 0);
+        const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const maxDayPrevMonth = getDaysInMonth(prevMonthYear, prevMonth);
+        const actualStartDay = Math.min(safeResetDay, maxDayPrevMonth);
+        cycleStartDate = new Date(prevMonthYear, prevMonth, actualStartDay, 0, 0, 0, 0);
+
+        cycleEndDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
       }
 
-      const oneDay = 24 * 3600 * 1000;
-      const daysTotal = Math.max(1, Math.round((cycleEnd.getTime() - cycleStart.getTime()) / oneDay));
-      const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStart.getTime()) / oneDay)));
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const daysTotal = Math.max(1, Math.round((cycleEndDate.getTime() - cycleStartDate.getTime()) / oneDayMs));
+      const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStartDate.getTime()) / oneDayMs)));
       const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
-      // 本周期内上下行分别累计
+      return {
+        startStr: formatDateToYMD(cycleStartDate),
+        endStr: formatDateToYMD(cycleEndDate),
+        cycleStartDate,
+        cycleEndDate,
+        daysTotal,
+        daysElapsed,
+        daysRemaining
+      };
+    }
+
+    /**
+     * 周期与预测推算 (统一账单周期架构)
+     */
+    function computeForecast(node, now = new Date()) {
+      const mode = (node.traffic_mode || "sum").toLowerCase();
+      const modeDef = THRESHOLD_MODES[mode] || THRESHOLD_MODES.sum;
+      const cycle = calculateBillingCycle(node.reset_day, now);
+
       let cumulativeIn = 0;
       let cumulativeOut = 0;
-      history.forEach((r) => {
-        if (r.timestamp >= cycleStart.getTime() && r.timestamp <= now.getTime()) {
-          cumulativeIn += r.in_bytes;
-          cumulativeOut += r.out_bytes;
-        }
-      });
-      const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
+      let dailyAvgIn = 0;
+      let dailyAvgOut = 0;
 
-      // 计费累计量
+      if (node.cold_start) {
+        cumulativeIn = node.mock_cumulative_in || 0;
+        cumulativeOut = node.mock_cumulative_out || 0;
+        dailyAvgIn = node.mock_daily_avg_in || 0;
+        dailyAvgOut = node.mock_daily_avg_out || 0;
+      } else {
+        dailyAvgIn = Math.round(node.daily_base_gb * GB * node.inbound_ratio);
+        dailyAvgOut = Math.round(node.daily_base_gb * GB * (1 - node.inbound_ratio));
+        cumulativeIn = dailyAvgIn * cycle.daysElapsed;
+        cumulativeOut = dailyAvgOut * cycle.daysElapsed;
+      }
+
+      const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
       const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
-      // 7 日加权均值
-      const recent = history.slice(-7);
-      let weightSum = 0, wInSum = 0, wOutSum = 0;
-      recent.forEach((r, idx) => {
-        const w = 1 + (idx / recent.length) * 1.2;
-        wInSum += r.in_bytes * w;
-        wOutSum += r.out_bytes * w;
-        weightSum += w;
-      });
-      const dailyAvgIn = Math.round(wInSum / weightSum);
-      const dailyAvgOut = Math.round(wOutSum / weightSum);
       const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
-
-      const projectedIn = cumulativeIn + dailyAvgIn * daysRemaining;
-      const projectedOut = cumulativeOut + dailyAvgOut * daysRemaining;
-      const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * daysRemaining;
-
-      // 预测计费总消耗
-      const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
       const dailyAvgBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
+
+      const projectedIn = cumulativeIn + dailyAvgIn * cycle.daysRemaining;
+      const projectedOut = cumulativeOut + dailyAvgOut * cycle.daysRemaining;
+      const projectedPhysicalTotal = cumulativePhysicalTotal + dailyAvgTotal * cycle.daysRemaining;
+      const projectedBillable = computeBillableAmount(projectedIn, projectedOut, mode);
 
       const hasQuota = Boolean(node.has_quota && node.quota_bytes > 0);
       let status = "NO_QUOTA";
@@ -1082,9 +1098,9 @@
         } else if (ratio >= 1.0) {
           status = "CRITICAL";
           const remainQuota = quota - cumulativeBillable;
-          const daysUntilExhaustion = Math.max(1, Math.floor(remainQuota / dailyAvgBillable));
-          const exDateObj = new Date(now.getTime() + daysUntilExhaustion * oneDay);
-          const exhaustionDate = exDateObj.toISOString().split("T")[0];
+          const daysUntilExhaustion = dailyAvgBillable > 0 ? Math.max(1, Math.floor(remainQuota / dailyAvgBillable)) : 999;
+          const exDateObj = new Date(now.getTime() + daysUntilExhaustion * 24 * 3600 * 1000);
+          const exhaustionDate = formatDateToYMD(exDateObj);
           const overage = projectedBillable - quota;
           warningMessage = `预计将在 <strong>${daysUntilExhaustion} 天后</strong>（${exhaustionDate}）耗尽限额（按 ${modeDef.badge} 计费），重置日前预计超标 <strong>${formatBytes(overage)}</strong>！`;
         } else if (ratio >= 0.9) {
@@ -1101,15 +1117,7 @@
         mode,
         modeDef,
         quota_bytes: node.quota_bytes,
-        cycle: {
-          startStr: cycleStart.toISOString().split("T")[0],
-          endStr: cycleEnd.toISOString().split("T")[0],
-          cycleStart,
-          cycleEnd,
-          daysTotal,
-          daysElapsed,
-          daysRemaining
-        },
+        cycle,
         cumulative: {
           in_bytes: cumulativeIn,
           out_bytes: cumulativeOut,
@@ -1134,58 +1142,111 @@
       };
     }
 
-    // 构建 30 天时间序列与预测序列
-    function build30DaySeries(history, forecast) {
-      const display = history.slice(-30);
-      const cycleStartMs = forecast.cycle.cycleStart.getTime();
+    /**
+     * 构建以「账单周期」为绝对时间域的序列 (X 轴左端为上个重置日，右端为下个重置日)
+     * - 过去无数据天：cumulative_billable 为 null，绝不画 0 贴地折线
+     * - 未来推算天：in_bytes / out_bytes 严格为 0，坚决不画任何柱体！
+     */
+    function buildCycleSeries(node, forecast, now = new Date()) {
+      const cycle = forecast.cycle;
+      const cycleStart = cycle.cycleStartDate;
+      const daysTotal = cycle.daysTotal;
       const mode = forecast.mode;
 
-      let runningIn = 0;
-      let runningOut = 0;
+      const todayStr = formatDateToYMD(now);
+      const points = [];
+      let todayPointIndex = -1;
 
-      const points = display.map((item) => {
-        if (item.timestamp >= cycleStartMs) {
-          runningIn += item.in_bytes;
-          runningOut += item.out_bytes;
+      // 如果是全量历史节点，模拟历史累加
+      let simCumulativeIn = 0;
+      let simCumulativeOut = 0;
+
+      for (let i = 0; i <= daysTotal; i++) {
+        const d = new Date(cycleStart.getTime() + i * 24 * 3600 * 1000);
+        const dateStr = formatDateToYMD(d);
+        const isToday = (dateStr === todayStr);
+        const isPast = (d.getTime() < now.getTime()) && !isToday;
+        const isFuture = (d.getTime() > now.getTime()) && !isToday;
+
+        if (isToday) {
+          todayPointIndex = i;
         }
-        const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
 
-        return {
-          date: item.date,
-          timestamp: item.timestamp,
-          in_bytes: item.in_bytes,
-          out_bytes: item.out_bytes,
-          total_bytes: item.total_bytes,
-          cumulative_billable: cumBillable,
-          is_forecast: false
-        };
-      });
+        if (isPast) {
+          if (!node.cold_start) {
+            // 全量打点演示节点：有完整历史柱状图与平滑爬升的累计折线
+            const wave = ((i * 7) % 15 - 7) / 100;
+            const inBytes = Math.round(forecast.daily_avg.in_bytes * (1 + wave));
+            const outBytes = Math.round(forecast.daily_avg.out_bytes * (1 + wave));
+            simCumulativeIn += inBytes;
+            simCumulativeOut += outBytes;
+            const cumBillable = computeBillableAmount(simCumulativeIn, simCumulativeOut, mode);
 
-      if (forecast.cycle.daysRemaining > 0) {
-        let fIn = runningIn;
-        let fOut = runningOut;
-        const now = new Date();
-        const fDays = Math.min(forecast.cycle.daysRemaining, 14);
-
-        for (let i = 1; i <= fDays; i++) {
-          const fd = new Date(now.getTime() + i * 24 * 3600 * 1000);
-          fIn += forecast.daily_avg.in_bytes;
-          fOut += forecast.daily_avg.out_bytes;
-          const cumBillable = computeBillableAmount(fIn, fOut, mode);
+            points.push({
+              date: dateStr,
+              dateObj: d,
+              timestamp: d.getTime(),
+              has_data: true,
+              in_bytes: inBytes,
+              out_bytes: outBytes,
+              total_bytes: inBytes + outBytes,
+              cumulative_billable: cumBillable,
+              is_today: false,
+              is_forecast: false
+            });
+          } else {
+            // 新安装冷启动节点：过去打点缺失，无柱体，cumulative_billable 为 null（不画贴地 0 折线）
+            points.push({
+              date: dateStr,
+              dateObj: d,
+              timestamp: d.getTime(),
+              has_data: false,
+              in_bytes: 0,
+              out_bytes: 0,
+              total_bytes: 0,
+              cumulative_billable: null,
+              is_today: false,
+              is_forecast: false
+            });
+          }
+        } else if (isToday) {
+          // 今日点：折线从此处对齐当月真实已用总量起画
+          const inB = node.cold_start ? Math.round(forecast.daily_avg.in_bytes * 0.45) : forecast.daily_avg.in_bytes;
+          const outB = node.cold_start ? Math.round(forecast.daily_avg.out_bytes * 0.45) : forecast.daily_avg.out_bytes;
 
           points.push({
-            date: fd.toISOString().split("T")[0],
-            timestamp: fd.getTime(),
-            in_bytes: forecast.daily_avg.in_bytes,
-            out_bytes: forecast.daily_avg.out_bytes,
-            total_bytes: forecast.daily_avg.total_bytes,
-            cumulative_billable: cumBillable,
+            date: dateStr,
+            dateObj: d,
+            timestamp: d.getTime(),
+            has_data: true,
+            in_bytes: inB,
+            out_bytes: outB,
+            total_bytes: inB + outB,
+            cumulative_billable: forecast.cumulative.billable_bytes,
+            is_today: true,
+            is_forecast: false
+          });
+        } else {
+          // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
+          const futureStep = i - (todayPointIndex >= 0 ? todayPointIndex : cycle.daysElapsed);
+          const fCumBillable = forecast.cumulative.billable_bytes + forecast.daily_avg.billable_bytes * Math.max(0, futureStep);
+
+          points.push({
+            date: dateStr,
+            dateObj: d,
+            timestamp: d.getTime(),
+            has_data: false,
+            in_bytes: 0,
+            out_bytes: 0,
+            total_bytes: 0,
+            cumulative_billable: fCumBillable,
+            is_today: false,
             is_forecast: true
           });
         }
       }
 
-      return points;
+      return { points, todayPointIndex };
     }
 
     const nodeCalculatedData = [];
@@ -1193,14 +1254,13 @@
     function initData() {
       nodeCalculatedData.length = 0;
       MOCK_NODES.forEach((node) => {
-        const history = generateNodeHistory(node);
-        const forecast = computeForecast(history, node);
-        const series = build30DaySeries(history, forecast);
+        const forecast = computeForecast(node);
+        const { points, todayPointIndex } = buildCycleSeries(node, forecast);
         nodeCalculatedData.push({
           node,
-          history,
           forecast,
-          series
+          series: points,
+          todayPointIndex
         });
       });
     }
@@ -1232,8 +1292,8 @@
 
       filters.forEach((f) => {
         const btn = document.createElement("button");
-        btn.className = `filter-btn ${f.className} ${currentFilter === f.key ? 'active' : ''}`;
-        btn.innerHTML = f.label;
+        btn.className = `filter-btn ${f.className} ${currentFilter === f.key ? "active" : ""}`;
+        btn.textContent = f.label;
         btn.onclick = () => {
           currentFilter = f.key;
           renderFilterBar();
@@ -1310,18 +1370,18 @@
         } else if (forecast.mode === "download") {
           inboundLegendNote = " <strong style='color:#818cf8;'>(计费核心)</strong>";
           outboundLegendNote = " <span style='opacity:0.6;'>(不计额度)</span>";
-        } else if (forecast.mode === "max") {
-          outboundLegendNote = " <span style='color:#a5b4fc;'>(取两项较大者计费)</span>";
         }
 
         card.innerHTML = `
           <div class="node-header">
             <div class="node-title-wrap">
-              <div class="node-name">${node.node_name}</div>
-              <span class="mode-pill">📌 ${modeDef.badge}</span>
-              <div class="node-quota-meta">
-                ${forecast.hasQuota ? `限额: ${formatBytes(forecast.quota_bytes)}` : `不限额`} · ${node.has_expired_at ? `每月 <strong>${node.reset_day}</strong> 号重置 (到期日: ${node.expired_at_str})` : `<strong>自然月 1 号</strong>重置`}
-              </div>
+              <span class="node-name">${node.node_name}</span>
+              <span class="mode-pill" title="${modeDef.desc}">⚖️ 计费: ${modeDef.badge}</span>
+              <span class="node-quota-meta">
+                <span>📦 限额: <strong>${forecast.hasQuota ? formatBytes(forecast.quota_bytes) : '未设置限额'}</strong></span>
+                <span>·</span>
+                <span>🗓️ 每月 <strong>${node.reset_day}</strong> 号重置</span>
+              </span>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
               ${badgeHtml}
@@ -1334,35 +1394,35 @@
           <div class="node-kpi-grid">
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>当月计费流量 (有效累计)</span>
-                <span style="color: var(--cumulative);">● 计费项</span>
+                <span>当月已用计费流量</span>
+                <span style="color: var(--cumulative);">● 累计</span>
               </div>
-              <div class="kpi-number" style="color: var(--cumulative);">${formatBytes(forecast.cumulative.billable_bytes)}</div>
-              <div class="kpi-detail">实际物理消耗: 入 ${formatBytes(forecast.cumulative.in_bytes)} | 出 ${formatBytes(forecast.cumulative.out_bytes)}</div>
+              <div class="kpi-number">${formatBytes(forecast.cumulative.billable_bytes)}</div>
+              <div class="kpi-detail">物理入站: ${formatBytes(forecast.cumulative.in_bytes)} | 物理出站: ${formatBytes(forecast.cumulative.out_bytes)}</div>
             </div>
 
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>计费消耗均速 (7日加权)</span>
-                <span>📈 均速</span>
+                <span>7日均速消耗 (计费)</span>
+                <span>均速</span>
               </div>
               <div class="kpi-number">${formatBytes(forecast.daily_avg.billable_bytes)} / 天</div>
-              <div class="kpi-detail">物理均速: 入 ${formatBytes(forecast.daily_avg.in_bytes)}/天 | 出 ${formatBytes(forecast.daily_avg.out_bytes)}/天</div>
+              <div class="kpi-detail">日入: ${formatBytes(forecast.daily_avg.in_bytes)}/天 | 日出: ${formatBytes(forecast.daily_avg.out_bytes)}/天</div>
             </div>
 
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>计费周期与重置</span>
-                <span>${forecast.cycle.daysRemaining} 天后</span>
+                <span>计费周期倒计时</span>
+                <span>${forecast.cycle.startStr} ~ ${forecast.cycle.endStr}</span>
               </div>
-              <div class="kpi-number">${forecast.cycle.daysRemaining} 天后重置</div>
-              <div class="kpi-detail">${forecast.cycle.startStr} ~ ${forecast.cycle.endStr} (已过 ${forecast.cycle.daysElapsed} 天)</div>
+              <div class="kpi-number">${forecast.cycle.daysRemaining} 天</div>
+              <div class="kpi-detail">本月已过 ${forecast.cycle.daysElapsed} 天 / 共计 ${forecast.cycle.daysTotal} 天</div>
             </div>
 
             <div class="node-kpi-item">
               <div class="kpi-title">
-                <span>预测重置日计费总用量</span>
-                <span>${forecast.hasQuota ? '含配额推算' : '无配额预测'}</span>
+                <span>预测周期总计费消耗</span>
+                <span>配额: ${forecast.hasQuota ? formatBytes(forecast.quota_bytes) : '无'}</span>
               </div>
               <div class="kpi-number" style="${forecast.status === 'CRITICAL' ? 'color: var(--danger);' : ''}">
                 ${formatBytes(forecast.projected.billable_bytes)}
@@ -1373,23 +1433,23 @@
 
           <div class="chart-box">
             <div class="chart-sub-header">
-              <span>最近 30 天每日进出站流量增量与<strong>计费累计趋势</strong> (根据 ${modeDef.name} 自动调整)</span>
+              <span>计费周期 (${forecast.cycle.startStr} ~ ${forecast.cycle.endStr}) 每日进出站增量与<strong>计费累计趋势</strong> (根据 ${modeDef.name} 自适应)</span>
               <div class="chart-legend">
                 <div class="legend-item">
                   <div class="legend-color" style="background: var(--inbound);"></div>
-                  <span>入站新增${inboundLegendNote}</span>
+                  <span>入站 (Inbound)${inboundLegendNote}</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-color" style="background: var(--outbound);"></div>
-                  <span>出站新增${outboundLegendNote}</span>
+                  <span>出站 (Outbound)${outboundLegendNote}</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-line" style="background: var(--cumulative);"></div>
-                  <span>${modeDef.lineLabel}</span>
+                  <span>当月计费累计 (${modeDef.badge})</span>
                 </div>
                 <div class="legend-item">
                   <div class="legend-line dashed"></div>
-                  <span>计费预测走势 (Forecast)</span>
+                  <span>周期未来推算 (Forecast)</span>
                 </div>
               </div>
             </div>
@@ -1405,7 +1465,7 @@
 
         // 异步挂载绘图
         setTimeout(() => {
-          renderNodeChart(node.node_id, series, forecast);
+          renderNodeChart(node.node_id, series, forecast, item.todayPointIndex);
         }, 0);
       });
     }
@@ -1417,14 +1477,9 @@
 
       cards.forEach((card) => {
         const status = card.getAttribute("data-status");
-        if (currentFilter === "ALL" || status === currentFilter) {
+        if (currentFilter === "ALL" || currentFilter === status) {
           card.classList.remove("hidden");
           visibleCount++;
-          const nodeId = card.id.replace("card-", "");
-          const item = nodeCalculatedData.find(d => d.node.node_id === nodeId);
-          if (item) {
-            setTimeout(() => renderNodeChart(nodeId, item.series, item.forecast), 10);
-          }
         } else {
           card.classList.add("hidden");
         }
@@ -1438,8 +1493,10 @@
       }
     }
 
-    // 绘制单个节点的专属复合图表
-    function renderNodeChart(nodeId, items, forecast) {
+    /**
+     * 绘制专属全周期图表 (X 轴以 [上个重置日, 下个重置日] 为严格左右边界)
+     */
+    function renderNodeChart(nodeId, items, forecast, todayPointIndex) {
       const canvas = document.getElementById(`canvas-${nodeId}`);
       const wrapper = document.getElementById(`wrapper-${nodeId}`);
       const tooltip = document.getElementById(`tooltip-${nodeId}`);
@@ -1456,27 +1513,41 @@
 
       const width = rect.width;
       const height = rect.height;
-      const padding = { top: 22, right: 68, bottom: 32, left: 68 };
+      const padding = { top: 25, right: 70, bottom: 35, left: 70 };
       const chartW = width - padding.left - padding.right;
       const chartH = height - padding.top - padding.bottom;
 
       ctx.clearRect(0, 0, width, height);
 
       const count = items.length;
-      let maxBar = 0, maxLine = 0;
+      if (count === 0) return;
+
+      const mode = forecast.mode;
+
+      // 1. 双 Y 轴极值计算
+      let maxBar = 0;
+      let maxLine = 0;
 
       items.forEach((item) => {
-        const barSum = (item.in_bytes || 0) + (item.out_bytes || 0);
-        if (barSum > maxBar) maxBar = barSum;
-        if (item.cumulative_billable && item.cumulative_billable > maxLine) {
+        // 仅从有实际数据的历史点计算柱状图高度上限，未来预测点不计入
+        if (!item.is_forecast && item.has_data) {
+          const barSum = (item.in_bytes || 0) + (item.out_bytes || 0);
+          if (barSum > maxBar) maxBar = barSum;
+        }
+        if (item.cumulative_billable !== null && item.cumulative_billable > maxLine) {
           maxLine = item.cumulative_billable;
         }
       });
 
-      maxBar = maxBar > 0 ? maxBar * 1.15 : 10 * GB;
+      // 保证预测折线终点（projected）能完全容纳进画布
+      if (forecast.projected.billable_bytes > maxLine) {
+        maxLine = forecast.projected.billable_bytes;
+      }
+
+      maxBar = maxBar > 0 ? maxBar * 1.25 : 10 * GB;
       maxLine = maxLine > 0 ? maxLine * 1.15 : maxBar;
 
-      // 绘制网格刻度线
+      // 2. 绘制水平背景网格与 Y 轴刻度
       ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
       const gridSteps = 4;
@@ -1488,93 +1559,95 @@
         ctx.lineTo(padding.left + chartW, y);
         ctx.stroke();
 
+        // 左 Y 轴刻度 (每日增量柱状图)
         const barVal = maxBar * (1 - i / gridSteps);
-        ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
+        ctx.fillStyle = "rgba(148, 163, 184, 0.65)";
         ctx.font = "10px sans-serif";
         ctx.textAlign = "right";
         ctx.fillText(formatBytes(barVal, 1), padding.left - 8, y + 3);
 
+        // 右 Y 轴刻度 (计费累计与未来预测折线)
         const lineVal = maxLine * (1 - i / gridSteps);
         ctx.textAlign = "left";
         ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
         ctx.fillText(formatBytes(lineVal, 1), padding.left + chartW + 8, y + 3);
       }
 
-      const stepX = chartW / count;
-      const barWidth = Math.max(4, Math.min(22, stepX * 0.55));
+      const stepX = chartW / (count - 1);
+      const barWidth = Math.max(3, Math.min(18, stepX * 0.52));
       const screenPoints = [];
-      const mode = forecast.mode;
 
-      // 1. 堆叠柱状图绘制（自适应透明度）
+      // 3. 绘制每日物理进出站柱状图 (未来预测天数严格禁止画柱体！)
       items.forEach((item, index) => {
-        const cx = padding.left + stepX * index + stepX / 2;
+        const cx = padding.left + stepX * index;
         const inBytes = item.in_bytes || 0;
         const outBytes = item.out_bytes || 0;
 
-        const inH = (inBytes / maxBar) * chartH;
-        const outH = (outBytes / maxBar) * chartH;
-        const baseGroundY = padding.top + chartH;
+        // 仅在真实打点历史及今日绘制柱状图，未来天数绝对不画实心柱
+        if (!item.is_forecast && item.has_data && (inBytes + outBytes > 0)) {
+          const inH = (inBytes / maxBar) * chartH;
+          const outH = (outBytes / maxBar) * chartH;
+          const baseGroundY = padding.top + chartH;
 
-        let inAlpha = item.is_forecast ? 0.35 : 0.92;
-        let outAlpha = item.is_forecast ? 0.35 : 0.92;
+          let inAlpha = 0.90;
+          let outAlpha = 0.90;
 
-        if (mode === "upload") {
-          inAlpha = item.is_forecast ? 0.2 : 0.4;
-        } else if (mode === "download") {
-          outAlpha = item.is_forecast ? 0.2 : 0.4;
-        }
+          if (mode === "upload") {
+            inAlpha = 0.35;
+            outAlpha = 0.95;
+          } else if (mode === "download") {
+            inAlpha = 0.95;
+            outAlpha = 0.35;
+          }
 
-        // 入站柱
-        const inY = baseGroundY - inH;
-        ctx.globalAlpha = inAlpha;
-        ctx.fillStyle = "#6366f1";
-        ctx.fillRect(cx - barWidth / 2, inY, barWidth, inH);
+          // 入站柱 (底部)
+          const inY = baseGroundY - inH;
+          ctx.globalAlpha = inAlpha;
+          ctx.fillStyle = "#6366f1";
+          ctx.fillRect(cx - barWidth / 2, inY, barWidth, inH);
 
-        // 出站柱 (堆叠在上方)
-        const outY = inY - outH;
-        ctx.globalAlpha = outAlpha;
-        ctx.fillStyle = "#10b981";
-        ctx.fillRect(cx - barWidth / 2, outY, barWidth, outH);
+          // 出站柱 (堆叠在上方)
+          const outY = inY - outH;
+          ctx.globalAlpha = outAlpha;
+          ctx.fillStyle = "#10b981";
+          ctx.fillRect(cx - barWidth / 2, outY, barWidth, outH);
 
-        ctx.globalAlpha = 1.0;
-
-        // X 轴日期（突出标出今日）
-        if (index % Math.ceil(count / 10) === 0 || index === count - 1 || item.is_today) {
-          ctx.fillStyle = item.is_forecast ? "rgba(251, 146, 60, 0.85)" : (item.is_today ? "#38bdf8" : "rgba(148, 163, 184, 0.8)");
-          ctx.font = item.is_today ? "bold 10px sans-serif" : "10px sans-serif";
-          ctx.textAlign = "center";
-          let label = item.is_today ? "今日" : item.date;
-          if (!item.is_today && label && label.length > 5) label = label.slice(5);
-          ctx.fillText(label, cx, baseGroundY + 16);
+          ctx.globalAlpha = 1.0;
         }
 
         screenPoints.push({
           x: cx,
-          y: outY,
-          item: item
+          item: item,
+          index: index
         });
       });
 
-      // 2. 计费累计折线
+      // 4. 绘制计费累计折线 (拒绝 0 贴地线，支持从第一个有效数据点起笔)
       const actualPoints = [];
       const forecastPoints = [];
+      let todayScreenPt = null;
 
       items.forEach((item, index) => {
-        const cx = padding.left + stepX * index + stepX / 2;
-        const cumBytes = item.cumulative_billable || 0;
-        const cy = padding.top + chartH - (cumBytes / maxLine) * chartH;
+        const cx = padding.left + stepX * index;
 
-        if (item.is_forecast) {
-          if (forecastPoints.length === 0 && actualPoints.length > 0) {
-            forecastPoints.push(actualPoints[actualPoints.length - 1]);
+        // 仅当 cumulative_billable 具备有效数值时才计算坐标点 (无数据时为 null，不连线)
+        if (item.cumulative_billable !== null && typeof item.cumulative_billable === "number") {
+          const cy = padding.top + chartH - (item.cumulative_billable / maxLine) * chartH;
+          const pt = { x: cx, y: cy, item, index };
+
+          if (item.is_today) {
+            todayScreenPt = pt;
+            actualPoints.push(pt);
+            forecastPoints.push(pt); // 预测虚线从今日起点出发
+          } else if (item.is_forecast) {
+            forecastPoints.push(pt);
+          } else {
+            actualPoints.push(pt);
           }
-          forecastPoints.push({ x: cx, y: cy });
-        } else {
-          actualPoints.push({ x: cx, y: cy });
         }
       });
 
-      // 实际折线 (实线)
+      // 4.1 历史已发生实线 (#f59e0b)
       if (actualPoints.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#f59e0b";
@@ -1592,13 +1665,23 @@
           ctx.fillStyle = "#f59e0b";
           ctx.fill();
         });
+      } else if (actualPoints.length === 1) {
+        // 冷启动或安装首日 (仅今日 1 个点)：醒目绘制起点锚点，绝不在前面绘制 0 值贴地线
+        const pt = actualPoints[0];
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
       }
 
-      // 预测折线 (虚线)
+      // 4.2 未来推算虚线 (#fb923c) —— 平滑延伸至账单周期结束日
       if (forecastPoints.length > 1) {
         ctx.beginPath();
         ctx.strokeStyle = "#fb923c";
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 2.2;
         ctx.setLineDash([4, 4]);
         forecastPoints.forEach((pt, i) => {
           if (i === 0) ctx.moveTo(pt.x, pt.y);
@@ -1607,15 +1690,81 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        forecastPoints.forEach((pt) => {
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = "#fb923c";
-          ctx.fill();
-        });
+        // 终点标注：在周期结束日点标注一个明显的预测终点圈
+        const lastPt = forecastPoints[forecastPoints.length - 1];
+        ctx.beginPath();
+        ctx.arc(lastPt.x, lastPt.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#fb923c";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(251, 146, 60, 0.4)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
       }
 
-      // 鼠标悬浮 Tooltip 交互
+      // 5. 绘制 X 轴刻度标签 (彻底防止文字挤压碰撞)
+      const baseGroundY = padding.top + chartH;
+      const drawnXPositions = [];
+
+      // 关键锚点绝对优先绘制：
+      // (1) 最左侧：上个重置日 (cycleStart)
+      // (2) 最右侧：下个重置日 (cycleEnd)
+      // (3) 今日锚点 (今日)
+      const anchorIndices = [];
+      anchorIndices.push(0); // 最左端
+      if (todayPointIndex >= 0 && todayPointIndex < count) {
+        anchorIndices.push(todayPointIndex); // 今日
+      }
+      anchorIndices.push(count - 1); // 最右端
+
+      anchorIndices.forEach((idx) => {
+        const item = items[idx];
+        const cx = padding.left + stepX * idx;
+        let label = "";
+
+        if (idx === 0) {
+          label = formatDateToMD(forecast.cycle.cycleStartDate) + " (重置)";
+          ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(label, cx - 4, baseGroundY + 16);
+          drawnXPositions.push({ x: cx + 18, w: 60 });
+        } else if (idx === count - 1) {
+          label = formatDateToMD(forecast.cycle.cycleEndDate) + " (重置)";
+          ctx.fillStyle = "rgba(251, 146, 60, 0.9)";
+          ctx.font = "10px sans-serif";
+          ctx.textAlign = "right";
+          ctx.fillText(label, cx + 4, baseGroundY + 16);
+          drawnXPositions.push({ x: cx - 18, w: 60 });
+        } else if (item && item.is_today) {
+          label = "今日";
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "bold 10px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, cx, baseGroundY + 16);
+          drawnXPositions.push({ x: cx, w: 32 });
+        }
+      });
+
+      // 中间常规刻度辅助填充 (步长约每 5-6 天一次，严格检测像素间距防止碰撞)
+      const labelInterval = Math.max(4, Math.round(count / 6));
+      for (let idx = labelInterval; idx < count - 1; idx += labelInterval) {
+        const cx = padding.left + stepX * idx;
+        const item = items[idx];
+        if (!item || item.is_today) continue;
+
+        // 检查与已有已绘制锚点的横向像素距离，< 42px 则跳过
+        const hasCollision = drawnXPositions.some((pos) => Math.abs(cx - pos.x) < 42);
+        if (hasCollision) continue;
+
+        ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        const label = formatDateToMD(item.dateObj);
+        ctx.fillText(label, cx, baseGroundY + 16);
+        drawnXPositions.push({ x: cx, w: 30 });
+      }
+
+      // 6. 鼠标悬停 Tooltip 交互
       canvas.onmousemove = (e) => {
         const cRect = canvas.getBoundingClientRect();
         const mouseX = e.clientX - cRect.left;
@@ -1625,7 +1774,7 @@
 
         screenPoints.forEach((pt) => {
           const dist = Math.abs(pt.x - mouseX);
-          if (dist < minDist && dist < 24) {
+          if (dist < minDist && dist < 22) {
             minDist = dist;
             closest = pt;
           }
@@ -1634,29 +1783,49 @@
         if (closest) {
           const item = closest.item;
           tooltip.style.display = "block";
-          tooltip.style.left = Math.min(rect.width - 200, Math.max(10, closest.x - 90)) + "px";
-          tooltip.style.top = Math.max(10, closest.y - 110) + "px";
+          tooltip.style.left = Math.min(rect.width - 210, Math.max(10, closest.x - 90)) + "px";
+          tooltip.style.top = Math.max(10, padding.top + 8) + "px";
 
           let dateTitle = item.date;
-          if (item.is_forecast) {
-            dateTitle += ' <span style="color:#fb923c; font-size:11px;">(未来预测)</span>';
-          } else if (item.is_today) {
+          if (item.is_today) {
             dateTitle += ' <span style="color:#38bdf8; font-weight:700; font-size:11px;">(今日截至当前)</span>';
+          } else if (item.is_forecast) {
+            dateTitle += ' <span style="color:#fb923c; font-size:11px;">(未来预测)</span>';
+          } else if (!item.has_data) {
+            dateTitle += ' <span style="color:#94a3b8; font-size:11px;">(无历史采样)</span>';
           }
 
-          const inText = item.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
-          const outText = item.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
-          const totText = item.is_today ? "● 今日合计 (当前):" : "● 当日物理总计:";
+          let contentHtml = "";
+          if (item.is_forecast) {
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--text-muted);">● 预计日均增速:</span> <span>${formatBytes(forecast.daily_avg.billable_bytes)}/天</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--forecast-line);">● 预计周期累计:</span>
+                <strong style="color:var(--forecast-line);">${formatBytes(item.cumulative_billable)}</strong>
+              </div>
+            `;
+          } else if (!item.has_data && !item.is_today) {
+            contentHtml = `
+              <div style="font-size:11px; color:#94a3b8; margin: 4px 0; line-height: 1.4;">未采集到历史时序打点<br/>(冷启动新安装或节点此前未开启监控)</div>
+            `;
+          } else {
+            const inText = item.is_today ? "● 今日入站 (当前):" : "● 入站增量:";
+            const outText = item.is_today ? "● 今日出站 (当前):" : "● 出站增量:";
+            const totText = item.is_today ? "● 今日合计 (当前):" : "● 当日物理总计:";
+            contentHtml = `
+              <div class="tooltip-row"><span style="color:var(--inbound);">${inText}</span> <span>${formatBytes(item.in_bytes)}</span></div>
+              <div class="tooltip-row"><span style="color:var(--outbound);">${outText}</span> <span>${formatBytes(item.out_bytes)}</span></div>
+              <div class="tooltip-row"><span>${totText}</span> <span>${formatBytes(item.total_bytes)}</span></div>
+              <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
+                <span style="color:var(--cumulative);">● 当月计费累计:</span>
+                <strong style="color:var(--cumulative);">${formatBytes(item.cumulative_billable)}</strong>
+              </div>
+            `;
+          }
 
           tooltip.innerHTML = `
             <div class="tooltip-title">${dateTitle}</div>
-            <div class="tooltip-row"><span style="color:var(--inbound);">${inText}</span> <span>${formatBytes(item.in_bytes)}</span></div>
-            <div class="tooltip-row"><span style="color:var(--outbound);">${outText}</span> <span>${formatBytes(item.out_bytes)}</span></div>
-            <div class="tooltip-row"><span>${totText}</span> <span>${formatBytes(item.total_bytes)}</span></div>
-            <div class="tooltip-row" style="border-top:1px dashed rgba(255,255,255,0.15); padding-top:4px; margin-top:5px;">
-              <span style="color:var(--cumulative);">● 当月计费累计:</span> 
-              <strong style="color:var(--cumulative);">${formatBytes(item.cumulative_billable)}</strong>
-            </div>
+            ${contentHtml}
           `;
         } else {
           tooltip.style.display = "none";
@@ -1668,7 +1837,6 @@
       };
     }
 
-    // 打开单节点配置弹窗
     function openNodeModal(nodeId) {
       const node = MOCK_NODES.find(n => n.node_id === nodeId);
       if (!node) return;

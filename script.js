@@ -895,7 +895,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   border-radius: 4px !important;
 }
 
-/* 单节点精炼卡片 (带有明显独立卡片背景、边框、投影和充裕内边距) */
+/* 单节点精炼卡片 (带有明显独立卡片背景、边框、投影和充裕内边距，支持点击跳转至详情页) */
 #nf-floating-widget .nf-node-card {
   background: rgba(30, 41, 59, 0.72) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -906,11 +906,31 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   gap: 8px !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
   transition: all 0.18s ease !important;
+  cursor: pointer !important;
+  user-select: none !important;
 }
 #nf-floating-widget .nf-node-card:hover {
-  background: rgba(30, 41, 59, 0.9) !important;
-  border-color: rgba(255, 255, 255, 0.18) !important;
-  transform: translateY(-1px) !important;
+  background: rgba(30, 41, 59, 0.95) !important;
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 12px rgba(99, 102, 241, 0.2) !important;
+}
+#nf-floating-widget .nf-node-card:active {
+  transform: scale(0.99) !important;
+}
+#nf-floating-widget .nf-node-card:hover .nf-node-name {
+  color: #a5b4fc !important;
+}
+#nf-floating-widget .nf-node-jump {
+  font-size: 11px !important;
+  color: #64748b !important;
+  opacity: 0 !important;
+  transition: all 0.18s ease !important;
+  margin-left: 2px !important;
+}
+#nf-floating-widget .nf-node-card:hover .nf-node-jump {
+  opacity: 1 !important;
+  color: #a5b4fc !important;
 }
 #nf-floating-widget .nf-row-head {
   display: flex !important;
@@ -1631,10 +1651,11 @@ const WIDGET_BODY_HTML = `
 
       var pctText = (hasQuota && quotaBytes > 0) ? (Math.round((n.usage_ratio || 0) * 100) + "%") : (isEn ? "Uncapped" : "免额");
 
-      html += '<div class="nf-node-card">' +
+      html += '<div class="nf-node-card" data-node-id="' + (n.node_id || '') + '" title="' + (isEn ? "Click to view instance details" : "点击跳转至节点详情页") + '">' +
         '<div class="nf-row-head">' +
           '<div class="nf-node-name-wrap">' +
             '<span class="nf-node-name">' + (n.node_name || n.node_id) + '</span>' +
+            '<span class="nf-node-jump">↗</span>' +
             '<span class="nf-mode-badge">' + mode + '</span>' +
           '</div>' +
           '<div class="nf-status-wrap">' +
@@ -1652,6 +1673,26 @@ const WIDGET_BODY_HTML = `
     });
 
     nodeList.innerHTML = html;
+
+    // 为每个卡片绑定点击跳转事件 (智能适配 Path 路由与 Hash 路由)
+    var cards = nodeList.querySelectorAll(".nf-node-card");
+    cards.forEach(function(card) {
+      card.onclick = function() {
+        var nid = card.getAttribute("data-node-id");
+        if (!nid) return;
+        var curUuid = getCurrentInstanceUuid();
+        if (curUuid) {
+          var c1 = curUuid.split("-").join("").toLowerCase();
+          var c2 = nid.split("-").join("").toLowerCase();
+          if (c1 === c2) return;
+        }
+        if (window.location.hash && window.location.hash.indexOf("/instance") !== -1) {
+          window.location.hash = "#/instance/" + encodeURIComponent(nid);
+        } else {
+          window.location.href = "/instance/" + encodeURIComponent(nid);
+        }
+      };
+    });
   }
 
   function renderData(data) {

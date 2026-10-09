@@ -1,33 +1,29 @@
 ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
 
-### 🐛 关键问题修复 (Bug Fixes)
-- **修复 `sendJSON` 响应挂起与前端卡死问题 (Critical)**：
-  - 修复 `script.js` 中 `sendJSON()` 辅助函数缺失 `res.end(JSON.stringify(data))` 导致 HTTP 响应流未正常结束的问题。
-  - 彻底解决前台浮出层小组件一直显示“正在计算全节点流量与预算预测...”加载状态以及 `/public.html` 公开看板页面加载超时报错的严重缺陷。
-  - 在核心源码与开发规范文档 `agent.md` 中补充详细高危避坑注释与服务端 HTTP 响应规范，防止后续迭代意外引入连接泄露。
-
-### 🎨 界面与设计优化 (UI & Banner)
-- **全新 16:9 海报式 3D 透视预览图**：
-  - 更新 `assets/preview.svg`：左侧 30% 采用极简海报排版，保留主标题与 4 项核心特性卡片；右侧 70% 呈现双层 3D 透视倾斜叠放窗口（完整后台管理看板 + 前景悬浮小组件），全方位展示流量预测与前台交互场景。
-
-### ⚡ 自动化与发布流程改进 (Workflow Improvements)
-- **GitHub Release 更新日志全自动注入**：
-  - 优化 `.github/workflows/release.yml`，每次推送 Tag 后由流水线自动读取根目录 `RELEASE_NOTES.md` 注入 GitHub Release 正文，无需手动在网页复制粘贴中英文更新日志。
+### 🚀 新增功能与体验革新 (Features & Performance)
+- **主看板 SWR 本地秒开与渐进式骨架屏 (SWR Caching & Skeleton Screen)**：
+  - **彻底废除全屏阻塞遮罩**：告别原有的全屏 Loading 弹窗，进入页面和刷新时不再阻断用户视窗。
+  - **0 毫秒首屏秒开**：基于 SWR（Stale-While-Revalidate）架构与 `localStorage` 本地缓存，日常刷新或二次进入页面时，0 毫秒瞬间还原所有节点卡片、KPI 指标与 30 天 Canvas 图表，等待时间彻底降为 0 秒。
+  - **非阻塞后台静默同步**：页面秒开的同时，在顶部展现极细渐变非阻塞进度条与状态角标，后台自动对齐最新时序与预测，完成后平滑热更新图表与数值。
+  - **首次访问流动微光骨架屏**：在无缓存场景下，0 毫秒呈现带平滑流动微光（Shimmer）动画的深色骨架占位卡片，避免空白等待，数据就绪后平滑淡入。
+- **悬浮小组件节点卡片直达跳转 (Clickable Instance Navigation)**：
+  - 前台右下角浮出层小组件内的各个节点卡片全面支持点击直达；
+  - 智能识别并适配 Komari 的 Hash 路由（`#/instance/:uuid`）与 Path 路由（`/instance/:uuid`），点击一键跳转至对应主机详情页；
+  - 配备悬浮微动效（边框呼吸蓝光、轻微浮起、悬浮提示）以及名称右侧优雅的 `↗` 跳转指示标；
+  - 智能防重复机制：已在目标详情页点击时自动保持当前视图，避免无谓重载。
 
 ---
 
 ## 🇬🇧 English Changelog (en)
 
-### 🐛 Critical Bug Fixes
-- **Fixed `sendJSON` Response Hang and Frontend Freeze (Critical)**:
-  - Restored `res.end(JSON.stringify(data))` inside `sendJSON()` in `script.js`, ensuring all HTTP response streams terminate properly in Komari's Goja runtime.
-  - Completely resolved the issue where the frontend floating widget remained permanently stuck on "Calculating traffic forecast..." and `/public.html` timed out with loading errors.
-  - Added comprehensive safeguard comments in source code and documented Goja HTTP response standards in `agent.md` to prevent future connection hang regressions.
-
-### 🎨 UI & Design Enhancements
-- **New 16:9 Poster-Style 3D Perspective Banner**:
-  - Redesigned `assets/preview.svg`: Features a clean, centered 30% left column with typography and 4 key feature cards, paired with a 70% right canvas showcasing dual 3D tilted windows (full management dashboard and foreground floating widget overlay).
-
-### ⚡ Workflow & Automation Improvements
-- **Automated GitHub Release Notes Injection**:
-  - Enhanced `.github/workflows/release.yml` to automatically read `RELEASE_NOTES.md` and populate the GitHub Release body upon tag push, eliminating manual changelog publishing.
+### 🚀 Features & Performance Improvements
+- **Dashboard SWR Instant Load & Progressive Skeleton Screen (SWR & Skeleton UI)**:
+  - **Eliminated Blocking Full-Screen Overlay**: Removed the intrusive full-screen loading modal, unblocking the viewport during page loads and refreshes.
+  - **0ms Instant Cache Restoration**: Powered by Stale-While-Revalidate (SWR) caching with `localStorage`, page reloads and subsequent visits instantly restore all node cards, KPI metrics, and 30-day Canvas charts in 0ms, reducing perceived wait time to zero.
+  - **Non-blocking Background Sync**: While cached data is displayed instantly, a slender top gradient progress bar and lightweight sync badge indicate silent background reconciliation, seamlessly updating charts and metrics once fresh data arrives.
+  - **Progressive Shimmer Skeleton Screen**: Cold visits without cache immediately display dark skeleton placeholder cards with gentle shimmer animations, gracefully fading into live cards once computed.
+- **Clickable Floating Widget Cards with Smart Navigation**:
+  - Node cards inside the frontend floating widget are now fully interactive and clickable.
+  - Automatically detects Komari routing (supporting both `#/instance/:uuid` and `/instance/:uuid`) to navigate directly to the specific node detail page.
+  - Features smooth hover micro-interactions (indigo border glow, subtle card lift, and an elegant `↗` navigation icon next to the node name).
+  - Built-in redundant navigation protection: avoids reloading if already on the selected instance page.

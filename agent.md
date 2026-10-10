@@ -53,6 +53,10 @@
   if (currentDate >= actualResetDayThisMonth) { ... }
   ```
 
+### 3. 自定义统计时区偏移规范 (Timezone Offset)
+- 插件在 `komari-plugin.json` 中提供了 `timezone_offset` 配置（默认 `8` 即东八区 UTC+8，单位为小时）。
+- 计算账单周期（`calculateBillingCycle`）、生成走势图序列（`buildCycleSeries`）、定时采样（`recordSample`）以及前端按日聚合（`aggregateDailyFromRecords`）均统一基于 `timezone_offset` 进行绝对时间戳对齐，彻底规避宿主机操作系统或 Docker 容器的本地时区干扰。
+
 ---
 
 ## 三、代码结构与多端同步规范

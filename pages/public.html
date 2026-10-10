@@ -877,13 +877,28 @@
      * 将从 Komari 核心接口 /api/records/load 返回的真实网络打点记录按日汇总为进出站流量增量
      * 并结合实时计数器（liveTotalUp/liveTotalDown）精准计算今日截至当前时间点的已发生流量，确保当日柱状图不为空白
      */
-    function aggregateDailyFromRecords(records, liveTotalUp = null, liveTotalDown = null, now = new Date()) {
-      const todayStr = now.toISOString().split("T")[0];
+    function aggregateDailyFromRecords(records, liveTotalUp = null, liveTotalDown = null, now = new Date(), timezoneOffset = 8) {
+      const tzOffsetMs = Number(timezoneOffset) * 3600 * 1000;
+      const targetNow = new Date(now.getTime() + tzOffsetMs);
+      const pad2 = (n) => String(n).padStart(2, "0");
+      const todayStr = `${targetNow.getUTCFullYear()}-${pad2(targetNow.getUTCMonth() + 1)}-${pad2(targetNow.getUTCDate())}`;
       const dayGroups = {};
 
       (records || []).forEach((r) => {
         if (!r.time) return;
-        const dayStr = r.time.slice(0, 10);
+        let rTimeMs = new Date(r.time).getTime();
+        if (isNaN(rTimeMs)) {
+          const num = Number(r.time);
+          if (!isNaN(num)) rTimeMs = num > 10000000000 ? num : num * 1000;
+        }
+        let dayStr;
+        if (!isNaN(rTimeMs)) {
+          const d = new Date(rTimeMs + tzOffsetMs);
+          dayStr = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+        } else {
+          dayStr = String(r.time).slice(0, 10);
+        }
+
         if (!dayGroups[dayStr]) dayGroups[dayStr] = [];
         dayGroups[dayStr].push(r);
       });
@@ -919,9 +934,12 @@
           dayIn = Math.round(sumInRate * (86400 / list.length));
         }
 
+        const dParts = dayStr.split("-").map(Number);
+        const dayUtcMs = Date.UTC(dParts[0], dParts[1] - 1, dParts[2], 0, 0, 0) - tzOffsetMs;
+
         result.push({
           date: dayStr,
-          timestamp: new Date(dayStr + "T00:00:00Z").getTime(),
+          timestamp: dayUtcMs,
           in_bytes: Math.max(0, dayIn),
           out_bytes: Math.max(0, dayOut),
           total_bytes: Math.max(0, dayIn + dayOut),
@@ -946,8 +964,19 @@
       // 仅从最近 28 小时内寻找今日起始基准
       const recordsRecentBefore = (records || []).filter(r => {
         if (!r.time) return false;
-        const rTimeMs = new Date(r.time).getTime();
-        return r.time.slice(0, 10) < todayStr && (nowMs - rTimeMs) <= maxBaselineAgeMs;
+        let rTimeMs = new Date(r.time).getTime();
+        if (isNaN(rTimeMs)) {
+          const num = Number(r.time);
+          if (!isNaN(num)) rTimeMs = num > 10000000000 ? num : num * 1000;
+        }
+        let dayStr;
+        if (!isNaN(rTimeMs)) {
+          const d = new Date(rTimeMs + tzOffsetMs);
+          dayStr = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+        } else {
+          dayStr = String(r.time).slice(0, 10);
+        }
+        return dayStr < todayStr && (nowMs - rTimeMs) <= maxBaselineAgeMs;
       });
 
       if (recordsRecentBefore.length > 0) {
@@ -1281,7 +1310,8 @@
               const recJson = await recRes.json();
               const recList = (recJson.data && recJson.data.records) || recJson.records || [];
               if (Array.isArray(recList) && recList.length > 0) {
-                dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown);
+                const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
+                dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown, new Date(), tzOffset);
                 if (netTotalUp === 0 && netTotalDown === 0) {
                   const lastRec = recList[recList.length - 1];
                   if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
@@ -1292,7 +1322,8 @@
           } catch (err) {}
 
           if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
-            dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown);
+            const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
+            dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown, new Date(), tzOffset);
           }
 
           completedNodes++;
@@ -1316,6 +1347,7 @@
 
         const json = await res.json();
         if (json.ok && Array.isArray(json.nodes)) {
+          if (json.summary && json.summary.timezone_offset !== undefined) state.timezoneOffset = Number(json.summary.timezone_offset);
           saveCachedOverview(json.nodes, json.summary);
           const nodes = filterNodesByUrl(json.nodes);
           state.rawNodes = nodes;

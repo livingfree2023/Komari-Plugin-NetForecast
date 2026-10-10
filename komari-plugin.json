@@ -9,7 +9,7 @@
     "en": "All-nodes 30-day stacked bar and billing-adaptive cumulative charts, directly synced with core database, forecasting reset day usage and exhaustion alerts"
   },
   "author": "livingfree2023",
-  "version": "26.1009.3",
+  "version": "26.1010.1",
   "icon": "assets/icon.svg",
   "entry": "script.js",
   "permissions": {
@@ -57,6 +57,15 @@
         },
         "type": "boolean",
         "default": true
+      },
+      {
+        "key": "timezone_offset",
+        "name": {
+          "zh_CN": "统计基准时区 (UTC 偏移小时数，默认 8 即北京时间 UTC+8)",
+          "en": "Timezone Offset (Hours relative to UTC, default 8 for UTC+8)"
+        },
+        "type": "number",
+        "default": 8
       }
     ]
   },

@@ -66,9 +66,10 @@ export function extractResetDayFromExpiredAt(
         };
       }
 
-      // 如果时间戳接近 UTC 零点，在西区使用 UTC 日期能更忠实还原配置日
-      day = dateObj.getUTCDate();
-      dateStr = dateObj.toISOString().split("T")[0];
+      // 叠加配置时区偏移得到准确的到期日
+      const tzDate = new Date(dateObj.getTime() + Number(tzOffsetHours) * 3600 * 1000);
+      day = tzDate.getUTCDate();
+      dateStr = tzDate.toISOString().split("T")[0];
     }
 
     if (day >= 1 && day <= 31) {
@@ -121,46 +122,80 @@ export function computeBillableAmount(inBytes: number, outBytes: number, mode: s
  * @param resetDay 每月重置日 (1-31)
  * @param now 当前时间
  */
-export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date()): BillingCycle {
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
+export function getTzDateParts(now: Date = new Date(), tzOffsetHours: number = 8) {
+  const tzOffsetMs = Number(tzOffsetHours) * 3600 * 1000;
+  const d = new Date(now.getTime() + tzOffsetMs);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth(),
+    date: d.getUTCDate(),
+    hours: d.getUTCHours(),
+    minutes: d.getUTCMinutes(),
+    seconds: d.getUTCSeconds(),
+    dateStr: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`,
+  };
+}
+
+/**
+ * 计算账单周期范围 (支持用户自定义时区偏移，彻底规避宿主机/容器时区干扰)
+ */
+export function calculateBillingCycle(resetDay: number = 1, now: Date = new Date(), tzOffsetHours: number = 8): BillingCycle {
+  const tzParts = getTzDateParts(now, tzOffsetHours);
+  const currentYear = tzParts.year;
+  const currentMonth = tzParts.month;
+  const currentDate = tzParts.date;
 
   const safeResetDay = Math.max(1, Math.min(31, Math.floor(resetDay || 1)));
-
-  // 当前月的实际月末重置日（例如 4 月是 30，2 月是 28 或 29，防止设置 31 号的节点在小月末无法进入新周期）
   const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
   const actualResetDayThisMonth = Math.min(safeResetDay, maxDayThisMonth);
 
-  let cycleStartDate: Date;
-  let cycleEndDate: Date;
+  let cycleStartYear: number, cycleStartMonth: number, cycleStartDay: number;
+  let cycleEndYear: number, cycleEndMonth: number, cycleEndDay: number;
 
   if (currentDate >= actualResetDayThisMonth) {
-    cycleStartDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
+    cycleStartYear = currentYear;
+    cycleStartMonth = currentMonth;
+    cycleStartDay = actualResetDayThisMonth;
 
     const nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
     const maxDayNextMonth = getDaysInMonth(nextMonthYear, nextMonth);
-    const actualEndDay = Math.min(safeResetDay, maxDayNextMonth);
-    cycleEndDate = new Date(nextMonthYear, nextMonth, actualEndDay, 0, 0, 0, 0);
+    cycleEndYear = nextMonthYear;
+    cycleEndMonth = nextMonth;
+    cycleEndDay = Math.min(safeResetDay, maxDayNextMonth);
   } else {
     const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const maxDayPrevMonth = getDaysInMonth(prevMonthYear, prevMonth);
-    const actualStartDay = Math.min(safeResetDay, maxDayPrevMonth);
-    cycleStartDate = new Date(prevMonthYear, prevMonth, actualStartDay, 0, 0, 0, 0);
+    cycleStartYear = prevMonthYear;
+    cycleStartMonth = prevMonth;
+    cycleStartDay = Math.min(safeResetDay, maxDayPrevMonth);
 
-    cycleEndDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
+    cycleEndYear = currentYear;
+    cycleEndMonth = currentMonth;
+    cycleEndDay = actualResetDayThisMonth;
   }
 
+  const tzMs = Number(tzOffsetHours) * 3600 * 1000;
+  const cycleStartUtcMs = Date.UTC(cycleStartYear, cycleStartMonth, cycleStartDay, 0, 0, 0, 0) - tzMs;
+  const cycleEndUtcMs = Date.UTC(cycleEndYear, cycleEndMonth, cycleEndDay, 0, 0, 0, 0) - tzMs;
+
+  const cycleStartDate = new Date(cycleStartUtcMs);
+  const cycleEndDate = new Date(cycleEndUtcMs);
+
   const oneDayMs = 24 * 60 * 60 * 1000;
-  const daysTotal = Math.max(1, Math.round((cycleEndDate.getTime() - cycleStartDate.getTime()) / oneDayMs));
-  const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStartDate.getTime()) / oneDayMs)));
+  const daysTotal = Math.max(1, Math.round((cycleEndUtcMs - cycleStartUtcMs) / oneDayMs));
+  const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStartUtcMs) / oneDayMs)));
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const cycleStartStr = `${cycleStartYear}-${pad2(cycleStartMonth + 1)}-${pad2(cycleStartDay)}`;
+  const cycleEndStr = `${cycleEndYear}-${pad2(cycleEndMonth + 1)}-${pad2(cycleEndDay)}`;
+
   return {
-    cycleStart: formatDateToYMD(cycleStartDate),
-    cycleEnd: formatDateToYMD(cycleEndDate),
+    cycleStart: cycleStartStr,
+    cycleEnd: cycleEndStr,
     cycleStartDate,
     cycleEndDate,
     daysTotal,
@@ -211,12 +246,13 @@ export function calculateNodeForecast(
   history: TrafficRecord[],
   node: NodeCoreConfig,
   warningThresholdPercent: number = 90,
-  now: Date = new Date()
+  now: Date = new Date(),
+  tzOffsetHours: number = 8
 ): NodeForecastData {
   // 从核心节点的 expired_at 提取账单重置日（若未设置则按自然月 1 号）
-  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1);
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1, tzOffsetHours);
   const resetDay = extracted.resetDay;
-  const cycle = calculateBillingCycle(resetDay, now);
+  const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
   const cycleStartMs = cycle.cycleStartDate.getTime();
 
   const mode = (node.traffic_limit_type || "sum") as ThresholdMode;
@@ -337,7 +373,7 @@ export function calculateNodeForecast(
   }
 
   // 5. 构建账单周期时间序列与预测序列 (以 [cycleStart, cycleEnd] 为严格左右边界)
-  const chartSeries = buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
+  const chartSeries = buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now, tzOffsetHours);
 
   return {
     node_id: node.uuid,

@@ -71,20 +71,33 @@ function computeBillableAmount(inBytes, outBytes, mode = "sum") {
   }
 }
 
-function formatDateToYMD(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function getTzDateParts(now = new Date(), tzOffsetHours = 8) {
+  const tzOffsetMs = Number(tzOffsetHours) * 3600 * 1000;
+  const d = new Date(now.getTime() + tzOffsetMs);
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth(),
+    date: d.getUTCDate(),
+    hours: d.getUTCHours(),
+    minutes: d.getUTCMinutes(),
+    seconds: d.getUTCSeconds(),
+    dateStr: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`,
+  };
+}
+
+function formatDateToYMD(d, tzOffsetHours = 8) {
+  return getTzDateParts(d, tzOffsetHours).dateStr;
 }
 
 /**
- * 计算账单周期范围
+ * 计算账单周期范围 (支持用户自定义时区偏移，彻底规避宿主机/容器时区干扰)
  */
-function calculateBillingCycle(resetDay = 1, now = new Date()) {
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
+function calculateBillingCycle(resetDay = 1, now = new Date(), tzOffsetHours = 8) {
+  const tzParts = getTzDateParts(now, tzOffsetHours);
+  const currentYear = tzParts.year;
+  const currentMonth = tzParts.month;
+  const currentDate = tzParts.date;
 
   const safeResetDay = Math.max(1, Math.min(31, Math.floor(Number(resetDay) || 1)));
 
@@ -92,40 +105,58 @@ function calculateBillingCycle(resetDay = 1, now = new Date()) {
   const maxDayThisMonth = getDaysInMonth(currentYear, currentMonth);
   const actualResetDayThisMonth = Math.min(safeResetDay, maxDayThisMonth);
 
-  let cycleStartDate;
-  let cycleEndDate;
+  let cycleStartYear, cycleStartMonth, cycleStartDay;
+  let cycleEndYear, cycleEndMonth, cycleEndDay;
 
   if (currentDate >= actualResetDayThisMonth) {
-    cycleStartDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
+    cycleStartYear = currentYear;
+    cycleStartMonth = currentMonth;
+    cycleStartDay = actualResetDayThisMonth;
 
     const nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
     const maxDayNextMonth = getDaysInMonth(nextMonthYear, nextMonth);
-    const actualEndDay = Math.min(safeResetDay, maxDayNextMonth);
-    cycleEndDate = new Date(nextMonthYear, nextMonth, actualEndDay, 0, 0, 0, 0);
+    cycleEndYear = nextMonthYear;
+    cycleEndMonth = nextMonth;
+    cycleEndDay = Math.min(safeResetDay, maxDayNextMonth);
   } else {
     const prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const maxDayPrevMonth = getDaysInMonth(prevMonthYear, prevMonth);
-    const actualStartDay = Math.min(safeResetDay, maxDayPrevMonth);
-    cycleStartDate = new Date(prevMonthYear, prevMonth, actualStartDay, 0, 0, 0, 0);
+    cycleStartYear = prevMonthYear;
+    cycleStartMonth = prevMonth;
+    cycleStartDay = Math.min(safeResetDay, maxDayPrevMonth);
 
-    cycleEndDate = new Date(currentYear, currentMonth, actualResetDayThisMonth, 0, 0, 0, 0);
+    cycleEndYear = currentYear;
+    cycleEndMonth = currentMonth;
+    cycleEndDay = actualResetDayThisMonth;
   }
 
+  const tzMs = Number(tzOffsetHours) * 3600 * 1000;
+  const cycleStartUtcMs = Date.UTC(cycleStartYear, cycleStartMonth, cycleStartDay, 0, 0, 0, 0) - tzMs;
+  const cycleEndUtcMs = Date.UTC(cycleEndYear, cycleEndMonth, cycleEndDay, 0, 0, 0, 0) - tzMs;
+
+  const cycleStartDate = new Date(cycleStartUtcMs);
+  const cycleEndDate = new Date(cycleEndUtcMs);
+
   const oneDayMs = 24 * 60 * 60 * 1000;
-  const daysTotal = Math.max(1, Math.round((cycleEndDate.getTime() - cycleStartDate.getTime()) / oneDayMs));
-  const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStartDate.getTime()) / oneDayMs)));
+  const daysTotal = Math.max(1, Math.round((cycleEndUtcMs - cycleStartUtcMs) / oneDayMs));
+  const daysElapsed = Math.max(1, Math.min(daysTotal, Math.ceil((now.getTime() - cycleStartUtcMs) / oneDayMs)));
   const daysRemaining = Math.max(0, daysTotal - daysElapsed);
 
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const cycleStartStr = `${cycleStartYear}-${pad2(cycleStartMonth + 1)}-${pad2(cycleStartDay)}`;
+  const cycleEndStr = `${cycleEndYear}-${pad2(cycleEndMonth + 1)}-${pad2(cycleEndDay)}`;
+
   return {
-    cycleStart: formatDateToYMD(cycleStartDate),
-    cycleEnd: formatDateToYMD(cycleEndDate),
+    cycleStart: cycleStartStr,
+    cycleEnd: cycleEndStr,
     cycleStartDate,
     cycleEndDate,
     daysTotal,
     daysElapsed,
     daysRemaining,
+    timezoneOffset: tzOffsetHours,
   };
 }
 
@@ -139,7 +170,7 @@ function calculateBillingCycle(resetDay = 1, now = new Date()) {
  * - 过去无数据天：cumulative_billable 为 null，不画 0 贴地折线
  * - 未来推算天：in_bytes / out_bytes 严格为 0，坚决不画任何柱体！
  */
-function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date()) {
+function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date(), tzOffsetHours = 8) {
   const historyMap = {};
   (history || []).forEach((item) => {
     if (item.date) {
@@ -148,9 +179,9 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
   });
 
   const points = [];
-  const cycleStart = cycle.cycleStartDate;
+  const cycleStartMs = cycle.cycleStartDate.getTime();
   const daysTotal = cycle.daysTotal;
-  const todayStr = formatDateToYMD(now);
+  const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
   const nowMs = now.getTime();
 
   let runningIn = 0;
@@ -158,11 +189,11 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
   let todayIndex = -1;
 
   for (let i = 0; i <= daysTotal; i++) {
-    const d = new Date(cycleStart.getTime() + i * 24 * 3600 * 1000);
-    const dateStr = formatDateToYMD(d);
+    const pointUtcMs = cycleStartMs + i * 24 * 3600 * 1000;
+    const dateStr = formatDateToYMD(new Date(pointUtcMs), tzOffsetHours);
     const isToday = (dateStr === todayStr);
-    const isPast = (d.getTime() < nowMs) && !isToday;
-    const isFuture = (d.getTime() > nowMs) && !isToday;
+    const isPast = (pointUtcMs < nowMs) && !isToday;
+    const isFuture = (pointUtcMs > nowMs) && !isToday;
 
     if (isToday) {
       todayIndex = i;
@@ -177,7 +208,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
         const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
         points.push({
           date: dateStr,
-          timestamp: d.getTime(),
+          timestamp: pointUtcMs,
           has_data: true,
           in_bytes: rec.in_bytes || 0,
           out_bytes: rec.out_bytes || 0,
@@ -191,7 +222,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
         // 过去无打点数据（如冷启动安装前）：绝不输出 0 贴地折线，cumulative_billable 为 null
         points.push({
           date: dateStr,
-          timestamp: d.getTime(),
+          timestamp: pointUtcMs,
           has_data: false,
           in_bytes: 0,
           out_bytes: 0,
@@ -207,7 +238,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
       const outB = rec ? (rec.out_bytes || 0) : 0;
       points.push({
         date: dateStr,
-        timestamp: d.getTime(),
+        timestamp: pointUtcMs,
         has_data: true,
         in_bytes: inB,
         out_bytes: outB,
@@ -225,7 +256,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
 
       points.push({
         date: dateStr,
-        timestamp: d.getTime(),
+        timestamp: pointUtcMs,
         has_data: false,
         in_bytes: 0,
         out_bytes: 0,
@@ -246,7 +277,7 @@ const build30DaySeries = buildCycleSeries;
 /**
  * 从 Komari 节点的 expired_at 字段中提取每月的账单重置日 (Day of Month: 1 - 31)
  */
-function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1) {
+function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetHours = 8) {
   if (!expiredAt) {
     return {
       resetDay: Math.max(1, Math.min(31, fallbackResetDay || 1)),
@@ -287,9 +318,10 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1) {
         };
       }
 
-      // 如果时间戳接近 UTC 零点，在西区使用 UTC 日期能更忠实还原配置日
-      day = dateObj.getUTCDate();
-      dateStr = dateObj.toISOString().split("T")[0];
+      // 叠加配置时区偏移得到准确的到期日
+      const tzDate = new Date(dateObj.getTime() + Number(tzOffsetHours) * 3600 * 1000);
+      day = tzDate.getUTCDate();
+      dateStr = tzDate.toISOString().split("T")[0];
     }
 
     if (day >= 1 && day <= 31) {
@@ -318,10 +350,10 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1) {
 /**
  * 核心预测与状态推算（严格使用真实数据，绝不构造假数据）
  */
-function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date()) {
-  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1);
+function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date(), tzOffsetHours = 8) {
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1, tzOffsetHours);
   const resetDay = extracted.resetDay;
-  const cycle = calculateBillingCycle(resetDay, now);
+  const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
   const cycleStartMs = cycle.cycleStartDate.getTime();
 
   const mode = (node.traffic_limit_type || "sum");
@@ -412,14 +444,14 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     if (cumulativeBillable >= rawQuota) {
       status = "CRITICAL";
       daysUntilExhaustion = 0;
-      exhaustionDate = now.toISOString().split("T")[0];
+      exhaustionDate = formatDateToYMD(now, tzOffsetHours);
       warningMessage = `已超出流量限额 (${formatBytes(cumulativeBillable)} / ${formatBytes(rawQuota)})，超额 ${formatBytes(cumulativeBillable - rawQuota)}！`;
     } else if (projectedBillable >= rawQuota) {
       status = "CRITICAL";
       const remainingQuota = rawQuota - cumulativeBillable;
       daysUntilExhaustion = dailyAvgBillable > 0 ? Math.max(1, Math.floor(remainingQuota / dailyAvgBillable)) : 999;
       const exDateObj = new Date(now.getTime() + daysUntilExhaustion * 24 * 60 * 60 * 1000);
-      exhaustionDate = exDateObj.toISOString().split("T")[0];
+      exhaustionDate = formatDateToYMD(exDateObj, tzOffsetHours);
       const overage = projectedBillable - rawQuota;
       warningMessage = `预计将在 ${daysUntilExhaustion} 天后（${exhaustionDate}）耗尽限额（按 ${modeBadge} 计费），重置日前预计超标 ${formatBytes(overage)}！`;
     } else if (usageRatio >= warningThresholdPercent / 100) {
@@ -431,7 +463,7 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     }
   }
 
-  const chartSeries = buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now);
+  const chartSeries = buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, cumulativeBillable, cumulativeIn, cumulativeOut, now, tzOffsetHours);
 
   return {
     node_id: node.uuid,
@@ -545,7 +577,7 @@ class TrafficStorage {
     return this.trafficCache[nodeId] || [];
   }
 
-  recordSample(nodeId, currentIn, currentOut, now = new Date()) {
+  recordSample(nodeId, currentIn, currentOut, now = new Date(), tzOffsetHours = 8) {
     const last = this.lastCounters[nodeId];
     this.lastCounters[nodeId] = {
       in: currentIn,
@@ -568,7 +600,7 @@ class TrafficStorage {
       return;
     }
 
-    const todayStr = now.toISOString().split("T")[0];
+    const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
     const history = this.trafficCache[nodeId] || [];
     let record = history.find((r) => r.date === todayStr);
 
@@ -1855,6 +1887,7 @@ function load() {
       warning_threshold: Number(raw.warning_threshold) || 90,
       auto_collect_cron: raw.auto_collect_cron || "*/10 * * * *",
       enable_floating_widget: raw.enable_floating_widget !== undefined ? Boolean(raw.enable_floating_widget) : true,
+      timezone_offset: raw.timezone_offset !== undefined && !isNaN(raw.timezone_offset) ? Number(raw.timezone_offset) : 8,
     };
   };
 
@@ -1915,6 +1948,7 @@ function load() {
   const handleOverview = async (req, res) => {
     try {
       const config = getConfig();
+      const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
       const body = req.body ? parseBody(req.body) : {};
       let clients = await fetchCoreClients(body.clients);
 
@@ -1924,13 +1958,13 @@ function load() {
 
       const list = clients.map((c) => {
         if (typeof c.net_in === "number" && typeof c.net_out === "number") {
-          storage.recordSample(c.uuid, c.net_in, c.net_out);
+          storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), tzOffset);
         }
         const history = Array.isArray(c.daily_history) && c.daily_history.length > 0
           ? c.daily_history
           : storage.getNodeHistory(c.uuid);
 
-        return calculateNodeForecast(history, c, config.warning_threshold);
+        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
       });
 
       const criticalCount = list.filter((n) => n.status === "CRITICAL").length;
@@ -1946,6 +1980,7 @@ function load() {
           warning_count: warningCount,
           safe_count: safeCount,
           no_quota_count: noQuotaCount,
+          timezone_offset: tzOffset,
         },
         nodes: list,
       });
@@ -2002,9 +2037,10 @@ function load() {
         if (server.call) {
           const clients = await fetchCoreClients();
           if (Array.isArray(clients)) {
+            const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
             for (const c of clients) {
               if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
-                storage.recordSample(c.uuid, c.net_in, c.net_out);
+                storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), tzOffset);
               }
             }
           }

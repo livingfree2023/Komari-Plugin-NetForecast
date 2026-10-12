@@ -732,6 +732,165 @@
       from { opacity: 0; transform: translateY(-4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* 底部调试栏 */
+    .debug-footer-bar {
+      margin-top: 16px;
+      padding: 14px 22px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .footer-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .footer-meta .dot {
+      color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-export-debug {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-export-debug:hover {
+      background: rgba(99, 102, 241, 0.3);
+      color: #fff;
+      border-color: rgba(99, 102, 241, 0.7);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+    }
+    .btn-export-debug:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .debug-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-copy-debug {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-copy-debug:hover {
+      background: rgba(16, 185, 129, 0.28);
+      color: #fff;
+      border-color: rgba(16, 185, 129, 0.7);
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+    }
+    .btn-copy-debug:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 全局失败重试横幅 */
+    .global-retry-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      backdrop-filter: blur(16px);
+      border-radius: var(--radius);
+      padding: 14px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+      animation: fadeIn 0.25s ease;
+    }
+    .retry-banner-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #fca5a5;
+    }
+    .retry-banner-icon {
+      font-size: 20px;
+    }
+    .btn-retry-all-failed {
+      background: rgba(239, 68, 68, 0.25);
+      border: 1px solid rgba(239, 68, 68, 0.6);
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-retry-all-failed:hover {
+      background: rgba(239, 68, 68, 0.45);
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+    }
+    .btn-retry-all-failed:disabled, .btn-retry-node:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* 单节点重试按钮与失败告警 */
+    .btn-retry-node {
+      background: rgba(239, 68, 68, 0.22);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-retry-node:hover {
+      background: rgba(239, 68, 68, 0.4);
+      border-color: rgba(239, 68, 68, 0.8);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+    }
+    .filter-btn.active.filter-fetch-failed {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.7);
+      color: #fca5a5;
+      font-weight: 700;
+      box-shadow: 0 2px 14px rgba(239, 68, 68, 0.35);
+    }
   </style>
 </head>
 <body>
@@ -761,6 +920,9 @@
       </div>
     </header>
 
+    <!-- 全局重试条 (有节点时序查询失败时显示) -->
+    <div class="global-retry-banner" id="globalRetryBanner" style="display: none;"></div>
+
     <!-- 所有节点图表列表容器 -->
     <main class="nodes-container" id="nodesContainer"></main>
 
@@ -768,6 +930,25 @@
     <div class="empty-state" id="emptyState">
       🔍 没有找到符合当前筛选条件的节点
     </div>
+
+    <!-- 底部调试与数据导出栏 -->
+    <footer class="debug-footer-bar">
+      <div class="footer-meta">
+        <span>NetForecast v1.2.0</span>
+        <span class="dot">•</span>
+        <span id="footerNodeCount">0 个节点已加载</span>
+        <span class="dot">•</span>
+        <span id="footerTzInfo">时区: UTC+8</span>
+      </div>
+      <div class="debug-footer-actions">
+        <button class="btn-copy-debug" id="btnCopyDebugUrl" onclick="copyDebugUrl()" title="复制供 AI Agent 抓取分析的诊断数据静态 URL">
+          <span>📋</span> 复制诊断 URL
+        </button>
+        <button class="btn-export-debug" id="btnExportDebug" onclick="downloadDebugJson()" title="直接下载包含完整打点与推算数据的纯文本诊断 JSON 文件（供 AI 分析）">
+          <span>📥</span> 导出诊断数据 (JSON)
+        </button>
+      </div>
+    </footer>
   </div>
 
   <!-- 单节点限额配置弹出模态框 (直接写入 Komari 核心数据库) -->
@@ -871,25 +1052,59 @@
       return parseFloat((bytes / Math.pow(k, idx)).toFixed(dm)) + " " + sizes[idx];
     }
 
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
     const state = {
       rawNodes: [],
+      coreClients: [],
       currentFilter: "ALL",
-      editingNodeId: null
-    };
+      editingNodeId: null,
+      rawRecordsMap: {},
+      serverDebugData: null,
+      debugCurrentTab: "all",
+      timezoneOffset: 8
+    };    /**
+     * 单调递增计数器差值计算与重启重置自适应 (Counter Reset Detection):
+     * 1. 正常单调递增 (curr >= prev)：增量为 curr - prev；
+     * 2. 重启清零检测 (curr < prev 且 curr >= 0)：判定机器或网卡重启清零，增量为 curr；
+     * 3. 初始基线无效 (prev <= 0 或无效)：返回 0，杜绝将节点历史总计误计为单日增量。
+     */
+    function calcCounterDelta(prev, curr) {
+      if (typeof curr !== "number" || isNaN(curr)) return 0;
+      if (typeof prev !== "number" || isNaN(prev) || prev <= 0) return 0;
+      if (curr >= prev) {
+        return curr - prev;
+      }
+      // 重启清零检测 (Counter Reset)
+      return Math.max(0, curr);
+    }
 
     /**
      * 将从 Komari 核心接口 /api/records/load 返回的真实网络打点记录按日汇总为进出站流量增量
-     * 并结合实时计数器（liveTotalUp/liveTotalDown）精准计算今日截至当前时间点的已发生流量，确保当日柱状图不为空白
+     * 结合实时计数器（liveTotalUp/liveTotalDown）计算今日增量，全面支持 VPS 重启自适应（方案 1：时序差值积分 + 重置检测）
      */
     function aggregateDailyFromRecords(records, liveTotalUp = null, liveTotalDown = null, now = new Date(), timezoneOffset = 8) {
       const tzOffsetMs = Number(timezoneOffset) * 3600 * 1000;
       const targetNow = new Date(now.getTime() + tzOffsetMs);
       const pad2 = (n) => String(n).padStart(2, "0");
       const todayStr = `${targetNow.getUTCFullYear()}-${pad2(targetNow.getUTCMonth() + 1)}-${pad2(targetNow.getUTCDate())}`;
-      const dayGroups = {};
+      
+      const sortedRecords = (records || []).filter((r) => r && r.time).sort((a, b) => {
+        const ta = new Date(a.time).getTime() || Number(a.time) || 0;
+        const tb = new Date(b.time).getTime() || Number(b.time) || 0;
+        return ta - tb;
+      });
 
-      (records || []).forEach((r) => {
-        if (!r.time) return;
+      const dayGroups = {};
+      sortedRecords.forEach((r) => {
         let rTimeMs = new Date(r.time).getTime();
         if (isNaN(rTimeMs)) {
           const num = Number(r.time);
@@ -908,33 +1123,42 @@
       });
 
       const result = [];
+      const pastDayKeys = Object.keys(dayGroups).filter((d) => d < todayStr).sort();
+      let lastKnownUp = null;
+      let lastKnownDown = null;
 
-      // 1. 处理今天之前（历史各整天）的数据
-      const pastDayKeys = Object.keys(dayGroups).filter(d => d < todayStr);
+      // 1. 顺序处理今天之前（历史各整天）的时序数据
       for (const dayStr of pastDayKeys) {
         const list = dayGroups[dayStr];
-        list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+        list.sort((a, b) => {
+          const ta = new Date(a.time).getTime() || Number(a.time) || 0;
+          const tb = new Date(b.time).getTime() || Number(b.time) || 0;
+          return ta - tb;
+        });
 
         let dayIn = 0;
         let dayOut = 0;
 
-        const first = list[0];
-        const last = list[list.length - 1];
-
-        // 优先使用实际累计计数器的跨度差值（最精确）
-        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
-          dayOut = last.net_total_up - first.net_total_up;
-        } else {
-          let sumOutRate = 0;
-          list.forEach(item => { sumOutRate += (item.net_out || 0); });
-          dayOut = Math.round(sumOutRate * (86400 / list.length));
+        for (const rec of list) {
+          if (typeof rec.net_total_up === "number") {
+            if (lastKnownUp !== null) dayOut += calcCounterDelta(lastKnownUp, rec.net_total_up);
+            lastKnownUp = rec.net_total_up;
+          }
+          if (typeof rec.net_total_down === "number") {
+            if (lastKnownDown !== null) dayIn += calcCounterDelta(lastKnownDown, rec.net_total_down);
+            lastKnownDown = rec.net_total_down;
+          }
         }
 
-        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
-          dayIn = last.net_total_down - first.net_total_down;
-        } else {
+        // 兜底：若该历史天没有任何累计打点（纯速率采集模式），使用速率积分估算
+        if (dayOut === 0 && dayIn === 0 && list.length > 0) {
+          let sumOutRate = 0;
           let sumInRate = 0;
-          list.forEach(item => { sumInRate += (item.net_in || 0); });
+          list.forEach((item) => { 
+            sumOutRate += (item.net_out || 0); 
+            sumInRate += (item.net_in || 0); 
+          });
+          dayOut = Math.round(sumOutRate * (86400 / list.length));
           dayIn = Math.round(sumInRate * (86400 / list.length));
         }
 
@@ -951,100 +1175,41 @@
         });
       }
 
-      // 2. 精准计算「今日截至当前时间点」的已发生流量
-      // 必须严格限定基准打点必须是「今天之内」或「临近昨晚 20:00 之后」的有效打点，
-      // 绝对不能向前跨越数天或数周，坚决杜绝将历史未采样的累计流量错误叠加到今日！
-      const nowMs = now.getTime();
-      const maxBaselineAgeMs = 28 * 3600 * 1000; // 最多仅回溯 28 小时以内
-
-      let baselineUp = null;
-      let baselineDown = null;
-
-      const todayList = dayGroups[todayStr] || [];
-      if (todayList.length > 0) {
-        todayList.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-      }
-
-      // 仅从最近 28 小时内寻找今日起始基准
-      const recordsRecentBefore = (records || []).filter(r => {
-        if (!r.time) return false;
-        let rTimeMs = new Date(r.time).getTime();
-        if (isNaN(rTimeMs)) {
-          const num = Number(r.time);
-          if (!isNaN(num)) rTimeMs = num > 10000000000 ? num : num * 1000;
-        }
-        let dayStr;
-        if (!isNaN(rTimeMs)) {
-          const d = new Date(rTimeMs + tzOffsetMs);
-          dayStr = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
-        } else {
-          dayStr = String(r.time).slice(0, 10);
-        }
-        return dayStr < todayStr && (nowMs - rTimeMs) <= maxBaselineAgeMs;
-      });
-
-      if (recordsRecentBefore.length > 0) {
-        recordsRecentBefore.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-        const lastBefore = recordsRecentBefore[recordsRecentBefore.length - 1];
-        if (typeof lastBefore.net_total_up === "number" && lastBefore.net_total_up > 0) baselineUp = lastBefore.net_total_up;
-        if (typeof lastBefore.net_total_down === "number" && lastBefore.net_total_down > 0) baselineDown = lastBefore.net_total_down;
-      }
-
-      // 若昨晚无临近打点，则使用今天第一条打点作为基准（保证 100% 只统计今天发生的增量）
-      if (todayList.length > 0) {
-        if (baselineUp === null && typeof todayList[0].net_total_up === "number" && todayList[0].net_total_up > 0) {
-          baselineUp = todayList[0].net_total_up;
-        }
-        if (baselineDown === null && typeof todayList[0].net_total_down === "number" && todayList[0].net_total_down > 0) {
-          baselineDown = todayList[0].net_total_down;
-        }
-      }
-
+      // 2. 精准计算「今日截至当前时间点」的已发生流量（含重启重置自适应）
       let todayIn = 0;
       let todayOut = 0;
+      const todayList = dayGroups[todayStr] || [];
+      todayList.sort((a, b) => {
+        const ta = new Date(a.time).getTime() || Number(a.time) || 0;
+        const tb = new Date(b.time).getTime() || Number(b.time) || 0;
+        return ta - tb;
+      });
 
-      const currentUp = typeof liveTotalUp === "number" && liveTotalUp > 0 ? liveTotalUp : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_up : null);
-      const currentDown = typeof liveTotalDown === "number" && liveTotalDown > 0 ? liveTotalDown : (todayList.length > 0 ? todayList[todayList.length - 1].net_total_down : null);
-
-      if (currentUp !== null && baselineUp !== null && currentUp >= baselineUp) {
-        todayOut = currentUp - baselineUp;
-      } else if (todayList.length > 1) {
-        const first = todayList[0];
-        const last = todayList[todayList.length - 1];
-        if (typeof last.net_total_up === "number" && typeof first.net_total_up === "number" && last.net_total_up >= first.net_total_up) {
-          todayOut = last.net_total_up - first.net_total_up;
+      // 遍历今日库中已有的所有快照打点
+      for (const rec of todayList) {
+        if (typeof rec.net_total_up === "number") {
+          if (lastKnownUp !== null) todayOut += calcCounterDelta(lastKnownUp, rec.net_total_up);
+          lastKnownUp = rec.net_total_up;
+        }
+        if (typeof rec.net_total_down === "number") {
+          if (lastKnownDown !== null) todayIn += calcCounterDelta(lastKnownDown, rec.net_total_down);
+          lastKnownDown = rec.net_total_down;
         }
       }
 
-      if (currentDown !== null && baselineDown !== null && currentDown >= baselineDown) {
-        todayIn = currentDown - baselineDown;
-      } else if (todayList.length > 1) {
-        const first = todayList[0];
-        const last = todayList[todayList.length - 1];
-        if (typeof last.net_total_down === "number" && typeof first.net_total_down === "number" && last.net_total_down >= first.net_total_down) {
-          todayIn = last.net_total_down - first.net_total_down;
-        }
+      // 衔接今日最新快照到当前网卡实时计数器 (liveTotal)
+      if (typeof liveTotalUp === "number" && liveTotalUp > 0) {
+        if (lastKnownUp !== null) todayOut += calcCounterDelta(lastKnownUp, liveTotalUp);
+        else todayOut = liveTotalUp;
       }
-
-      // 如果未通过计数器计算出今日流量，但今日有时序速率打点（net_out/net_in），通过速率时间积分推算今日消耗
-      if (todayOut === 0 && todayList.length > 0) {
-        let sumOutRate = 0;
-        todayList.forEach(item => { sumOutRate += (item.net_out || 0); });
-        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
-        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
-        todayOut = Math.round(sumOutRate * (secondsToday / todayList.length));
-      }
-      if (todayIn === 0 && todayList.length > 0) {
-        let sumInRate = 0;
-        todayList.forEach(item => { sumInRate += (item.net_in || 0); });
-        const todayStartMs = new Date(todayStr + "T00:00:00Z").getTime();
-        const secondsToday = Math.max(60, Math.round((nowMs - todayStartMs) / 1000));
-        todayIn = Math.round(sumInRate * (secondsToday / todayList.length));
+      if (typeof liveTotalDown === "number" && liveTotalDown > 0) {
+        if (lastKnownDown !== null) todayIn += calcCounterDelta(lastKnownDown, liveTotalDown);
+        else todayIn = liveTotalDown;
       }
 
       result.push({
         date: todayStr,
-        timestamp: new Date(todayStr + "T00:00:00Z").getTime(),
+        timestamp: targetNow.getTime(),
         in_bytes: Math.max(0, todayIn),
         out_bytes: Math.max(0, todayOut),
         total_bytes: Math.max(0, todayIn + todayOut),
@@ -1172,6 +1337,197 @@
      * 核心加载逻辑：从 Komari 核心接口拉取真实节点配置与真实历史时序打点
      * 采用 SWR (Stale-While-Revalidate) 本地秒开与渐进式骨架屏混合架构
      */
+    // 全局失败节点横幅状态刷新
+    function updateGlobalRetryBanner() {
+      const banner = document.getElementById("globalRetryBanner");
+      if (!banner) return;
+      const failedNodes = state.rawNodes.filter((n) => n.fetch_failed);
+      if (failedNodes.length === 0) {
+        banner.style.display = "none";
+        banner.innerHTML = "";
+        return;
+      }
+      banner.style.display = "flex";
+      banner.innerHTML = `
+        <div class="retry-banner-content">
+          <span class="retry-banner-icon">⚠️</span>
+          <div>
+            <strong>检测到 ${failedNodes.length} 个节点历史时序数据拉取失败或超时</strong>
+            <span style="opacity:0.85; font-size:12px; margin-left:6px;">(核心数据库繁忙，当前仅展示实时累计，可点击右侧重试)</span>
+          </div>
+        </div>
+        <button class="btn-retry-all-failed" id="btnRetryAllFailed" onclick="retryFailedNodes()">
+          <span class="btn-icon">🔄</span> 重试失败节点 (${failedNodes.length})
+        </button>
+      `;
+    }
+
+    // 单节点重试逻辑
+    async function retrySingleNode(nodeId, shouldReRender = true) {
+      const btn = document.getElementById(`btn-retry-${nodeId}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="sync-spinner" style="width:11px;height:11px;margin-right:4px;"></span> 重试中...`;
+      }
+
+      let client = (state.coreClients || []).find((c) => (c.uuid || c.id) === nodeId);
+      if (!client) {
+        client = (state.rawNodes || []).find((n) => n.node_id === nodeId) || { uuid: nodeId };
+      }
+
+      let netTotalUp = Number(client.net_total_up || 0);
+      let netTotalDown = Number(client.net_total_down || 0);
+      let dailyHistory = [];
+      let recFetchError = null;
+      let rawRecordsList = [];
+
+      try {
+        const recentRes = await fetchWithTimeout(`/api/recent/${encodeURIComponent(nodeId)}`, { cache: "no-store" }, 6000);
+        if (recentRes.ok) {
+          const recentJson = await recentRes.json();
+          const recList = (recentJson.data && Array.isArray(recentJson.data)) ? recentJson.data : (Array.isArray(recentJson) ? recentJson : []);
+          if (recList.length > 0) {
+            const latest = recList[recList.length - 1];
+            if (latest.network) {
+              netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
+              netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+            }
+            if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
+            if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const recRes = await fetchWithTimeout(`/api/records/load?uuid=${encodeURIComponent(nodeId)}&load_type=network&hours=720`, { cache: "no-store" }, 15000);
+        if (recRes.ok) {
+          const recJson = await recRes.json();
+          const recList = (recJson.data && recJson.data.records) || recJson.records || [];
+          if (Array.isArray(recList) && recList.length > 0) {
+            rawRecordsList = recList;
+            const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
+            dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown, new Date(), tzOffset);
+            if (netTotalUp === 0 && netTotalDown === 0) {
+              const lastRec = recList[recList.length - 1];
+              if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
+              if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
+            }
+          }
+        } else {
+          recFetchError = `HTTP ${recRes.status}: ${recRes.statusText}`;
+        }
+      } catch (err) {
+        recFetchError = err.message || String(err);
+      }
+
+      if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
+        const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
+        dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown, new Date(), tzOffset);
+      }
+
+      const nodeName = client.name || client.node_name || nodeId;
+      state.rawRecordsMap[nodeId] = {
+        name: nodeName,
+        uuid: nodeId,
+        net_total_up: netTotalUp,
+        net_total_down: netTotalDown,
+        records_count: rawRecordsList.length,
+        records: rawRecordsList,
+        daily_history: dailyHistory,
+        fetch_error: recFetchError
+      };
+
+      const enrichedClient = Object.assign({}, client, {
+        uuid: nodeId,
+        id: nodeId,
+        name: nodeName,
+        traffic_limit: client.traffic_limit !== undefined ? client.traffic_limit : client.traffic_limit_bytes,
+        traffic_limit_type: client.traffic_limit_type,
+        expired_at: client.expired_at || client.expired_at_raw,
+        traffic_reset_day: client.traffic_reset_day,
+        net_total_up: netTotalUp,
+        net_total_down: netTotalDown,
+        daily_history: dailyHistory,
+        fetch_failed: Boolean(recFetchError),
+        fetch_error: recFetchError
+      });
+
+      try {
+        const res = await fetchWithTimeout("/api/plugin/net-forecast/overview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clients: [enrichedClient] })
+        }, 10000);
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && Array.isArray(json.nodes) && json.nodes.length > 0) {
+            const updatedNode = json.nodes[0];
+            updatedNode.fetch_failed = Boolean(recFetchError);
+            updatedNode.fetch_error = recFetchError;
+
+            const idx = state.rawNodes.findIndex((n) => n.node_id === nodeId);
+            if (idx >= 0) {
+              state.rawNodes[idx] = updatedNode;
+            } else {
+              state.rawNodes.push(updatedNode);
+            }
+            saveCachedOverview(state.rawNodes, { timezone_offset: state.timezoneOffset });
+          }
+        }
+      } catch (e) {
+        console.error("Overview recalculation failed for node:", nodeId, e);
+      }
+
+      if (shouldReRender) {
+        updateGlobalRetryBanner();
+        renderFilterBar();
+        renderNodeCards();
+        applyFilter();
+      }
+    }
+
+    // 批量重试所有失败节点
+    let isRetryingBatch = false;
+    async function retryFailedNodes() {
+      if (isRetryingBatch) return;
+      const failedNodes = state.rawNodes.filter((n) => n.fetch_failed);
+      if (failedNodes.length === 0) return;
+
+      isRetryingBatch = true;
+      const btnAll = document.getElementById("btnRetryAllFailed");
+      if (btnAll) {
+        btnAll.disabled = true;
+        btnAll.innerHTML = `<span class="sync-spinner" style="width:12px;height:12px;"></span> 正在逐个重试 (${failedNodes.length})...`;
+      }
+
+      setSyncProgress(25, `正在重试失败节点 (0/${failedNodes.length})...`);
+      let count = 0;
+      for (const fn of failedNodes) {
+        if (btnAll) {
+          btnAll.innerHTML = `<span class="sync-spinner" style="width:12px;height:12px;"></span> 正在重试 (${count + 1}/${failedNodes.length})...`;
+        }
+        await retrySingleNode(fn.node_id, false);
+        count++;
+        const pct = 25 + Math.round((count / failedNodes.length) * 70);
+        setSyncProgress(pct, `重试中 (${count}/${failedNodes.length})...`);
+      }
+
+      setSyncProgress(100, "重试处理完毕");
+      isRetryingBatch = false;
+      updateGlobalRetryBanner();
+      renderFilterBar();
+      renderNodeCards();
+      applyFilter();
+    }
+
+    window.retrySingleNode = retrySingleNode;
+    window.retryFailedNodes = retryFailedNodes;
+
+    /**
+     * 核心加载逻辑：从 Komari 核心接口拉取真实节点配置与真实历史时序打点
+     * 采用 SWR (Stale-While-Revalidate) 本地秒开与渐进式骨架屏混合架构
+     */
     let isSyncing = false;
     async function loadAllNodes(forceFresh = false) {
       if (isSyncing) return;
@@ -1184,6 +1540,7 @@
         const cached = loadCachedOverview();
         if (cached && Array.isArray(cached.nodes) && cached.nodes.length > 0) {
           state.rawNodes = cached.nodes;
+          updateGlobalRetryBanner();
           renderFilterBar();
           renderNodeCards();
           applyFilter();
@@ -1205,22 +1562,27 @@
         let coreClients = [];
         try {
           const clientRes = await fetchWithTimeout("/api/admin/client/list", { cache: "no-store" }, 4000);
-          if (clientRes.ok) {
+          if (clientRes && clientRes.ok) {
             coreClients = await clientRes.json();
           }
-        } catch (e) {
+        } catch (e) {}
+
+        if (!Array.isArray(coreClients) || coreClients.length === 0) {
           try {
             const nodeRes = await fetchWithTimeout("/api/nodes", { cache: "no-store" }, 4000);
-            if (nodeRes.ok) {
+            if (nodeRes && nodeRes.ok) {
               const nd = await nodeRes.json();
               coreClients = nd.data || nd;
             }
           } catch (e2) {}
         }
 
+        state.coreClients = coreClients;
+
         if (!Array.isArray(coreClients) || coreClients.length === 0) {
           if (!hasRenderedCache) {
             state.rawNodes = [];
+            updateGlobalRetryBanner();
             renderFilterBar();
             renderNodeCards();
             applyFilter();
@@ -1233,16 +1595,35 @@
         let completedNodes = 0;
         setSyncProgress(30, `同步节点数据 (0/${totalNodes})...`);
 
-        // 4. 步骤 2：并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
-        const clientsWithHistory = await Promise.all(coreClients.map(async (client) => {
+        // 分批并发辅助器：限制并发为 4，防止瞬时并发打满 Komari 单核 VPS 导致数据库查询超时
+        async function mapConcurrent(items, limit, fn) {
+          const results = [];
+          const executing = [];
+          for (const item of items) {
+            const p = Promise.resolve().then(() => fn(item));
+            results.push(p);
+            if (limit <= items.length) {
+              const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+              executing.push(e);
+              if (executing.length >= limit) {
+                await Promise.race(executing);
+              }
+            }
+          }
+          return Promise.all(results);
+        }
+
+        // 4. 步骤 2：分批并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
+        const clientsWithHistory = await mapConcurrent(coreClients, 4, async (client) => {
           let netTotalUp = Number(client.net_total_up || 0);
           let netTotalDown = Number(client.net_total_down || 0);
           let dailyHistory = [];
           const nodeName = client.name || client.uuid || "未知节点";
+          let recFetchError = null;
 
           // 优先从 /api/recent/:uuid 提取内存中最新的实时流量累计
           try {
-            const recentRes = await fetchWithTimeout(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" }, 3000);
+            const recentRes = await fetchWithTimeout(`/api/recent/${encodeURIComponent(client.uuid)}`, { cache: "no-store" }, 5000);
             if (recentRes.ok) {
               const recentJson = await recentRes.json();
               const recList = (recentJson.data && Array.isArray(recentJson.data)) ? recentJson.data : (Array.isArray(recentJson) ? recentJson : []);
@@ -1258,13 +1639,15 @@
             }
           } catch (e) {}
 
-          // 从 /api/records/load 拉取过去 30 天网络打点并聚合每日增量
+          // 核心历史数据读取：拉取 30 天 (720h) 真实网络时序打点
+          let rawRecordsList = [];
           try {
-            const recRes = await fetchWithTimeout(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" }, 3500);
+            const recRes = await fetchWithTimeout(`/api/records/load?uuid=${encodeURIComponent(client.uuid)}&load_type=network&hours=720`, { cache: "no-store" }, 8000);
             if (recRes.ok) {
               const recJson = await recRes.json();
               const recList = (recJson.data && recJson.data.records) || recJson.records || [];
               if (Array.isArray(recList) && recList.length > 0) {
+                rawRecordsList = recList;
                 const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
                 dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown, new Date(), tzOffset);
                 if (netTotalUp === 0 && netTotalDown === 0) {
@@ -1273,48 +1656,87 @@
                   if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
                 }
               }
+            } else {
+              recFetchError = `HTTP ${recRes.status}: ${recRes.statusText}`;
             }
-          } catch (err) {}
+          } catch (err) {
+            recFetchError = err.message || String(err);
+          }
 
           if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
             const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
             dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown, new Date(), tzOffset);
           }
 
+          state.rawRecordsMap[client.uuid] = {
+            name: nodeName,
+            uuid: client.uuid,
+            net_total_up: netTotalUp,
+            net_total_down: netTotalDown,
+            records_count: rawRecordsList.length,
+            records: rawRecordsList,
+            daily_history: dailyHistory,
+            fetch_error: recFetchError
+          };
+
           completedNodes++;
           const nodePct = 30 + Math.round((completedNodes / totalNodes) * 50);
-          setSyncProgress(nodePct, `同步节点 (${completedNodes}/${totalNodes}): ${nodeName}`);
+          setSyncProgress(nodePct, `同步节点 (${completedNodes}/${totalNodes})...`);
 
           return Object.assign({}, client, {
             net_total_up: netTotalUp,
             net_total_down: netTotalDown,
-            daily_history: dailyHistory
+            daily_history: dailyHistory,
+            fetch_failed: Boolean(recFetchError),
+            fetch_error: recFetchError
           });
-        }));
+        });
 
         // 5. 步骤 3：将真实历史与真实累计一并提交给插件后端进行科学推算
-        setSyncProgress(85, "推算流量预测中...");
+        setSyncProgress(85, "推算周期预测...");
         const res = await fetchWithTimeout("/api/plugin/net-forecast/overview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clients: clientsWithHistory })
+          body: JSON.stringify({
+            clients: clientsWithHistory,
+            raw_records_map: state.rawRecordsMap,
+            client_timestamp: new Date().toISOString()
+          })
         }, 6000);
 
         const json = await res.json();
         if (json.ok && Array.isArray(json.nodes)) {
           if (json.summary && json.summary.timezone_offset !== undefined) state.timezoneOffset = Number(json.summary.timezone_offset);
-          setSyncProgress(95, "正在更新界面与图表...");
-          state.rawNodes = json.nodes;
-          saveCachedOverview(json.nodes, json.summary);
+          const nodes = json.nodes;
+          nodes.forEach((node) => {
+            const rawRec = state.rawRecordsMap[node.node_id];
+            if (rawRec && rawRec.fetch_error) {
+              node.fetch_failed = true;
+              node.fetch_error = rawRec.fetch_error;
+            } else if (node.fetch_failed === undefined) {
+              node.fetch_failed = false;
+              node.fetch_error = null;
+            }
+          });
+          state.rawNodes = nodes;
+          saveCachedOverview(state.rawNodes, json.summary);
+          const footerCount = document.getElementById("footerNodeCount");
+          if (footerCount) footerCount.textContent = `${state.rawNodes.length} 个节点已加载`;
+          const footerTz = document.getElementById("footerTzInfo");
+          if (footerTz) {
+            const tz = (state.timezoneOffset !== undefined ? state.timezoneOffset : 8);
+            footerTz.textContent = `时区: UTC${(tz >= 0 ? "+" : "") + tz}`;
+          }
+          updateGlobalRetryBanner();
           renderFilterBar();
           renderNodeCards();
           applyFilter();
           setSyncProgress(100, "同步就绪");
         } else {
-          setSyncProgress(100, json.error || "推算服务异常");
+          setSyncProgress(100, "同步异常");
         }
       } catch (err) {
-        console.error("Failed to load nodes from core:", err);
+        console.error("[NetForecast] Failed to load nodes from core:", err);
         setSyncProgress(100, "同步异常");
       } finally {
         isSyncing = false;
@@ -1330,8 +1752,10 @@
       let warningCount = 0;
       let safeCount = 0;
       let noQuotaCount = 0;
+      let fetchFailedCount = 0;
 
       state.rawNodes.forEach((node) => {
+        if (node.fetch_failed) fetchFailedCount++;
         if (node.status === "CRITICAL") criticalCount++;
         else if (node.status === "WARNING") warningCount++;
         else if (node.status === "SAFE") safeCount++;
@@ -1345,6 +1769,15 @@
         { key: "SAFE", label: `✅ ${safeCount} 个预算安全`, className: "filter-safe", count: safeCount },
         { key: "NO_QUOTA", label: `⚪ ${noQuotaCount} 个未配额 (仅预测)`, className: "filter-no-quota", count: noQuotaCount },
       ];
+
+      if (fetchFailedCount > 0) {
+        filters.push({
+          key: "FETCH_FAILED",
+          label: `⚠️ ${fetchFailedCount} 个时序拉取失败`,
+          className: "filter-fetch-failed",
+          count: fetchFailedCount
+        });
+      }
 
       filters.forEach((f) => {
         const btn = document.createElement("button");
@@ -1372,10 +1805,33 @@
         card.className = "node-card";
         card.id = `card-${node.node_id}`;
         card.setAttribute("data-status", node.status);
+        card.setAttribute("data-fetch-failed", node.fetch_failed ? "true" : "false");
 
         // 状态徽标与告警横幅
         let badgeHtml = "";
         let alertBannerHtml = "";
+        let fetchFailedBadge = "";
+        let fetchErrorBannerHtml = "";
+
+        if (node.fetch_failed) {
+          fetchFailedBadge = `<span class="summary-badge badge-warning" style="background:rgba(239, 68, 68, 0.16); border-color:rgba(239, 68, 68, 0.45); color:#fca5a5;">⚠️ 时序拉取未完成</span>`;
+          fetchErrorBannerHtml = `
+            <div class="node-alert-banner warning" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 240px;">
+                <span style="font-size: 20px;">⚠️</span>
+                <div>
+                  <div style="font-weight: 700; color: #fff;">核心数据库时序读取失败 (${escapeHtml(node.fetch_error || "查询超时")})</div>
+                  <div style="font-size: 12px; color: #fca5a5; opacity: 0.9; margin-top: 2px;">
+                    由于数据库繁忙或并发限制，时序打点暂未获取。当前仅展示实时网卡累计，缺少历史分日增量柱状图与均速拟合趋势。
+                  </div>
+                </div>
+              </div>
+              <button class="btn-retry-node" id="btn-retry-${node.node_id}" onclick="retrySingleNode('${node.node_id}')">
+                <span class="btn-icon">🔄</span> 重试此节点
+              </button>
+            </div>
+          `;
+        }
 
         if (!node.has_quota) {
           badgeHtml = `<span class="summary-badge badge-neutral">⚪ 未配置限额 (仅预测)</span>`;
@@ -1424,11 +1880,13 @@
               </span>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
+              ${fetchFailedBadge}
               ${badgeHtml}
               <button class="node-edit-btn" onclick="openNodeModal('${node.node_id}')">⚙️ 设置限额</button>
             </div>
           </div>
 
+          ${fetchErrorBannerHtml}
           ${alertBannerHtml}
 
           <div class="node-kpi-grid">
@@ -1474,7 +1932,7 @@
 
           <div class="chart-box">
             <div class="chart-sub-header">
-              <span>最近 30 天每日进出站增量与当前计费规则下的累计走势</span>
+              <span>最近 30 天每日进出站增量与当前计费规则下的累计走势 ${node.fetch_failed ? '<strong style="color:#fca5a5;">(⚠️ 时序未加载完成)</strong>' : ''}</span>
               <div class="chart-legend">
                 <div class="legend-item">
                   <div class="legend-color" style="background: var(--inbound);"></div>
@@ -1850,7 +2308,12 @@
 
       cards.forEach((card) => {
         const status = card.getAttribute("data-status");
-        if (state.currentFilter === "ALL" || status === state.currentFilter) {
+        const fetchFailed = card.getAttribute("data-fetch-failed") === "true";
+        if (
+          state.currentFilter === "ALL" ||
+          status === state.currentFilter ||
+          (state.currentFilter === "FETCH_FAILED" && fetchFailed)
+        ) {
           card.classList.remove("hidden");
           visibleCount++;
         } else {
@@ -1945,6 +2408,95 @@
         saveBtn.textContent = "保存并写入数据库";
       }
     }
+
+    /* =========================================================================
+     * 复制诊断数据静态 URL（供 AI Agent 零开销抓取分析）
+     * ========================================================================= */
+    async function copyDebugUrl() {
+      const btn = document.getElementById("btnCopyDebugUrl");
+      const url = window.location.origin + "/api/plugin/net-forecast/export.json";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        if (btn) {
+          const origHtml = btn.innerHTML;
+          btn.innerHTML = "<span>✅</span> 已复制 URL";
+          setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+        }
+      } catch (e) {
+        prompt("请手动复制诊断数据 URL:", url);
+      }
+    }
+    window.copyDebugUrl = copyDebugUrl;
+
+    /* =========================================================================
+     * 诊断数据纯文本 JSON 导出（供 AI Agent / 开发者直接下载分析）
+     * ========================================================================= */
+    async function downloadDebugJson() {
+      const btn = document.getElementById("btnExportDebug");
+      const origHtml = btn ? btn.innerHTML : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="sync-spinner" style="width:12px;height:12px;margin-right:4px;"></span> 正在导出...`;
+      }
+
+      try {
+        let serverDebug = null;
+        try {
+          const res = await fetchWithTimeout("/api/plugin/net-forecast/debug", { cache: "no-store" }, 4000);
+          if (res.ok) serverDebug = await res.json();
+        } catch (e) {
+          serverDebug = { error: e.message || String(e) };
+        }
+
+        const now = new Date();
+        const tzOffset = state.timezoneOffset !== undefined ? state.timezoneOffset : 8;
+        const bundle = {
+          meta: {
+            client_timestamp: now.toISOString(),
+            client_local_string: now.toLocaleString(),
+            timezone_offset: tzOffset,
+            node_count: state.rawNodes.length,
+            current_filter: state.currentFilter,
+            user_agent: navigator.userAgent
+          },
+          server_debug: serverDebug,
+          nodes: state.rawNodes,
+          raw_records_map: state.rawRecordsMap,
+          local_storage_cache: loadCachedOverview()
+        };
+
+        const jsonStr = JSON.stringify(bundle, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const ts = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        a.href = url;
+        a.download = `netforecast-debug-${ts}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("导出诊断数据失败: " + (err.message || String(err)));
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+    }
+    window.downloadDebugJson = downloadDebugJson;
 
     window.addEventListener("DOMContentLoaded", () => {
       loadAllNodes();

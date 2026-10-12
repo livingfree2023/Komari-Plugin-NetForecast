@@ -172,11 +172,20 @@ function calculateBillingCycle(resetDay = 1, now = new Date(), tzOffsetHours = 8
  */
 function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date(), tzOffsetHours = 8) {
   const historyMap = {};
+  let totalHistIn = 0;
+  let totalHistOut = 0;
+
   (history || []).forEach((item) => {
     if (item.date) {
       historyMap[item.date] = item;
+      totalHistIn += (item.in_bytes || 0);
+      totalHistOut += (item.out_bytes || 0);
     }
   });
+
+  const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
+  // 当网卡物理总计大于可见历史记录和时，将差额作为周期前序底数（彻底消除折线在“今日”突然直角暴涨的缺陷）
+  const startOffset = (currentCycleBillable > totalHistBillable) ? (currentCycleBillable - totalHistBillable) : 0;
 
   const points = [];
   const cycleStartMs = cycle.cycleStartDate.getTime();
@@ -187,6 +196,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
   let runningIn = 0;
   let runningOut = 0;
   let todayIndex = -1;
+  let lastValidCumBillable = startOffset;
 
   for (let i = 0; i <= daysTotal; i++) {
     const pointUtcMs = cycleStartMs + i * 24 * 3600 * 1000;
@@ -205,7 +215,8 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
       if (rec && ((rec.in_bytes || 0) + (rec.out_bytes || 0) > 0)) {
         runningIn += (rec.in_bytes || 0);
         runningOut += (rec.out_bytes || 0);
-        const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+        const cumBillable = startOffset + computeBillableAmount(runningIn, runningOut, mode);
+        lastValidCumBillable = cumBillable;
         points.push({
           date: dateStr,
           timestamp: pointUtcMs,
@@ -213,13 +224,13 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
           in_bytes: rec.in_bytes || 0,
           out_bytes: rec.out_bytes || 0,
           total_bytes: (rec.in_bytes || 0) + (rec.out_bytes || 0),
-          cumulative_bytes: runningIn + runningOut,
+          cumulative_bytes: startOffset + runningIn + runningOut,
           cumulative_billable: cumBillable,
           is_today: false,
           is_forecast: false,
         });
       } else {
-        // 过去无打点数据（如冷启动安装前）：绝不输出 0 贴地折线，cumulative_billable 为 null
+        // 过去无打点数据（如冷启动安装前或周期更早）：不画 0 贴地折线，cumulative_billable 为 null
         points.push({
           date: dateStr,
           timestamp: pointUtcMs,
@@ -236,6 +247,16 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
     } else if (isToday) {
       const inB = rec ? (rec.in_bytes || 0) : 0;
       const outB = rec ? (rec.out_bytes || 0) : 0;
+      runningIn += inB;
+      runningOut += outB;
+
+      // 今日点：平滑对齐，若有 startOffset 则精确对齐 currentCycleBillable；若无则自然累加，单调递增，杜绝暴跌
+      let todayCumBillable = startOffset + computeBillableAmount(runningIn, runningOut, mode);
+      if (currentCycleBillable > 0 && currentCycleBillable >= lastValidCumBillable) {
+        todayCumBillable = Math.max(currentCycleBillable, todayCumBillable);
+      }
+      lastValidCumBillable = todayCumBillable;
+
       points.push({
         date: dateStr,
         timestamp: pointUtcMs,
@@ -243,8 +264,8 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
         in_bytes: inB,
         out_bytes: outB,
         total_bytes: inB + outB,
-        cumulative_bytes: cumulativeIn + cumulativeOut,
-        cumulative_billable: currentCycleBillable,
+        cumulative_bytes: startOffset + runningIn + runningOut,
+        cumulative_billable: todayCumBillable,
         is_today: true,
         is_forecast: false,
       });
@@ -252,7 +273,7 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
       // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
       const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
       const futureStep = i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed);
-      const fCumBillable = currentCycleBillable + dailyForecastBillable * Math.max(0, futureStep);
+      const fCumBillable = lastValidCumBillable + dailyForecastBillable * Math.max(0, futureStep);
 
       points.push({
         date: dateStr,
@@ -372,19 +393,25 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     (node.totalDown !== undefined ? node.totalDown : 0)))
   );
 
+  let histIn = 0;
+  let histOut = 0;
+  (history || []).forEach((r) => {
+    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+      histIn += (r.in_bytes || 0);
+      histOut += (r.out_bytes || 0);
+    }
+  });
+
   let cumulativeIn = 0;
   let cumulativeOut = 0;
 
   if (rawTotalUp > 0 || rawTotalDown > 0) {
-    cumulativeIn = rawTotalDown;
-    cumulativeOut = rawTotalUp;
+    // 真实累计计数器存在；若节点曾重启导致网卡计数器清零小于历史分天总和，自动取较大者防下坠
+    cumulativeIn = Math.max(rawTotalDown, histIn);
+    cumulativeOut = Math.max(rawTotalUp, histOut);
   } else {
-    (history || []).forEach((r) => {
-      if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-        cumulativeIn += r.in_bytes || 0;
-        cumulativeOut += r.out_bytes || 0;
-      }
-    });
+    cumulativeIn = histIn;
+    cumulativeOut = histOut;
   }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
@@ -512,6 +539,8 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
     exhaustion_date: exhaustionDate,
     warning_message: warningMessage,
     chart_series: chartSeries,
+    fetch_failed: Boolean(node.fetch_failed),
+    fetch_error: node.fetch_error || null,
   };
 }
 
@@ -1944,6 +1973,12 @@ function load() {
     return clients;
   };
 
+  // 内存诊断快照缓存（3 分钟 TTL，防 DoS 击穿限流保护）
+  let latestDebugSnapshot = null;
+  let lastSnapshotUpdateTime = 0;
+  let isRefreshingSnapshot = false;
+  const SNAPSHOT_CACHE_TTL_MS = 180 * 1000;
+
   // 1. 全节点 30 天预测总览接口
   const handleOverview = async (req, res) => {
     try {
@@ -1957,8 +1992,10 @@ function load() {
       }
 
       const list = clients.map((c) => {
-        if (typeof c.net_in === "number" && typeof c.net_out === "number") {
-          storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), tzOffset);
+        const currentDown = typeof c.net_total_down === "number" ? c.net_total_down : c.net_in;
+        const currentUp = typeof c.net_total_up === "number" ? c.net_total_up : c.net_out;
+        if (typeof currentDown === "number" && typeof currentUp === "number") {
+          storage.recordSample(c.uuid, currentDown, currentUp, new Date(), tzOffset);
         }
         const history = Array.isArray(c.daily_history) && c.daily_history.length > 0
           ? c.daily_history
@@ -1971,6 +2008,31 @@ function load() {
       const warningCount = list.filter((n) => n.status === "WARNING").length;
       const safeCount = list.filter((n) => n.status === "SAFE").length;
       const noQuotaCount = list.filter((n) => n.status === "NO_QUOTA").length;
+
+      // 实时更新服务端内存快照（供 Agent 静态 URL 零开销直接抓取）
+      latestDebugSnapshot = {
+        meta: {
+          server_time: new Date().toISOString(),
+          client_timestamp: body.client_timestamp || new Date().toISOString(),
+          timezone_offset: tzOffset,
+          node_count: list.length,
+          cached_at: new Date().toISOString(),
+          cache_ttl_seconds: 180,
+          source: body.raw_records_map ? "overview_full_sync" : "overview_sync"
+        },
+        server_debug: {
+          ok: true,
+          server_time: new Date().toISOString(),
+          config: config,
+          traffic_storage_keys: Object.keys(storage.trafficCache || {}),
+          traffic_storage_records: storage.trafficCache || {},
+          clients_count: clients.length,
+          clients: clients
+        },
+        nodes: list,
+        raw_records_map: body.raw_records_map || (latestDebugSnapshot ? latestDebugSnapshot.raw_records_map : {}) || {}
+      };
+      lastSnapshotUpdateTime = Date.now();
 
       sendJSON(res, {
         ok: true,
@@ -1989,6 +2051,80 @@ function load() {
     }
   };
 
+  // 诊断数据导出静态接口（直接响应纯文本 JSON，3分钟内存缓存，单次请求 <1ms，彻底免疫 DoS）
+  const handleExportJson = async (req, res) => {
+    try {
+      const now = Date.now();
+      // 1. 若内存快照有效（3 分钟内），直接从内存返回（耗时 < 1ms，0 次数据库查询，彻底免疫 DoS 攻击）
+      if (latestDebugSnapshot && (now - lastSnapshotUpdateTime < SNAPSHOT_CACHE_TTL_MS)) {
+        res.setHeader("Cache-Control", "public, max-age=60");
+        const ageSeconds = Math.round((now - lastSnapshotUpdateTime) / 1000);
+        const copy = Object.assign({}, latestDebugSnapshot);
+        copy.meta = Object.assign({}, copy.meta, {
+          cache_hit: true,
+          cache_age_seconds: ageSeconds
+        });
+        sendJSON(res, copy, 200);
+        return;
+      }
+
+      // 2. 若快照正在刷新或已存在快照且仍处于 60 秒节流窗口内，直接返回既有快照防击穿
+      if (isRefreshingSnapshot && latestDebugSnapshot) {
+        res.setHeader("Cache-Control", "public, max-age=60");
+        sendJSON(res, latestDebugSnapshot, 200);
+        return;
+      }
+
+      isRefreshingSnapshot = true;
+      try {
+        const config = getConfig();
+        const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
+        let clients = await fetchCoreClients();
+        if (!clients) clients = [];
+
+        const list = clients.map((c) => {
+          const history = storage.getNodeHistory(c.uuid);
+          return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
+        });
+
+        latestDebugSnapshot = {
+          meta: {
+            server_time: new Date().toISOString(),
+            client_timestamp: new Date().toISOString(),
+            timezone_offset: tzOffset,
+            node_count: list.length,
+            cached_at: new Date().toISOString(),
+            cache_ttl_seconds: 180,
+            cache_hit: false,
+            source: "server_refresh"
+          },
+          server_debug: {
+            ok: true,
+            server_time: new Date().toISOString(),
+            config: config,
+            traffic_storage_keys: Object.keys(storage.trafficCache || {}),
+            traffic_storage_records: storage.trafficCache || {},
+            clients_count: clients.length,
+            clients: clients
+          },
+          nodes: list,
+          raw_records_map: latestDebugSnapshot ? (latestDebugSnapshot.raw_records_map || {}) : {}
+        };
+        lastSnapshotUpdateTime = Date.now();
+      } finally {
+        isRefreshingSnapshot = false;
+      }
+
+      res.setHeader("Cache-Control", "public, max-age=60");
+      sendJSON(res, latestDebugSnapshot, 200);
+    } catch (e) {
+      sendJSON(res, { ok: false, error: e.message || String(e) }, 500);
+    }
+  };
+
+  server.route("GET", "/api/plugin/net-forecast/export.json", handleExportJson);
+  server.route("GET", "/api/plugin/net-forecast/debug.json", handleExportJson);
+  server.route("GET", "/api/plugin/net-forecast/debug", handleExportJson);
   server.route("GET", "/api/plugin/net-forecast/overview", handleOverview);
   server.route("POST", "/api/plugin/net-forecast/overview", handleOverview);
 
@@ -2039,8 +2175,10 @@ function load() {
           if (Array.isArray(clients)) {
             const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
             for (const c of clients) {
-              if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
-                storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), tzOffset);
+              const currentDown = typeof c.net_total_down === "number" ? c.net_total_down : c.net_in;
+              const currentUp = typeof c.net_total_up === "number" ? c.net_total_up : c.net_out;
+              if (c.uuid && typeof currentDown === "number" && typeof currentUp === "number") {
+                storage.recordSample(c.uuid, currentDown, currentUp, new Date(), tzOffset);
               }
             }
           }

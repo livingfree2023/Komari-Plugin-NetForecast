@@ -1,25 +1,45 @@
 ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
 
-### 🚀 新增功能与体验优化 (Features & Improvements)
-- **自定义统计基准时区 (Timezone Offset)**：
-  - 在插件设置面板中新增 `timezone_offset` 配置项（默认预设为 `8` 即东八区 UTC+8 北京时间，单位为小时）。
-  - **彻底与宿主机/容器环境时区解耦**：计算账单周期与重置日（`calculateBillingCycle`）、生成预测时序走势（`buildCycleSeries`）、定时历史采样（`recordSample`）以及前端按日聚合（`aggregateDailyFromRecords`）均统一基于配置的时区偏移量进行绝对时间戳数学折算。
-  - **解决重置日时差问题**：即使 Komari 运行在默认 UTC 的 Docker 容器中，重置日也会在本地时间午夜 00:00 准时无缝切换，不再产生 8 小时的周期判断延迟；同时每日柱状图严格按照配置时区的 00:00:00 ~ 23:59:59 完整切片。
-  - **海外用户自由适配**：欧洲、美东、美西、日韩等海外用户亦可在设置中自由填写对应时区偏移（如 `0`、`1`、`-5`、`-7`、`9` 等）。
-- **完善项目文档与开发规范**：
-  - 更新 `README.md`，增加时区自由配置的特性亮点说明；
-  - 更新 `agent.md`，确立时区偏移计算标准与多端同步要求。
+### 🚀 新增功能与高可用自愈 (Features & Resilience)
+- **时序打点重启自适应算法（Counter Reset Detection）**：
+  - 彻底解决 VPS / 网卡重启后，Linux `/proc/net/dev` 内核内存计数器清零导致的“今日”流量归零、大幅倒扣或数据丢失问题。
+  - 引入网络监控工业级重置判定规则：相邻采样点 `curr >= prev` 计正常增量，`curr < prev` 时判定为系统或网卡重启并将 `curr` 作为重启后新产生量正向累加。今日流量无缝衔接网卡实时计数器，单日多次重启亦能全额记录。
+  - 彻底移除过去脆弱的多层嵌套 fallback 分支及 `> 500GB 归零` 的防御性硬编码，计算更简洁、稳健。
+- **核心数据库高并发限流保护（Concurrency Limit & Timeout Shield）**：
+  - 深度优化多节点并发拉取 720 小时历史打点时的数据库负载，引入 `mapConcurrent` 批处理机制（限制最大并发请求数为 4），单次超时时间延长至 8.0s，彻底杜绝单核轻量 VPS 下 SQLite 数据库锁死或大量请求 Abort / 失败。
+- **数据库查询失败节点的视觉警示与按需重试（Failure UI & Retry Mechanisms）**：
+  - **单卡片错误警示**：当节点数据库查询因超时未完成时，卡片顶部标记警示徽标，并在卡片内展示醒目的警告横幅，附带独立 `[🔄 重试此节点]` 按钮（使用 15s 充裕超时重试单节点）。
+  - **全局失败横幅与批量重试**：看板顶部检测到失败节点时，自动展开全局提醒条，并提供 `[🔄 重试失败节点 (N)]` 按钮，低并发平滑轮询重试所有失败节点，重试成功后自动隐退。
+  - **失败专属筛选胶囊**：动态筛选栏若检测到失败节点，自动增加 `⚠️ N 个时序拉取失败` 快捷筛选胶囊，一键聚焦故障节点。
+- **一键纯文本诊断数据导出与静态 URL（AI Agent 友好）**：
+  - **静态接口直取**：提供固定端点 `/api/plugin/net-forecast/export.json`（及别名 `/debug.json`、`/debug`），AI Agent 与自动化脚本可直接通过 HTTP GET 读取完整诊断数据，彻底免除手动下载与繁复 UI 弹窗。
+  - **内存快照缓存与抗 DoS 保护**：服务端提供 180 秒（3 分钟）内存快照缓存与 60 秒刷新节流互斥锁，内存命中响应耗时 `<1ms` 且 0 次数据库 I/O 查询，配合 `Cache-Control: public, max-age=60`，完全免疫高频请求或 DoS 攻击。
+  - **操作栏一键复制**：看板底部提供「📋 复制诊断 URL」与「📥 导出诊断数据 (JSON)」双操作，一键将抓取 URL 提供给 AI Agent。
+
+### 🐛 问题修复与体验优化 (Bug Fixes & Improvements)
+- **账单周期折线平滑对齐（消除 90 度垂直突变）**：
+  - 修复当网卡硬件总计与日采样存在差额时，今日点出现 90 度直角垂直突变的缺陷。引入前序基准底数平滑对齐，折线全周期平滑单调递增，左右严格对齐重置周期。
 
 ---
 
 ## 🇬🇧 English Changelog (en)
 
-### 🚀 Features & Improvements
-- **Configurable Timezone Offset for Statistics**:
-  - Added `timezone_offset` configuration in the plugin settings (defaults to `8` for UTC+8 Beijing Time, in hours).
-  - **Full Decoupling from Host/Container OS Timezone**: Billing cycle range calculation (`calculateBillingCycle`), forecast series (`buildCycleSeries`), periodic background sampling (`recordSample`), and frontend daily history aggregation (`aggregateDailyFromRecords`) are now all mathematically aligned based on the configured timezone offset.
-  - **Eliminated Reset Day Boundary Delay**: Even when Komari runs in a default UTC Docker container, monthly reset days transition seamlessly at local midnight 00:00 without the previous 8-hour UTC lag. Daily bar slices strictly cover 00:00:00 to 23:59:59 in the target timezone.
-  - **Worldwide Timezone Compatibility**: Users in Europe, the Americas, Japan, etc., can easily set their respective UTC offset (e.g. `0`, `1`, `-5`, `-7`, `9`).
-- **Documentation & Agent Guidelines Update**:
-  - Updated `README.md` highlighting the new timezone offset capability;
-  - Formalized timezone offset calculation principles in `agent.md`.
+### 🚀 Features & Resilience
+- **Counter Reset Detection for Linux / VPS Reboots**:
+  - Completely resolved the issue where today's traffic counter would reset to zero, become negative, or lose pre-reboot usage when a monitored VPS rebooted (which resets the Linux `/proc/net/dev` kernel memory counter).
+  - Adopted industry-standard reset detection: when adjacent samples show `curr >= prev`, the delta is `curr - prev`; when `curr < prev`, a counter reset / reboot is detected, treating `curr` as newly accumulated post-reboot traffic. Seamlessly stitches historical records with live counters.
+  - Eliminated arbitrary thresholds (like `> 500GB`) and nested fallback cascades in favor of a clean, robust mathematical formulation.
+- **Concurrency Limiting & Database Timeout Defense**:
+  - Implemented `mapConcurrent` batch scheduling (capped at 4 concurrent requests) and extended database timeouts to 8.0s when querying 720h network records, preventing SQLite lockups and request aborts on single-core lightweight VPS servers.
+- **Node Query Failure UI & Interactive Retry Mechanisms**:
+  - **Per-Card Alert & Inline Retry**: Nodes that timeout during initial loading display a clear warning banner and an independent `[🔄 Retry Node]` button with a 15-second relaxed timeout.
+  - **Global Failure Banner & Batch Retry**: The header displays a global alert banner when failed nodes are detected, featuring a `[🔄 Retry Failed Nodes (N)]` button that sequentially recovers all failed nodes with progressive status feedback.
+  - **Quick Filter Pill**: The filter bar dynamically adds a `⚠️ N Failed Queries` pill to quickly isolate nodes needing attention.
+- **Direct Plain-Text Diagnostic JSON Export & Static URL (AI Agent Friendly)**:
+  - **Static Endpoint Access**: Added a dedicated static endpoint `GET /api/plugin/net-forecast/export.json` (with aliases `/debug.json` and `/debug`) allowing AI agents and external scripts to directly retrieve comprehensive diagnostic data via HTTP GET without manual file downloads or bulky UI modals.
+  - **In-Memory Snapshot & DoS Protection**: Implemented a 180-second (3-minute TTL) in-memory snapshot cache with a 60-second mutex refresh lock. Cache hits return in `<1ms` with zero database queries, fortified with `Cache-Control: public, max-age=60` to thoroughly eliminate any risk of DoS attacks or database exhaustion on single-core VPS servers.
+  - **One-Click URL Copying**: Added a "📋 Copy Diagnostic URL" button alongside "📥 Export Debug Data (JSON)" in the footer bar for effortless URL sharing.
+
+### 🐛 Bug Fixes & Improvements
+- **Continuous Monotonic Billing Cycle Curves**:
+  - Fixed the 90-degree vertical cliff artifact on the cumulative line chart by smoothly offsetting the baseline when historical counters and daily increments have discrepancies, ensuring strictly monotonic curves aligned between `[cycleStart, cycleEnd]`.

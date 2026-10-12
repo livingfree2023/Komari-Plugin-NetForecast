@@ -39,6 +39,8 @@ export interface NodeCoreConfig {
   daily_history?: TrafficRecord[]; // 从 Komari /api/records/load 聚合的真实每日时序
   tags?: string;
   group?: string;
+  fetch_failed?: boolean;
+  fetch_error?: string | null;
 }
 
 export interface BillingCycle {
@@ -98,6 +100,8 @@ export interface NodeForecastData {
   exhaustion_date?: string;
   warning_message?: string;
   chart_series: TrafficRecord[]; // 30天实际 + 预测点
+  fetch_failed?: boolean;
+  fetch_error?: string | null;
 }
 
 export interface PluginConfig {

@@ -273,21 +273,25 @@ export function calculateNodeForecast(
     0
   );
 
+  let histIn = 0;
+  let histOut = 0;
+  for (const r of history || []) {
+    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
+      histIn += (r.in_bytes || 0);
+      histOut += (r.out_bytes || 0);
+    }
+  }
+
   let cumulativeIn = 0;
   let cumulativeOut = 0;
 
   if (rawTotalUp > 0 || rawTotalDown > 0) {
-    // 真实累计计数器存在，直接采用真实数据
-    cumulativeIn = rawTotalDown;
-    cumulativeOut = rawTotalUp;
+    // 真实累计计数器存在；若节点曾重启导致网卡计数器清零小于历史分天总和，自动取较大者防下坠
+    cumulativeIn = Math.max(rawTotalDown, histIn);
+    cumulativeOut = Math.max(rawTotalUp, histOut);
   } else {
-    // 仅在核心未上报累计计数器时，按本周期实际采样累加（无数据则保持为 0）
-    for (const r of history || []) {
-      if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-        cumulativeIn += r.in_bytes || 0;
-        cumulativeOut += r.out_bytes || 0;
-      }
-    }
+    cumulativeIn = histIn;
+    cumulativeOut = histOut;
   }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
@@ -422,6 +426,8 @@ export function calculateNodeForecast(
     exhaustion_date: exhaustionDate,
     warning_message: warningMessage,
     chart_series: chartSeries,
+    fetch_failed: Boolean(node.fetch_failed),
+    fetch_error: node.fetch_error || null,
   };
 }
 
@@ -441,30 +447,43 @@ export function buildCycleSeries(
   currentCycleBillable: number,
   cumulativeIn: number = 0,
   cumulativeOut: number = 0,
-  now: Date = new Date()
+  now: Date = new Date(),
+  tzOffsetHours: number = 8
 ): TrafficRecord[] {
   const historyMap = new Map<string, TrafficRecord>();
+  let totalHistIn = 0;
+  let totalHistOut = 0;
+
   for (const item of history || []) {
     if (item.date) {
       historyMap.set(item.date, item);
+      totalHistIn += (item.in_bytes || 0);
+      totalHistOut += (item.out_bytes || 0);
     }
   }
 
+  const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
+  // 当网卡物理总计大于可见历史记录和时，将差额作为周期前序底数（彻底消除折线在“今日”突然直角暴涨的缺陷）
+  const startOffset = (currentCycleBillable > totalHistBillable) ? (currentCycleBillable - totalHistBillable) : 0;
+
   const points: TrafficRecord[] = [];
-  const cycleStart = cycle.cycleStartDate;
+  const cycleStartMs = cycle.cycleStartDate.getTime();
   const daysTotal = cycle.daysTotal;
-  const todayStr = formatDateToYMD(now);
+  const tzParts = getTzDateParts(now, tzOffsetHours);
+  const todayStr = tzParts.dateStr;
   const nowMs = now.getTime();
 
   let runningIn = 0;
   let runningOut = 0;
   let todayIndex = -1;
+  let lastValidCumBillable = startOffset;
 
   for (let i = 0; i <= daysTotal; i++) {
-    const d = new Date(cycleStart.getTime() + i * 24 * 3600 * 1000);
-    const dateStr = formatDateToYMD(d);
+    const pointUtcMs = cycleStartMs + i * 24 * 3600 * 1000;
+    const pointTzParts = getTzDateParts(new Date(pointUtcMs), tzOffsetHours);
+    const dateStr = pointTzParts.dateStr;
     const isToday = (dateStr === todayStr);
-    const isPast = (d.getTime() < nowMs) && !isToday;
+    const isPast = (pointUtcMs < nowMs) && !isToday;
 
     if (isToday) {
       todayIndex = i;
@@ -476,24 +495,25 @@ export function buildCycleSeries(
       if (rec && ((rec.in_bytes || 0) + (rec.out_bytes || 0) > 0)) {
         runningIn += (rec.in_bytes || 0);
         runningOut += (rec.out_bytes || 0);
-        const cumBillable = computeBillableAmount(runningIn, runningOut, mode);
+        const cumBillable = startOffset + computeBillableAmount(runningIn, runningOut, mode);
+        lastValidCumBillable = cumBillable;
         points.push({
           date: dateStr,
-          timestamp: d.getTime(),
+          timestamp: pointUtcMs,
           has_data: true,
           in_bytes: rec.in_bytes || 0,
           out_bytes: rec.out_bytes || 0,
           total_bytes: (rec.in_bytes || 0) + (rec.out_bytes || 0),
-          cumulative_bytes: runningIn + runningOut,
+          cumulative_bytes: startOffset + runningIn + runningOut,
           cumulative_billable: cumBillable,
           is_today: false,
           is_forecast: false,
         });
       } else {
-        // 过去无打点数据（如冷启动安装前）：绝不输出 0 贴地折线，cumulative_billable 为 null
+        // 过去无打点数据（如冷启动安装前或周期更早）：不画 0 贴地折线，cumulative_billable 为 null
         points.push({
           date: dateStr,
-          timestamp: d.getTime(),
+          timestamp: pointUtcMs,
           has_data: false,
           in_bytes: 0,
           out_bytes: 0,
@@ -507,15 +527,25 @@ export function buildCycleSeries(
     } else if (isToday) {
       const inB = rec ? (rec.in_bytes || 0) : 0;
       const outB = rec ? (rec.out_bytes || 0) : 0;
+      runningIn += inB;
+      runningOut += outB;
+
+      // 今日点：平滑对齐，若有 startOffset 则精确对齐 currentCycleBillable；若无则自然累加，单调递增，杜绝暴跌
+      let todayCumBillable = startOffset + computeBillableAmount(runningIn, runningOut, mode);
+      if (currentCycleBillable > 0 && currentCycleBillable >= lastValidCumBillable) {
+        todayCumBillable = Math.max(currentCycleBillable, todayCumBillable);
+      }
+      lastValidCumBillable = todayCumBillable;
+
       points.push({
         date: dateStr,
-        timestamp: d.getTime(),
+        timestamp: pointUtcMs,
         has_data: true,
         in_bytes: inB,
         out_bytes: outB,
         total_bytes: inB + outB,
-        cumulative_bytes: cumulativeIn + cumulativeOut,
-        cumulative_billable: currentCycleBillable,
+        cumulative_bytes: startOffset + runningIn + runningOut,
+        cumulative_billable: todayCumBillable,
         is_today: true,
         is_forecast: false,
       });
@@ -523,11 +553,11 @@ export function buildCycleSeries(
       // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
       const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
       const futureStep = i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed);
-      const fCumBillable = currentCycleBillable + dailyForecastBillable * Math.max(0, futureStep);
+      const fCumBillable = lastValidCumBillable + dailyForecastBillable * Math.max(0, futureStep);
 
       points.push({
         date: dateStr,
-        timestamp: d.getTime(),
+        timestamp: pointUtcMs,
         has_data: false,
         in_bytes: 0,
         out_bytes: 0,

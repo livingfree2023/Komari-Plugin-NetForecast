@@ -28,6 +28,11 @@
 - **浮出层单一跳转入口**：右下角浮出层小组件仅在底部 Footer 保留单一的「查看完整图表 ↗」跳转入口，顶部 Header 仅保留关闭按钮（`✕`），避免双入口冗余造成视觉混淆。
 - **插件配置开关（默认开启）**：在 `komari-plugin.json` 的 `configuration.data` 中提供 `enable_floating_widget` 布尔选项，默认值为 `true`（启用），允许管理员在插件设置中自由关闭前台浮出层。
 
+### 4. 计数器重置与重启自适应规范 (Counter Reset Detection)
+- **Linux 内核计数器重置特性**：Linux `/proc/net/dev` 为纯内存计数器，机器重启后归零。
+- **重置检测判定算法**：对任意相邻样本 `prev` 与 `curr`，当 `curr >= prev` 时增量为 `curr - prev`；当 `curr < prev` 且 `curr >= 0` 时判定为 VPS 重启，增量为 `curr`。杜绝使用 `curr - prev` 直接相减导致的负数或截断漏计。
+- **今日流量接驳**：今日增量通过今日库中打点段累加，再衔接今日最新打点到实时计数器 `liveTotal`，全流程统一采用 `calcCounterDelta`，彻底移除硬编码阈值（如 `> 500GB 归零`）与复杂的嵌套回退。
+
 ---
 
 ## 二、时区与日期计算规范（Timezone & Date Conventions）
@@ -64,12 +69,27 @@
 修改计算与推算逻辑时，必须**同时同步**以下文件：
 1. `src/forecast.ts`：TypeScript 源码定义；
 2. `script.js`：插件在 Komari Goja 运行时中直接加载的主脚本；
-3. `pages/admin.html`：插件前端交互与 Canvas 可视化页面。
+3. `pages/admin.html`：插件管理端页面；
+4. `pages/public.html`：插件公开看板页面。
 
 ### 4. 服务端 HTTP 响应与连接终止规范（Goja HTTP Response Conventions）
 - **必须显式调用 `res.end()`**：
   Komari 的后端插件运行在基于 Goja 的 JS 运行时中。在 `sendJSON(res, data, statusCode)` 或任何自定义路由处理中，必须显式调用 `res.end(JSON.stringify(data))` 彻底关闭 HTTP 响应流。
   若遗漏 `res.end()`，底层 HTTP 连接不会被关闭并无限挂起，导致前台悬浮小组件与看板公开页请求 `/api/plugin/net-forecast/overview` 时一直处于 Loading 卡死状态并最终超时报错。
+
+### 5. 核心数据库高并发防护与重试自愈机制 (Concurrency & Retry Resilience)
+- **并发请求限制**：对 `/api/records/load` 等大查询必须通过 `mapConcurrent(coreClients, 4, ...)` 限制并发数为 4，超时时间保证在 8.0s 以上，防止打满单核 VPS 核心数据库导致请求 Abort。
+- **重试状态流转**：节点时序读取失败时必须携带 `fetch_failed` 与 `fetch_error`，提供单节点 `retrySingleNode` 与批量 `retryFailedNodes`，重试时采用单步或 2 并发配合 15s 长超时平滑自愈。
+
+### 6. 运行态诊断数据导出与静态 URL 规范 (Diagnostic JSON Export & Static URL)
+- **静态 URL 与 Agent 直接抓取**：
+  - 提供固定静态接口 `GET /api/plugin/net-forecast/export.json`（别名：`/debug.json`、`/debug`），AI Agent 和脚本可以直接通过 HTTP GET 请求获取最新诊断数据，无需用户手动点击下载文件或通过复杂 UI 查看。
+  - 看板底部操作栏提供「📋 复制诊断 URL」按钮，用户点击即可一键复制完整 URL 发送给 AI Agent。
+- **内存快照缓存与 DoS 攻击免疫 (Memory Snapshot & Rate Limiting)**：
+  - **3 分钟内存缓存 (180s TTL)**：服务端维护 `latestDebugSnapshot`，当请求静态 URL 时，命中缓存直接从内存返回（响应耗时 `<1ms`，0 次数据库 I/O 查询），彻底规避频繁拉取打满单核 VPS 核心数据库的风险。
+  - **HTTP 缓存头**：静态接口返回 `Cache-Control: public, max-age=60`，支持客户端及代理网络缓存。
+  - **并发互斥防击穿 (Mutex Throttling)**：若快照已过期且正处于刷新中，并发请求自动复用既有快照，杜绝瞬时并发查询打穿 SQLite。
+- **前后台数据联动同步**：前台看板每次执行 `loadAllNodes()` 同步时，会将前端拉取整理的 `raw_records_map` 与 `client_timestamp` 一并 POST 提交给 `/api/plugin/net-forecast/overview`，后台即时更新该内存快照，保证 AI Agent 随时能获取到各节点高精度的完整打点。
 
 ---
 

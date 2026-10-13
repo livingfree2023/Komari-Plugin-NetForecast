@@ -606,6 +606,24 @@ class TrafficStorage {
     return this.trafficCache[nodeId] || [];
   }
 
+  setNodeDailyHistory(nodeId, dailyHistory) {
+    if (!Array.isArray(dailyHistory) || dailyHistory.length === 0) return;
+    const existing = this.trafficCache[nodeId] || [];
+    const map = {};
+    existing.forEach((r) => { if (r && r.date) map[r.date] = r; });
+    dailyHistory.forEach((r) => {
+      if (r && r.date) {
+        map[r.date] = Object.assign({}, map[r.date] || {}, r);
+      }
+    });
+    const merged = Object.keys(map).sort().map((d) => map[d]);
+    if (merged.length > 90) {
+      merged.splice(0, merged.length - 90);
+    }
+    this.trafficCache[nodeId] = merged;
+    this.save();
+  }
+
   recordSample(nodeId, currentIn, currentOut, now = new Date(), tzOffsetHours = 8) {
     const last = this.lastCounters[nodeId];
     this.lastCounters[nodeId] = {
@@ -1842,59 +1860,12 @@ const WIDGET_BODY_HTML = `
   // 深度数据计算与同步
   async function fetchAndCompute() {
     try {
-      var baseRes = await fetch("/api/plugin/net-forecast/overview");
+      var baseRes = await fetch("/api/plugin/net-forecast/overview", { cache: "no-store" });
       if (!baseRes.ok) return;
       var baseJson = await baseRes.json();
       if (!baseJson || !baseJson.ok || !Array.isArray(baseJson.nodes)) return;
 
-      var nodes = baseJson.nodes;
       renderData(baseJson);
-
-      var enrichedClients = await Promise.all(nodes.map(async function(node) {
-        var netTotalUp = (node.cumulative && node.cumulative.out_bytes) || 0;
-        var netTotalDown = (node.cumulative && node.cumulative.in_bytes) || 0;
-
-        try {
-          var rRes = await fetch("/api/recent/" + encodeURIComponent(node.node_id), { cache: "no-store" });
-          if (rRes.ok) {
-            var rJson = await rRes.json();
-            var recList = (rJson.data && Array.isArray(rJson.data)) ? rJson.data : (Array.isArray(rJson) ? rJson : []);
-            if (recList.length > 0) {
-              var latest = recList[recList.length - 1];
-              if (latest.network) {
-                netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
-                netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
-              }
-              if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
-              if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
-            }
-          }
-        } catch (e) {}
-
-        return {
-          uuid: node.node_id,
-          name: node.node_name,
-          traffic_limit: node.traffic_limit_bytes,
-          traffic_limit_type: node.traffic_limit_type,
-          expired_at: node.expired_at_raw,
-          traffic_reset_day: node.traffic_reset_day,
-          net_total_up: netTotalUp,
-          net_total_down: netTotalDown
-        };
-      }));
-
-      var calcRes = await fetch("/api/plugin/net-forecast/overview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clients: enrichedClients })
-      });
-
-      if (calcRes.ok) {
-        var calcJson = await calcRes.json();
-        if (calcJson && calcJson.ok) {
-          renderData(calcJson);
-        }
-      }
     } catch (e) {
       console.warn("[NetForecast Widget] sync error:", e);
     }
@@ -1985,10 +1956,41 @@ function load() {
       const config = getConfig();
       const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
       const body = req.body ? parseBody(req.body) : {};
+
+      // 1. 若为只读 GET 请求（或未传 clients 的空请求），且当前内存中已存在完整的全局快照，直接复用秒级响应（数据 100% 对齐，0 次计算开销）
+      if ((!body.clients || body.clients.length === 0) && latestDebugSnapshot && latestDebugSnapshot.nodes && latestDebugSnapshot.nodes.length > 0) {
+        const crit = latestDebugSnapshot.nodes.filter((n) => n.status === "CRITICAL").length;
+        const warn = latestDebugSnapshot.nodes.filter((n) => n.status === "WARNING").length;
+        const safe = latestDebugSnapshot.nodes.filter((n) => n.status === "SAFE").length;
+        const noq = latestDebugSnapshot.nodes.filter((n) => n.status === "NO_QUOTA").length;
+        sendJSON(res, {
+          ok: true,
+          summary: {
+            total_nodes: latestDebugSnapshot.nodes.length,
+            critical_count: crit,
+            warning_count: warn,
+            safe_count: safe,
+            no_quota_count: noq,
+            timezone_offset: tzOffset,
+          },
+          nodes: latestDebugSnapshot.nodes,
+        });
+        return;
+      }
+
       let clients = await fetchCoreClients(body.clients);
 
       if (!clients) {
         clients = [];
+      }
+
+      // 2. 将前端上报的高精度历史 daily_history 持久化沉淀至本地时序存储，彻底消除前后台时序割裂
+      if (Array.isArray(body.clients) && body.clients.length > 0) {
+        body.clients.forEach((c) => {
+          if (c && c.uuid && Array.isArray(c.daily_history) && c.daily_history.length > 0) {
+            storage.setNodeDailyHistory(c.uuid, c.daily_history);
+          }
+        });
       }
 
       const list = clients.map((c) => {
@@ -2009,30 +2011,71 @@ function load() {
       const safeCount = list.filter((n) => n.status === "SAFE").length;
       const noQuotaCount = list.filter((n) => n.status === "NO_QUOTA").length;
 
-      // 实时更新服务端内存快照（供 Agent 静态 URL 零开销直接抓取）
-      latestDebugSnapshot = {
-        meta: {
-          server_time: new Date().toISOString(),
-          client_timestamp: body.client_timestamp || new Date().toISOString(),
-          timezone_offset: tzOffset,
-          node_count: list.length,
-          cached_at: new Date().toISOString(),
-          cache_ttl_seconds: 180,
-          source: body.raw_records_map ? "overview_full_sync" : "overview_sync"
-        },
-        server_debug: {
-          ok: true,
-          server_time: new Date().toISOString(),
-          config: config,
-          traffic_storage_keys: Object.keys(storage.trafficCache || {}),
-          traffic_storage_records: storage.trafficCache || {},
-          clients_count: clients.length,
-          clients: clients
-        },
-        nodes: list,
-        raw_records_map: body.raw_records_map || (latestDebugSnapshot ? latestDebugSnapshot.raw_records_map : {}) || {}
-      };
-      lastSnapshotUpdateTime = Date.now();
+      // 3. 仅当携带高精度完整打点历史 (daily_history / raw_records_map) 或全局快照尚未建立时，才更新全局快照
+      const hasFullHistory = (body.raw_records_map && Object.keys(body.raw_records_map).length > 0) ||
+                             (Array.isArray(body.clients) && body.clients.some((c) => Array.isArray(c.daily_history) && c.daily_history.length > 0));
+
+      if (latestDebugSnapshot && Array.isArray(latestDebugSnapshot.nodes)) {
+        if (list.length === 1 && latestDebugSnapshot.nodes.length > 1) {
+          // 单节点重试局部更新：外科手术式局部更新快照中的该节点，不冲刷其余节点！
+          const updatedNode = list[0];
+          const snapNodes = latestDebugSnapshot.nodes.slice();
+          const sIdx = snapNodes.findIndex((n) => n.node_id === updatedNode.node_id);
+          if (sIdx >= 0) snapNodes[sIdx] = updatedNode;
+          else snapNodes.push(updatedNode);
+          latestDebugSnapshot.nodes = snapNodes;
+          latestDebugSnapshot.meta.node_count = snapNodes.length;
+          latestDebugSnapshot.meta.server_time = new Date().toISOString();
+        } else if (hasFullHistory || list.length >= latestDebugSnapshot.nodes.length) {
+          latestDebugSnapshot = {
+            meta: {
+              server_time: new Date().toISOString(),
+              client_timestamp: body.client_timestamp || new Date().toISOString(),
+              timezone_offset: tzOffset,
+              node_count: list.length,
+              cached_at: new Date().toISOString(),
+              cache_ttl_seconds: 180,
+              source: body.raw_records_map ? "overview_full_sync" : "overview_sync"
+            },
+            server_debug: {
+              ok: true,
+              server_time: new Date().toISOString(),
+              config: config,
+              traffic_storage_keys: Object.keys(storage.trafficCache || {}),
+              traffic_storage_records: storage.trafficCache || {},
+              clients_count: clients.length,
+              clients: clients
+            },
+            nodes: list,
+            raw_records_map: Object.assign({}, latestDebugSnapshot.raw_records_map || {}, body.raw_records_map || {})
+          };
+          lastSnapshotUpdateTime = Date.now();
+        }
+      } else {
+        latestDebugSnapshot = {
+          meta: {
+            server_time: new Date().toISOString(),
+            client_timestamp: body.client_timestamp || new Date().toISOString(),
+            timezone_offset: tzOffset,
+            node_count: list.length,
+            cached_at: new Date().toISOString(),
+            cache_ttl_seconds: 180,
+            source: body.raw_records_map ? "overview_full_sync" : "overview_sync"
+          },
+          server_debug: {
+            ok: true,
+            server_time: new Date().toISOString(),
+            config: config,
+            traffic_storage_keys: Object.keys(storage.trafficCache || {}),
+            traffic_storage_records: storage.trafficCache || {},
+            clients_count: clients.length,
+            clients: clients
+          },
+          nodes: list,
+          raw_records_map: body.raw_records_map || {}
+        };
+        lastSnapshotUpdateTime = Date.now();
+      }
 
       sendJSON(res, {
         ok: true,
@@ -2203,13 +2246,20 @@ function load() {
 
   // 5. RPC
   server.registerRPC("netForecast:getOverview", async () => {
+    if (latestDebugSnapshot && Array.isArray(latestDebugSnapshot.nodes) && latestDebugSnapshot.nodes.length > 0) {
+      return {
+        ok: true,
+        nodes: latestDebugSnapshot.nodes,
+      };
+    }
     const config = getConfig();
+    const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
     const clients = await fetchCoreClients();
     return {
       ok: true,
       nodes: clients.map((c) => {
         const history = storage.getNodeHistory(c.uuid);
-        return calculateNodeForecast(history, c, config.warning_threshold);
+        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
       }),
     };
   });

@@ -16,7 +16,13 @@
   - **内存快照缓存与抗 DoS 保护**：服务端提供 180 秒（3 分钟）内存快照缓存与 60 秒刷新节流互斥锁，内存命中响应耗时 `<1ms` 且 0 次数据库 I/O 查询，配合 `Cache-Control: public, max-age=60`，完全免疫高频请求或 DoS 攻击。
   - **操作栏一键复制**：看板底部提供「📋 复制诊断 URL」与「📥 导出诊断数据 (JSON)」双操作，一键将抓取 URL 提供给 AI Agent。
 
-### 🐛 问题修复与体验优化 (Bug Fixes & Improvements)
+### 🐛 问题修复与多端体验对齐 (Bug Fixes & Consistency)
+- **彻底解决悬浮小组件与全量看板指标显示不一致的问题**：
+  - **根本原因修复**：修复了浮窗组件在后台重复发送缺乏打点历史的请求，导致服务端回退至本地短采样数据并冲刷覆盖全局快照的严重缺陷。
+  - **30 天高精度时序持久化**：在 `TrafficStorage` 中新增时序合并落盘逻辑（`setNodeDailyHistory`），全量看板从核心数据库拉取的 30 天打点数据自动落盘，确保服务端与浮窗任何时候均具备完整的 7 日均速计算基准。
+  - **浮窗轻量直读优化**：彻底移除浮窗组件内部对所有节点的并发额外轮询与重算逻辑，直接复用服务端高精度权威快照，页面响应 `<1ms`，两处视图均速、预测总量与告警状态实现 100% 绝对一致。
+  - **单节点重试快照保护**：在服务端增加了单节点局部合并防护逻辑，当用户在前端单独重试某个节点时，外科手术式就地更新该节点，杜绝单节点结果冲刷覆盖全局 15 个节点快照。
+  - **RPC 时区对齐**：对齐了 `netForecast:getOverview` RPC 接口的统计时区偏移与快照复用。
 - **账单周期折线平滑对齐（消除 90 度垂直突变）**：
   - 修复当网卡硬件总计与日采样存在差额时，今日点出现 90 度直角垂直突变的缺陷。引入前序基准底数平滑对齐，折线全周期平滑单调递增，左右严格对齐重置周期。
 
@@ -40,6 +46,12 @@
   - **In-Memory Snapshot & DoS Protection**: Implemented a 180-second (3-minute TTL) in-memory snapshot cache with a 60-second mutex refresh lock. Cache hits return in `<1ms` with zero database queries, fortified with `Cache-Control: public, max-age=60` to thoroughly eliminate any risk of DoS attacks or database exhaustion on single-core VPS servers.
   - **One-Click URL Copying**: Added a "📋 Copy Diagnostic URL" button alongside "📥 Export Debug Data (JSON)" in the footer bar for effortless URL sharing.
 
-### 🐛 Bug Fixes & Improvements
+### 🐛 Bug Fixes & Multi-View Consistency
+- **Resolved Discrepancy Between Floating Widget and Full Chart**:
+  - **Root Cause Fix**: Fixed a critical defect where the floating widget sent background recalculation requests lacking historical records, causing the backend to fall back to limited local samples and overwrite the authoritative global snapshot.
+  - **Persistent 30-Day Historical Storage**: Added `setNodeDailyHistory` in `TrafficStorage` to persistently save high-resolution 30-day records fetched by the dashboard to disk, ensuring both server endpoints and the floating widget consistently compute the accurate 7-day weighted run-rate.
+  - **Lightweight Floating Widget Direct Consumption**: Removed redundant 15-node `/api/recent` polling and degraded re-POST loops from the floating widget. The widget now directly consumes the unified high-precision overview snapshot in `<1ms`, ensuring 100% data consistency across both views.
+  - **Surgical Snapshot Protection on Node Retry**: Added in-place partial update protection so that retrying an individual node does not flush or overwrite the global multi-node snapshot.
+  - **RPC Timezone Alignment**: Aligned the `netForecast:getOverview` RPC interface with the configured timezone offset and snapshot reuse.
 - **Continuous Monotonic Billing Cycle Curves**:
   - Fixed the 90-degree vertical cliff artifact on the cumulative line chart by smoothly offsetting the baseline when historical counters and daily increments have discrepancies, ensuring strictly monotonic curves aligned between `[cycleStart, cycleEnd]`.

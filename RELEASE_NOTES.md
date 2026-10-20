@@ -1,5 +1,14 @@
 ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
 
+### 🚀 v26.1020.1
+#### 🛡️ 路由隔离与前台无感展示 (Route Isolation & UX)
+- **严格限制悬浮小组件仅在前台页面展示**：
+  - 增强 `nfIsAllowedFrontendRoute` 路由校验，处于 iframe 内或访问任何后台路径（`/admin`、`/terminal`、`matrix.html`、`preview.html`、`public.html`、`admin.html`、`/login`、`/settings` 等）时严格静默隐藏。
+  - 仅限在首页（`/`）与实例详情页（`/instance/:id`）展示，彻底消除在管理后台或其他插件页面（如解锁矩阵）误显小组件的问题。
+  - 新增 `popstate` / `hashchange` 事件监听与 500ms 周期巡检，单页应用动态路由跳转时瞬间隐藏。
+
+### v26.1012.2 (Previous)
+
 ### 🚀 新增功能与高可用自愈 (Features & Resilience)
 - **时序打点重启自适应算法（Counter Reset Detection）**：
   - 彻底解决 VPS / 网卡重启后，Linux `/proc/net/dev` 内核内存计数器清零导致的“今日”流量归零、大幅倒扣或数据丢失问题。
@@ -29,6 +38,15 @@
 ---
 
 ## 🇬🇧 English Changelog (en)
+
+### 🚀 v26.1020.1
+#### 🛡️ Route Isolation & Frontend UX
+- **Strict Route Isolation for Floating Widget**:
+  - Enhanced route detection logic (`nfIsAllowedFrontendRoute`) to strictly hide the floating widget inside iframes or on any management/subpages (`/admin`, `/terminal`, `matrix.html`, `preview.html`, `public.html`, `admin.html`, `/login`, `/settings`).
+  - The widget now exclusively displays on the frontend home page (`/`) and instance detail pages (`/instance/:id`), eliminating visual interference on admin or sibling plugin views.
+  - Integrated `popstate` / `hashchange` listeners and a 500ms safety poll to guarantee instant hiding upon client-side SPA navigation.
+
+### v26.1012.2 (Previous)
 
 ### 🚀 Features & Resilience
 - **Counter Reset Detection for Linux / VPS Reboots**:

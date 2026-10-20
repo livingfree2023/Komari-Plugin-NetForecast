@@ -1219,19 +1219,67 @@ const WIDGET_BODY_HTML = `
 </div>
 <script>
 (function() {
-  function nfIsAdminPath() {
+  // 严格仅在前台两个页面（首页 / 与实例详情页 /instance/...）显示浮窗；管理后台、矩阵页、iframe 绝对不显示
+  function nfIsAllowedFrontendRoute() {
     try {
+      if (window.self !== window.top) return false;
+
       var p = (window.location.pathname || "").toLowerCase();
-      return p.indexOf("/admin") === 0;
+      var h = (window.location.hash || "").toLowerCase();
+      var full = p + " " + h;
+
+      if (full.indexOf("/admin") !== -1 ||
+          full.indexOf("/terminal") !== -1 ||
+          full.indexOf("/api/plugin") !== -1 ||
+          full.indexOf("/plugin") !== -1 ||
+          full.indexOf("matrix.html") !== -1 ||
+          full.indexOf("preview.html") !== -1 ||
+          full.indexOf("public.html") !== -1 ||
+          full.indexOf("admin.html") !== -1 ||
+          full.indexOf("/login") !== -1 ||
+          full.indexOf("/auth") !== -1 ||
+          full.indexOf("/settings") !== -1) {
+        return false;
+      }
+
+      var isInstance = (
+        p.indexOf("/instance") !== -1 || h.indexOf("/instance") !== -1 ||
+        p.indexOf("/node") !== -1 || h.indexOf("/node") !== -1 ||
+        p.indexOf("/server") !== -1 || h.indexOf("/server") !== -1
+      );
+      if (isInstance) return true;
+
+      var cleanP = p.replace(/\/+$/, "") || "/";
+      var cleanH = h.replace(/\/+$/, "") || "";
+      var isHome = (cleanP === "/" || cleanP === "/index.html") &&
+                   (cleanH === "" || cleanH === "#" || cleanH === "#/" || cleanH === "#/home" || cleanH === "#/overview");
+      if (isHome) return true;
+
+      return false;
     } catch (e) {
       return false;
     }
   }
 
-  var widgetRoot = document.getElementById("nf-floating-widget");
-  if (widgetRoot) {
-    widgetRoot.style.display = nfIsAdminPath() ? "none" : "block";
+  function nfSyncWidgetVisibility() {
+    var widgetRoot = document.getElementById("nf-floating-widget");
+    if (widgetRoot) {
+      var allowed = nfIsAllowedFrontendRoute();
+      widgetRoot.style.setProperty("display", allowed ? "block" : "none", "important");
+      if (!allowed) {
+        var card = widgetRoot.querySelector(".nf-widget-card");
+        if (card) {
+          card.classList.remove("nf-open");
+          card.style.setProperty("display", "none", "important");
+        }
+      }
+    }
   }
+
+  nfSyncWidgetVisibility();
+  window.addEventListener("popstate", nfSyncWidgetVisibility);
+  window.addEventListener("hashchange", nfSyncWidgetVisibility);
+  setInterval(nfSyncWidgetVisibility, 500);
 
   // 稳健提取当前节点 ID (免正则转义干扰，全面支持 pathname / hash / search)
   function getCurrentInstanceUuid() {

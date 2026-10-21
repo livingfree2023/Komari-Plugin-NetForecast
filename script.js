@@ -746,17 +746,17 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   --nf-warning: #92400e;
   --nf-danger: #b91c1c;
   --nf-radius: 12px;
-  --nf-shadow: 0 12px 36px #0f172a26;
-  --nf-border-top: 1px solid #cbd5e1;
-  --nf-border-right: 1px solid #cbd5e1;
-  --nf-border-bottom: 1px solid #cbd5e1;
-  --nf-border-left: 1px solid #cbd5e1;
+  --nf-border: 1px solid rgba(255, 255, 255, 0.12);
+  --nf-border-top: 1px solid rgba(255, 255, 255, 0.12);
+  --nf-border-right: 1px solid rgba(255, 255, 255, 0.12);
+  --nf-border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  --nf-border-left: 1px solid rgba(255, 255, 255, 0.12);
   font-family: var(--nf-font) !important;
   font-size: var(--nf-font-size) !important;
   line-height: 1.45 !important;
   color-scheme: var(--nf-scheme) !important;
   color: var(--nf-text) !important;
-  z-index: 99999 !important;
+  pointer-events: none !important;
 }
 
 /* 1. 可拖拽方形触发图标按钮 (无文字，边框状态变色) */
@@ -764,15 +764,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   width: 48px !important;
   height: 48px !important;
   position: fixed !important;
-  background: var(--nf-page-bg) !important;
-  background-image: var(--nf-page-image) !important;
-  background-size: var(--nf-page-size, auto) !important;
-  background-position: var(--nf-page-position, 0% 0%) !important;
-  background-repeat: var(--nf-page-repeat, repeat) !important;
-  background-origin: var(--nf-page-origin, padding-box) !important;
-  background-clip: var(--nf-page-clip, border-box) !important;
-  background-blend-mode: var(--nf-page-blend, normal) !important;
-  background-attachment: var(--nf-page-attachment, scroll) !important;
+  background: var(--nf-card-bg, #1e293b) !important;
+  background-image: var(--nf-card-image, none) !important;
+  background-size: var(--nf-card-size, auto) !important;
+  background-position: var(--nf-card-position, 0% 0%) !important;
+  background-repeat: var(--nf-card-repeat, repeat) !important;
+  background-origin: var(--nf-card-origin, padding-box) !important;
+  background-clip: var(--nf-card-clip, border-box) !important;
+  background-blend-mode: var(--nf-card-blend, normal) !important;
+  background-attachment: var(--nf-card-attachment, scroll) !important;
   border-radius: 12px !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -782,7 +782,8 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   cursor: grab !important;
   user-select: none !important;
   touch-action: none !important;
-  z-index: 99999 !important;
+  z-index: 99990 !important;
+  pointer-events: auto !important;
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s !important;
 }
 #nf-floating-widget .nf-trigger-sq:active {
@@ -792,31 +793,25 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget .nf-trigger-sq * {
   pointer-events: none !important;
 }
-/* 无警告状态：绿色外框 */
-#nf-floating-widget .nf-trigger-sq.safe {
-  border: 2px solid #10b981 !important;
-  color: #10b981 !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 14px rgba(16, 185, 129, 0.4) !important;
+/* 方案一：立体深影 + 贴近宿主卡片边框风格 (极细 1px 边框，无红绿边框，无脉冲动效) */
+#nf-floating-widget .nf-trigger-sq {
+  border: var(--nf-border, 1px solid rgba(255, 255, 255, 0.12)) !important;
+  color: var(--nf-text, #cbd5e1) !important;
+  box-shadow: 
+    4px 6px 18px rgba(0, 0, 0, 0.45),
+    1px 2px 4px rgba(0, 0, 0, 0.25) !important;
 }
-#nf-floating-widget .nf-trigger-sq.safe:hover {
-  border-color: #34d399 !important;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 18px rgba(16, 185, 129, 0.6) !important;
+#nf-floating-widget .nf-trigger-sq:hover {
+  transform: translate(-1px, -1px) scale(1.04) !important;
+  box-shadow: 
+    6px 10px 24px rgba(0, 0, 0, 0.55),
+    2px 3px 6px rgba(0, 0, 0, 0.3) !important;
 }
-/* 有警告状态：红色外框与脉冲 */
+#nf-floating-widget .nf-trigger-sq.safe,
 #nf-floating-widget .nf-trigger-sq.alert {
-  border: 2px solid #ef4444 !important;
-  color: var(--nf-danger) !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(239, 68, 68, 0.55) !important;
-  animation: nfSqPulse 1.8s infinite !important;
-}
-#nf-floating-widget .nf-trigger-sq.alert:hover {
-  border-color: #f87171 !important;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 22px rgba(239, 68, 68, 0.75) !important;
-}
-@keyframes nfSqPulse {
-  0% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(239, 68, 68, 0.4); }
-  50% { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 22px rgba(239, 68, 68, 0.8); }
-  100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(239, 68, 68, 0.4); }
+  /* 边框严格贴近主题页面风格，极细 1px，无刺眼的红绿色边框，预警状态无脉冲 */
+  border: var(--nf-border, 1px solid rgba(255, 255, 255, 0.12)) !important;
+  color: var(--nf-text, #cbd5e1) !important;
 }
 #nf-floating-widget .nf-sq-dot {
   position: absolute !important;
@@ -831,15 +826,18 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget .nf-sq-dot.alert {
   display: block !important;
   background: #ef4444 !important;
-  box-shadow: 0 0 8px #ef4444 !important;
+  box-shadow: 0 0 6px #ef4444 !important;
 }
 
-/* 2. 展开看板面板主体 (默认严格隐藏，仅带有 .nf-open 时以 flex 显现) */
+/* 2. 展开看板面板主体 (立体深邃投影与极细 1px 边框) */
 #nf-floating-widget .nf-widget-card {
   display: none !important;
   position: fixed !important;
-  z-index: 99998 !important;
+  z-index: 100000 !important;
+  pointer-events: auto !important;
   width: 440px !important;
+  min-width: 320px !important;
+  min-height: 220px !important;
   max-width: calc(100vw - 28px) !important;
   max-height: 80vh !important;
   background: var(--nf-page-bg) !important;
@@ -851,16 +849,16 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   background-clip: var(--nf-page-clip, border-box) !important;
   background-blend-mode: var(--nf-page-blend, normal) !important;
   background-attachment: var(--nf-page-attachment, scroll) !important;
-  border-top: var(--nf-border-top) !important;
-  border-right: var(--nf-border-right) !important;
-  border-bottom: var(--nf-border-bottom) !important;
-  border-left: var(--nf-border-left) !important;
+  border: var(--nf-border, 1px solid rgba(255, 255, 255, 0.12)) !important;
   backdrop-filter: blur(28px) !important;
   -webkit-backdrop-filter: blur(28px) !important;
-  border-radius: var(--nf-radius) !important;
-  box-shadow: var(--nf-shadow) !important;
+  border-radius: var(--nf-radius, 16px) !important;
+  box-shadow: 
+    8px 16px 36px rgba(0, 0, 0, 0.55),
+    2px 4px 10px rgba(0, 0, 0, 0.35) !important;
   flex-direction: column !important;
   overflow: hidden !important;
+  resize: both !important;
 }
 #nf-floating-widget .nf-widget-card.nf-open {
   display: flex !important;
@@ -1259,7 +1257,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 const WIDGET_BODY_HTML = `
 <div id="nf-floating-widget">
   <!-- 1. 可拖拽方形图标按钮 (无文字，状态边框变色) -->
-  <div class="nf-trigger-sq safe" id="nfTriggerBtn" title="流量预测 (可拖拽移动位置)">
+  <div class="nf-trigger-sq safe" id="nfTriggerBtn" data-km-fab="true" data-km-fab-id="net-forecast" title="流量预测 (可拖拽移动位置)">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="20" x2="18" y2="10"></line>
       <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -1321,7 +1319,8 @@ const WIDGET_BODY_HTML = `
   var nfColorContext = nfColorCanvas.getContext("2d", { willReadFrequently: true });
 
   function nfHostElement(el) {
-    return el && el.nodeType === 1 && !nfThemeRoot.contains(el) &&
+    var root = document.getElementById("nf-floating-widget") || nfThemeRoot;
+    return el && el.nodeType === 1 && (!root || !root.contains(el)) &&
       !el.closest('[role="dialog"], [role="menu"], [role="listbox"], [popover], nav, header, footer, #netforecast-widget-style');
   }
   function nfRGBA(value) {
@@ -1437,7 +1436,9 @@ const WIDGET_BODY_HTML = `
   }
   function nfApplyTheme() {
     nfThemeTimer = null; nfThemeDue = 0; nfThemeLast = Date.now();
-    if (!nfThemeRoot.isConnected || document.hidden) return;
+    var root = document.getElementById("nf-floating-widget") || nfThemeRoot;
+    if (!root || !root.isConnected || document.hidden) return;
+    nfThemeRoot = root;
     try {
       if (nfThemeDiscover || !nfVisible(nfThemePage) || (nfThemeCard && !nfVisible(nfThemeCard))) nfDiscoverTheme();
       nfThemeDiscover = false; nfThemeAncestors = [];
@@ -1469,8 +1470,13 @@ const WIDGET_BODY_HTML = `
         "text": text, "card-text": cardText, "muted": text, "accent": accent,
         "radius": cs ? cs.borderRadius : "12px", "shadow": cs ? cs.boxShadow : (dark ? "0 12px 36px #0008" : "0 12px 36px #0f172a26"),
         "safe": nfLuminance(cardSurface.bg) < 0.179 ? "#6ee7b7" : "#047857", "warning": nfLuminance(cardSurface.bg) < 0.179 ? "#fde68a" : "#92400e", "danger": nfLuminance(cardSurface.bg) < 0.179 ? "#fca5a5" : "#b91c1c" };
+      var borderVal = cs ? cs.getPropertyValue("border-top") : "";
+      if (!borderVal || borderVal === "none" || borderVal.indexOf("0px") === 0) {
+        borderVal = "1px solid " + (dark ? "rgba(255, 255, 255, 0.12)" : "rgba(15, 23, 42, 0.12)");
+      }
+      vars["border"] = borderVal;
       ["top", "right", "bottom", "left"].forEach(function(side) {
-        vars["border-" + side] = cs ? cs.getPropertyValue("border-" + side) : ("1px solid " + (dark ? "#475569" : "#cbd5e1"));
+        vars["border-" + side] = borderVal;
       });
       [["page", page], ["card", cardSurface]].forEach(function(entry) {
         var prefix = entry[0], surface = entry[1];
@@ -1479,7 +1485,7 @@ const WIDGET_BODY_HTML = `
       });
       Object.keys(vars).forEach(function(key) {
         var name = "--nf-" + key;
-        if (nfThemeRoot.style.getPropertyValue(name) !== vars[key]) nfThemeRoot.style.setProperty(name, vars[key]);
+        if (root.style.getPropertyValue(name) !== vars[key]) root.style.setProperty(name, vars[key]);
       });
       if (isOpen && typeof positionCard === "function") positionCard();
     } catch (e) { /* Scoped CSS defaults stay readable if sampling is unavailable. */ }
@@ -1494,9 +1500,10 @@ const WIDGET_BODY_HTML = `
     nfThemeTimer = setTimeout(nfApplyTheme, wait);
   }
   var nfThemeObserver = new MutationObserver(function(records) {
+    var root = document.getElementById("nf-floating-widget") || nfThemeRoot;
     for (var i = 0; i < records.length; i++) {
       var record = records[i], target = record.target;
-      if (target === nfThemeRoot || nfThemeRoot.contains(target)) continue;
+      if (root && (target === root || root.contains(target))) continue;
       if (record.type === "attributes") {
         if (target === document.documentElement || target === document.body || target.tagName === "LINK" || target.tagName === "STYLE" || nfThemeAncestors.indexOf(target) >= 0) { nfScheduleTheme(record.attributeName !== "style"); return; }
       } else {
@@ -1506,7 +1513,7 @@ const WIDGET_BODY_HTML = `
           var added = record.addedNodes[j];
           var lateSurface = !nfThemeCard &&
             added.nodeType === 1 && ["DIV", "MAIN", "SECTION", "ARTICLE", "A", "LI"].indexOf(added.tagName) >= 0;
-          if (added.nodeType === 1 && !nfThemeRoot.contains(added) &&
+          if (added.nodeType === 1 && (!root || !root.contains(added)) &&
               (lateSurface || added.tagName === "STYLE" || added.tagName === "LINK")) {
             nfScheduleTheme(true, lateSurface ? Math.max(0, 5000 - (Date.now() - nfThemeLastDiscovery)) : 0); return;
           }
@@ -1550,34 +1557,76 @@ const WIDGET_BODY_HTML = `
     }
   }
 
-  function nfSyncWidgetVisibility() {
-    var widgetRoot = document.getElementById("nf-floating-widget");
-    if (widgetRoot) {
-      var isAdmin = nfIsAdminPath();
-      widgetRoot.style.setProperty("display", isAdmin ? "none" : "block", "important");
-      if (isAdmin) {
-        var card = widgetRoot.querySelector(".nf-widget-card");
-        if (card) {
-          isOpen = false;
-          card.classList.remove("nf-open");
-          card.style.setProperty("display", "none", "important");
-        }
-      } else if (typeof cachedData !== "undefined" && cachedData && cachedData.nodes && typeof renderData === "function") {
-        renderData(cachedData);
-      }
-    }
-  }
+  var WIDGET_INNER_HTML = [
+    '<div class="nf-trigger-sq safe" id="nfTriggerBtn" data-km-fab="true" data-km-fab-id="net-forecast" title="流量预测 (可拖拽移动位置)">',
+    '  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">',
+    '    <line x1="18" y1="20" x2="18" y2="10"></line>',
+    '    <line x1="12" y1="20" x2="12" y2="4"></line>',
+    '    <line x1="6" y1="20" x2="6" y2="14"></line>',
+    '    <path d="M3 14l5-4 5 3 7-7"></path>',
+    '  </svg>',
+    '  <div class="nf-sq-dot" id="nfSqDot"></div>',
+    '</div>',
+    '<div class="nf-widget-card" id="nfWidgetCard">',
+    '  <div class="nf-header">',
+    '    <div class="nf-header-title">',
+    '      <div class="nf-header-icon">📊</div>',
+    '      <span class="nf-header-text" id="nfWhTitle">流量预测与预算监控</span>',
+    '    </div>',
+    '    <button class="nf-close-btn" id="nfCloseBtn" title="关闭 (✕)">✕</button>',
+    '  </div>',
+    '  <div class="nf-kpi-bar">',
+    '    <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal">-</span></div>',
+    '    <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal">-</span></div>',
+    '    <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal">-</span></div>',
+    '  </div>',
+    '  <div class="nf-filter-bar" id="nfFilterBar">',
+    '    <button class="nf-filter-btn" data-filter="CURRENT" id="nfBtnCurrent" style="display:none;">📌 当前 (1)</button>',
+    '    <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>',
+    '    <button class="nf-filter-btn" data-filter="ALERT" id="nfBtnAlert">🚨 预警 (0)</button>',
+    '    <button class="nf-filter-btn" data-filter="SAFE" id="nfBtnSafe">✅ 安全 (0)</button>',
+    '    <button class="nf-filter-btn" data-filter="NO_QUOTA" id="nfBtnNoQuota">⚪ 免额 (0)</button>',
+    '  </div>',
+    '  <div class="nf-list" id="nfNodeList">',
+    '    <div class="nf-empty">正在计算全节点流量与预算预测...</div>',
+    '  </div>',
+    '  <div class="nf-footer">',
+    '    <div class="nf-footer-status"><div class="nf-live-dot"></div><span id="nfFooterStatus">实时监测中</span></div>',
+    '    <a href="/api/plugin/net-forecast/pages/public.html" target="_blank" class="nf-btn-full" id="nfFooterFullBtn">完整图表 ↗</a>',
+    '  </div>',
+    '</div>'
+  ].join("");
 
-  nfSyncWidgetVisibility();
-  var nfLastRoute = location.href;
-  setInterval(function() {
-    if (location.href !== nfLastRoute) nfCheckRoute();
-  }, 1000);
+  var isEn = (navigator.language || "").toLowerCase().indexOf("en") === 0;
+  var btn = null;
+  var card = null;
+  var closeBtn = null;
+  var sqDot = null;
+  var filterBar = null;
+  var whTitle = null;
+  var kpiUsedLbl = null;
+  var kpiRiskLbl = null;
+  var kpiResetLbl = null;
+  var kpiUsedVal = null;
+  var kpiRiskVal = null;
+  var kpiResetVal = null;
+  var btnCurrent = null;
+  var btnAll = null;
+  var btnAlert = null;
+  var btnSafe = null;
+  var btnNoQuota = null;
+  var nodeList = null;
+  var footerStatus = null;
+  var footerFullBtn = null;
+
+  var isOpen = false;
+  var currentFilter = "ALL";
+  var cachedData = null;
+  var posKey = "nf_btn_pos_v2";
 
   // 稳健提取当前节点 ID (免正则转义干扰，全面支持 pathname / hash / search)
   function getCurrentInstanceUuid() {
     try {
-      // 1. Pathname (e.g. /instance/:id, /instances/:id, /node/:id, /server/:id)
       var pathname = (window.location.pathname || "").trim();
       var pathParts = pathname.split("/").filter(Boolean);
       for (var i = 0; i < pathParts.length; i++) {
@@ -1588,7 +1637,6 @@ const WIDGET_BODY_HTML = `
         }
       }
 
-      // 2. Hash (e.g. #/instance/:id)
       var hash = (window.location.hash || "").trim();
       if (hash) {
         var cleanHash = hash.indexOf("#") === 0 ? hash.slice(1) : hash;
@@ -1603,7 +1651,6 @@ const WIDGET_BODY_HTML = `
         }
       }
 
-      // 3. Search query (?uuid=... or ?node_id=... or ?id=...)
       var search = window.location.search || "";
       if (search && (search.indexOf("uuid=") !== -1 || search.indexOf("node_id=") !== -1 || search.indexOf("instance=") !== -1 || search.indexOf("id=") !== -1)) {
         var searchStr = search.indexOf("?") === 0 ? search.slice(1) : search;
@@ -1626,7 +1673,6 @@ const WIDGET_BODY_HTML = `
     var target = String(targetId).trim().toLowerCase();
     if (!target) return null;
 
-    // 1. 严格精确匹配 (node_id / uuid / node_name)
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i];
       var id = String(n.node_id || n.uuid || "").trim().toLowerCase();
@@ -1636,7 +1682,6 @@ const WIDGET_BODY_HTML = `
       }
     }
 
-    // 2. 忽略连字符匹配 (防 URL 省略 uuid 连字符)
     var targetNoDash = target.split("-").join("");
     if (targetNoDash.length >= 8) {
       for (var j = 0; j < nodes.length; j++) {
@@ -1648,7 +1693,6 @@ const WIDGET_BODY_HTML = `
       }
     }
 
-    // 3. 短 UUID 前缀匹配 (适配前端短路由截取)
     if (target.length >= 6) {
       for (var k = 0; k < nodes.length; k++) {
         var nk = nodes[k];
@@ -1662,11 +1706,348 @@ const WIDGET_BODY_HTML = `
     return null;
   }
 
+  function getOtherFabs(myEl, myId) {
+    var list = [];
+    var all = document.querySelectorAll("[data-km-fab='true'], .nf-trigger-sq, .km-ul-trigger-btn");
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (el === myEl || !el.isConnected) continue;
+      var fabId = el.getAttribute("data-km-fab-id");
+      if (fabId && fabId === myId) continue;
+      var style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") continue;
+      var r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        list.push(el);
+      }
+    }
+    return list;
+  }
+
+  function isFabColliding(r1, r2) {
+    return Math.abs(r1.left - r2.left) < 52 && Math.abs(r1.top - r2.top) < 52;
+  }
+
+  function resolveFabPosition(desiredL, desiredT, myEl, myId) {
+    var l = desiredL;
+    var t = desiredT;
+    var winW = window.innerWidth;
+    var winH = window.innerHeight;
+    var others = getOtherFabs(myEl, myId);
+
+    var attempts = 0;
+    var collided = true;
+    while (collided && attempts < 8) {
+      collided = false;
+      for (var i = 0; i < others.length; i++) {
+        var other = others[i];
+        var oRect = other.getBoundingClientRect();
+        if (isFabColliding({ left: l, top: t }, oRect)) {
+          collided = true;
+          t -= 60;
+          if (t < 24) {
+            t = oRect.bottom + 12;
+          }
+          break;
+        }
+      }
+      attempts++;
+    }
+    return {
+      left: Math.max(10, Math.min(winW - 58, l)),
+      top: Math.max(10, Math.min(winH - 58, t))
+    };
+  }
+
+  function loadSavedPos() {
+    if (!btn) return;
+    var winW = window.innerWidth;
+    var winH = window.innerHeight;
+    var targetL = null;
+    var targetT = null;
+
+    try {
+      var raw = localStorage.getItem(posKey);
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (typeof p.left === "number" && typeof p.top === "number") {
+          targetL = p.left;
+          targetT = p.top;
+        }
+      }
+    } catch (e) {}
+
+    if (targetL === null || targetT === null) {
+      var others = getOtherFabs(btn, "net-forecast");
+      var slotIndex = others.length;
+      var margin = 24;
+      var slotPitch = 60;
+      targetL = winW - 48 - margin;
+      targetT = winH - 48 - (margin + slotIndex * slotPitch);
+      if (targetT < margin) {
+        targetT = winH - 48 - margin;
+      }
+    }
+
+    var safePos = resolveFabPosition(targetL, targetT, btn, "net-forecast");
+    btn.style.setProperty("left", safePos.left + "px", "important");
+    btn.style.setProperty("top", safePos.top + "px", "important");
+    btn.style.setProperty("right", "auto", "important");
+    btn.style.setProperty("bottom", "auto", "important");
+  }
+
+  var isDragging = false;
+  var startX = 0, startY = 0;
+  var origL = 0, origT = 0;
+
+  function initButtonDraggable() {
+    if (!btn) return;
+
+    btn.onpointerdown = function(e) {
+      if (e.button !== 0) return;
+      btn.setPointerCapture(e.pointerId);
+      isDragging = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      var rect = btn.getBoundingClientRect();
+      origL = rect.left;
+      origT = rect.top;
+    };
+
+    btn.onpointermove = function(e) {
+      if (!btn.hasPointerCapture(e.pointerId)) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        isDragging = true;
+        var newL = Math.max(10, Math.min(window.innerWidth - 56, origL + dx));
+        var newT = Math.max(10, Math.min(window.innerHeight - 56, origT + dy));
+        btn.style.setProperty("left", newL + "px", "important");
+        btn.style.setProperty("top", newT + "px", "important");
+        btn.style.setProperty("right", "auto", "important");
+        btn.style.setProperty("bottom", "auto", "important");
+        if (isOpen && typeof positionCard === "function") positionCard();
+      }
+    };
+
+    btn.onpointerup = function(e) {
+      if (!btn.hasPointerCapture(e.pointerId)) return;
+      try { btn.releasePointerCapture(e.pointerId); } catch (err) {}
+      if (isDragging) {
+        var rect = btn.getBoundingClientRect();
+        var safePos = resolveFabPosition(rect.left, rect.top, btn, "net-forecast");
+        if (safePos.left !== rect.left || safePos.top !== rect.top) {
+          btn.style.transition = "left 0.2s cubic-bezier(0.2, 0, 0, 1), top 0.2s cubic-bezier(0.2, 0, 0, 1)";
+          btn.style.setProperty("left", safePos.left + "px", "important");
+          btn.style.setProperty("top", safePos.top + "px", "important");
+          setTimeout(function() {
+            if (btn) btn.style.transition = "border-color 0.25s, box-shadow 0.25s, transform 0.15s";
+          }, 250);
+        }
+        try {
+          localStorage.setItem(posKey, JSON.stringify({ left: safePos.left, top: safePos.top }));
+        } catch (err) {}
+        if (isOpen && typeof positionCard === "function") positionCard();
+      } else {
+        toggle();
+      }
+    };
+
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (isDragging) return;
+      if (!isOpen) {
+        openCard();
+      }
+    };
+  }
+
+  function positionCard() {
+    if (!card || !btn) return;
+    var bRect = btn.getBoundingClientRect();
+    var cardW = Math.min(440, window.innerWidth - 28);
+    card.style.setProperty("width", cardW + "px", "important");
+
+    var below = bRect.top <= window.innerHeight / 2;
+    var available = below ? window.innerHeight - bRect.bottom - 24 : bRect.top - 24;
+    card.style.setProperty("max-height", Math.max(80, Math.min(window.innerHeight * 0.8, available)) + "px", "important");
+
+    var panelLeft = Math.max(14, Math.min(window.innerWidth - cardW - 14, bRect.left));
+    card.style.setProperty("left", panelLeft + "px", "important");
+    card.style.setProperty("right", "auto", "important");
+
+    if (below) {
+      var t = Math.max(12, bRect.bottom + 10);
+      card.style.setProperty("top", t + "px", "important");
+      card.style.setProperty("bottom", "auto", "important");
+    } else {
+      var b = Math.max(12, window.innerHeight - bRect.top + 10);
+      card.style.setProperty("bottom", b + "px", "important");
+      card.style.setProperty("top", "auto", "important");
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return "0 B";
+    var k = 1024;
+    var sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    var idx = Math.min(i, sizes.length - 1);
+    return (bytes / Math.pow(k, idx)).toFixed(idx === 0 ? 0 : 1) + " " + sizes[idx];
+  }
+
+  function openCard() {
+    isOpen = true;
+    try {
+      window.dispatchEvent(new CustomEvent("km:floating-card-open", { detail: { sourceId: "net-forecast" } }));
+    } catch (e) {}
+    nfScheduleTheme(true);
+    positionCard();
+    if (card) {
+      card.style.setProperty("display", "flex", "important");
+      card.classList.add("nf-open");
+    }
+    if (cachedData && cachedData.nodes && cachedData.nodes.length > 0) {
+      renderData(cachedData);
+    } else {
+      fetchAndCompute();
+    }
+  }
+
+  function closeCard() {
+    isOpen = false;
+    if (card) {
+      card.style.setProperty("display", "none", "important");
+      card.classList.remove("nf-open");
+    }
+  }
+
+  function toggle() {
+    if (isOpen) {
+      closeCard();
+    } else {
+      openCard();
+    }
+  }
+
+  function bindWidgetElements() {
+    btn = document.getElementById("nfTriggerBtn");
+    card = document.getElementById("nfWidgetCard");
+    closeBtn = document.getElementById("nfCloseBtn");
+    sqDot = document.getElementById("nfSqDot");
+    filterBar = document.getElementById("nfFilterBar");
+    whTitle = document.getElementById("nfWhTitle");
+    kpiUsedLbl = document.getElementById("nfKpiUsedLbl");
+    kpiRiskLbl = document.getElementById("nfKpiRiskLbl");
+    kpiResetLbl = document.getElementById("nfKpiResetLbl");
+    kpiUsedVal = document.getElementById("nfKpiUsedVal");
+    kpiRiskVal = document.getElementById("nfKpiRiskVal");
+    kpiResetVal = document.getElementById("nfKpiResetVal");
+    btnCurrent = document.getElementById("nfBtnCurrent");
+    btnAll = document.getElementById("nfBtnAll");
+    btnAlert = document.getElementById("nfBtnAlert");
+    btnSafe = document.getElementById("nfBtnSafe");
+    btnNoQuota = document.getElementById("nfBtnNoQuota");
+    nodeList = document.getElementById("nfNodeList");
+    footerStatus = document.getElementById("nfFooterStatus");
+    footerFullBtn = document.getElementById("nfFooterFullBtn");
+
+    if (isEn) {
+      if (btn) btn.title = "Traffic Forecast (Drag to move)";
+      if (whTitle) whTitle.textContent = "Traffic & Quota Forecast";
+      if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
+      if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
+      if (kpiResetLbl) kpiResetLbl.textContent = "NEXT RESET";
+      if (footerStatus) footerStatus.textContent = "Live Monitoring";
+      if (footerFullBtn) footerFullBtn.textContent = "Full Chart ↗";
+    }
+
+    initButtonDraggable();
+    setupFilters();
+
+    if (closeBtn) {
+      closeBtn.onclick = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        closeCard();
+      };
+    }
+  }
+
+  function ensureWidgetMounted() {
+    if (nfIsAdminPath()) return null;
+    var root = document.getElementById("nf-floating-widget");
+    var btnEl = document.getElementById("nfTriggerBtn");
+    var cardEl = document.getElementById("nfWidgetCard");
+    var needsMount = !root || !root.isConnected || !document.body || !document.body.contains(root) || !btnEl || !cardEl;
+    if (needsMount) {
+      if (root && root.parentElement) {
+        try { root.parentElement.removeChild(root); } catch (e) {}
+      }
+      root = document.createElement("div");
+      root.id = "nf-floating-widget";
+      root.innerHTML = WIDGET_INNER_HTML;
+      if (document.body) {
+        document.body.appendChild(root);
+      } else if (document.documentElement) {
+        document.documentElement.appendChild(root);
+      }
+      bindWidgetElements();
+      loadSavedPos();
+      nfScheduleTheme(true);
+      if (cachedData) renderData(cachedData);
+    } else if (!btn || !card) {
+      bindWidgetElements();
+    }
+    return root;
+  }
+
   function nfCheckRoute() {
     nfLastRoute = location.href;
     nfScheduleTheme(true);
     nfSyncWidgetVisibility();
+    if (cachedData && typeof renderData === "function") {
+      renderData(cachedData);
+    }
   }
+
+  function nfSyncWidgetVisibility() {
+    if (nfIsAdminPath()) {
+      var widgetRoot = document.getElementById("nf-floating-widget");
+      if (widgetRoot) {
+        widgetRoot.style.setProperty("display", "none", "important");
+      }
+      if (card) {
+        isOpen = false;
+        card.classList.remove("nf-open");
+        card.style.setProperty("display", "none", "important");
+      }
+    } else {
+      ensureWidgetMounted();
+      var widgetRoot = document.getElementById("nf-floating-widget");
+      if (widgetRoot) {
+        widgetRoot.style.setProperty("display", "block", "important");
+      }
+      if (btn) {
+        btn.style.removeProperty("display");
+      }
+    }
+  }
+
+  ensureWidgetMounted();
+  loadSavedPos();
+
+  setTimeout(function() {
+    if (!btn) return;
+    var rect = btn.getBoundingClientRect();
+    var safePos = resolveFabPosition(rect.left, rect.top, btn, "net-forecast");
+    if (safePos.left !== rect.left || safePos.top !== rect.top) {
+      btn.style.setProperty("left", safePos.left + "px", "important");
+      btn.style.setProperty("top", safePos.top + "px", "important");
+    }
+  }, 350);
+
   window.addEventListener("popstate", nfCheckRoute);
   window.addEventListener("hashchange", nfCheckRoute);
 
@@ -1687,196 +2068,20 @@ const WIDGET_BODY_HTML = `
     };
   }
 
-  var isEn = (navigator.language || "").toLowerCase().startsWith("en");
-  var btn = document.getElementById("nfTriggerBtn");
-  var card = document.getElementById("nfWidgetCard");
-  var closeBtn = document.getElementById("nfCloseBtn");
-  var sqDot = document.getElementById("nfSqDot");
-  var filterBar = document.getElementById("nfFilterBar");
-  var whTitle = document.getElementById("nfWhTitle");
-  var kpiUsedLbl = document.getElementById("nfKpiUsedLbl");
-  var kpiRiskLbl = document.getElementById("nfKpiRiskLbl");
-  var kpiResetLbl = document.getElementById("nfKpiResetLbl");
-  var kpiUsedVal = document.getElementById("nfKpiUsedVal");
-  var kpiRiskVal = document.getElementById("nfKpiRiskVal");
-  var kpiResetVal = document.getElementById("nfKpiResetVal");
-  var btnCurrent = document.getElementById("nfBtnCurrent");
-  var btnAll = document.getElementById("nfBtnAll");
-  var btnAlert = document.getElementById("nfBtnAlert");
-  var btnSafe = document.getElementById("nfBtnSafe");
-  var btnNoQuota = document.getElementById("nfBtnNoQuota");
-  var nodeList = document.getElementById("nfNodeList");
-  var footerStatus = document.getElementById("nfFooterStatus");
-  var footerFullBtn = document.getElementById("nfFooterFullBtn");
-
-  if (isEn) {
-    if (btn) btn.title = "Traffic Forecast (Drag to move)";
-    if (whTitle) whTitle.textContent = "Traffic & Quota Forecast";
-    if (kpiUsedLbl) kpiUsedLbl.textContent = "TOTAL USED";
-    if (kpiRiskLbl) kpiRiskLbl.textContent = "AT RISK";
-    if (kpiResetLbl) kpiResetLbl.textContent = "NEXT RESET";
-    if (footerStatus) footerStatus.textContent = "Live Monitoring";
-    if (footerFullBtn) footerFullBtn.textContent = "Full Chart ↗";
-  }
-
-  // 2. 拖拽与记住最后位置 (Draggable & Persisted Position)
-  var posKey = "nf_btn_pos_v2";
-  function loadSavedPos() {
-    try {
-      var raw = localStorage.getItem(posKey);
-      if (raw) {
-        var p = JSON.parse(raw);
-        if (typeof p.left === "number" && typeof p.top === "number") {
-          var maxL = Math.max(10, window.innerWidth - 60);
-          var maxT = Math.max(10, window.innerHeight - 60);
-          var l = Math.max(10, Math.min(maxL, p.left));
-          var t = Math.max(10, Math.min(maxT, p.top));
-          btn.style.setProperty("left", l + "px", "important");
-          btn.style.setProperty("top", t + "px", "important");
-          btn.style.setProperty("right", "auto", "important");
-          btn.style.setProperty("bottom", "auto", "important");
-          return;
-        }
-      }
-    } catch (e) {}
-    btn.style.setProperty("right", "28px", "important");
-    btn.style.setProperty("bottom", "28px", "important");
-    btn.style.setProperty("left", "auto", "important");
-    btn.style.setProperty("top", "auto", "important");
-  }
-  loadSavedPos();
-
-  var isDragging = false;
-  var startX = 0, startY = 0;
-  var origL = 0, origT = 0;
-
-  btn.addEventListener("pointerdown", function(e) {
-    if (e.button !== 0) return;
-    btn.setPointerCapture(e.pointerId);
-    isDragging = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    var rect = btn.getBoundingClientRect();
-    origL = rect.left;
-    origT = rect.top;
-  });
-
-  btn.addEventListener("pointermove", function(e) {
-    if (!btn.hasPointerCapture(e.pointerId)) return;
-    var dx = e.clientX - startX;
-    var dy = e.clientY - startY;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      isDragging = true;
-      var newL = Math.max(10, Math.min(window.innerWidth - 56, origL + dx));
-      var newT = Math.max(10, Math.min(window.innerHeight - 56, origT + dy));
-      btn.style.setProperty("left", newL + "px", "important");
-      btn.style.setProperty("top", newT + "px", "important");
-      btn.style.setProperty("right", "auto", "important");
-      btn.style.setProperty("bottom", "auto", "important");
+  var nfLastRoute = location.href;
+  setInterval(function() {
+    nfSyncWidgetVisibility();
+    if (location.href !== nfLastRoute) {
+      nfCheckRoute();
     }
-  });
+  }, 500);
 
-  btn.addEventListener("pointerup", function(e) {
-    if (!btn.hasPointerCapture(e.pointerId)) return;
-    btn.releasePointerCapture(e.pointerId);
-    if (isDragging) {
-      var rect = btn.getBoundingClientRect();
-      try {
-        localStorage.setItem(posKey, JSON.stringify({ left: rect.left, top: rect.top }));
-      } catch (err) {}
-    } else {
-      toggle();
-    }
-  });
-
-  btn.addEventListener("click", function(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    if (isDragging) return;
-    if (!isOpen) {
-      openCard();
-    }
-  });
-
-  // 3. 动态定位展开面板 (避免屏幕溢出)
-  function positionCard() {
-    var bRect = btn.getBoundingClientRect();
-    var cardW = Math.min(440, window.innerWidth - 28);
-    card.style.setProperty("width", cardW + "px", "important");
-
-    // Reserve room between the trigger and panel, including short/mobile viewports.
-    var below = bRect.top <= window.innerHeight / 2;
-    var available = below ? window.innerHeight - bRect.bottom - 24 : bRect.top - 24;
-    card.style.setProperty("max-height", Math.max(80, Math.min(window.innerHeight * 0.8, available)) + "px", "important");
-
-    // Clamp the entire panel, including a trigger dragged toward either edge.
-    var panelLeft = Math.max(14, Math.min(window.innerWidth - cardW - 14, bRect.left));
-    card.style.setProperty("left", panelLeft + "px", "important");
-    card.style.setProperty("right", "auto", "important");
-
-    // 垂直方向自适应
-    if (bRect.top > window.innerHeight / 2) {
-      var b = Math.max(12, window.innerHeight - bRect.top + 10);
-      card.style.setProperty("bottom", b + "px", "important");
-      card.style.setProperty("top", "auto", "important");
-    } else {
-      var t = Math.max(12, bRect.bottom + 10);
-      card.style.setProperty("top", t + "px", "important");
-      card.style.setProperty("bottom", "auto", "important");
-    }
-  }
-
-  var isOpen = false;
-  var currentFilter = "ALL";
-  var cachedData = null;
-
-  function formatBytes(bytes) {
-    if (!bytes || bytes <= 0) return "0 B";
-    var k = 1024;
-    var sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
-    var i = Math.floor(Math.log(bytes) / Math.log(k));
-    var idx = Math.min(i, sizes.length - 1);
-    return (bytes / Math.pow(k, idx)).toFixed(idx === 0 ? 0 : 1) + " " + sizes[idx];
-  }
-
-  function openCard() {
-    isOpen = true;
-    nfScheduleTheme(true);
-    positionCard();
-    card.style.setProperty("display", "flex", "important");
-    card.classList.add("nf-open");
-
-    if (cachedData && cachedData.nodes && cachedData.nodes.length > 0) {
-      renderData(cachedData);
-    } else {
-      fetchAndCompute();
-    }
-  }
-
-  function closeCard() {
-    isOpen = false;
-    card.style.setProperty("display", "none", "important");
-    card.classList.remove("nf-open");
-  }
-
-  function toggle() {
-    if (isOpen) {
+  window.addEventListener("km:floating-card-open", function(e) {
+    if (e.detail && e.detail.sourceId !== "net-forecast" && isOpen) {
       closeCard();
-    } else {
-      openCard();
     }
-  }
+  });
 
-  // 关闭按钮点击绑定
-  if (closeBtn) {
-    closeBtn.addEventListener("click", function(e) {
-      e.stopPropagation();
-      e.preventDefault();
-      closeCard();
-    });
-  }
-
-  // 点击外部空白区域自动关闭
   document.addEventListener("pointerdown", function(e) {
     if (!isOpen) return;
     if (card && card.contains(e.target)) return;
@@ -1884,7 +2089,6 @@ const WIDGET_BODY_HTML = `
     closeCard();
   });
 
-  // ESC 键关闭
   document.addEventListener("keydown", function(e) {
     if (e.key === "Escape" && isOpen) {
       closeCard();
@@ -1984,6 +2188,7 @@ const WIDGET_BODY_HTML = `
   // 4. 精炼卡片渲染 (区分单节点视图 vs 全局列表视图)
   function renderList() {
     if (!cachedData || !cachedData.nodes) return;
+    if (!nodeList) return;
     var nodes = cachedData.nodes;
     var html = "";
     var instanceUuid = getCurrentInstanceUuid();
@@ -2110,6 +2315,8 @@ const WIDGET_BODY_HTML = `
 
   function renderData(data) {
     cachedData = data;
+    if (!btn) ensureWidgetMounted();
+    if (!btn) return;
     var summary = data.summary || {};
     var nodes = data.nodes || [];
     var instanceUuid = getCurrentInstanceUuid();
@@ -2119,19 +2326,19 @@ const WIDGET_BODY_HTML = `
     if (singleNode) {
       var isSingleAlert = singleNode.status === "CRITICAL" || singleNode.status === "WARNING";
       if (isSingleAlert) {
-        btn.className = "nf-trigger-sq alert";
+        if (btn) btn.className = "nf-trigger-sq alert";
         if (sqDot) sqDot.className = "nf-sq-dot alert";
       } else {
-        btn.className = "nf-trigger-sq safe";
+        if (btn) btn.className = "nf-trigger-sq safe";
         if (sqDot) sqDot.className = "nf-sq-dot";
       }
     } else {
       var totalAlerts = (summary.critical_count || 0) + (summary.warning_count || 0);
       if (totalAlerts > 0) {
-        btn.className = "nf-trigger-sq alert";
+        if (btn) btn.className = "nf-trigger-sq alert";
         if (sqDot) sqDot.className = "nf-sq-dot alert";
       } else {
-        btn.className = "nf-trigger-sq safe";
+        if (btn) btn.className = "nf-trigger-sq safe";
         if (sqDot) sqDot.className = "nf-sq-dot";
       }
     }

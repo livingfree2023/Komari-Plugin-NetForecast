@@ -220,37 +220,259 @@
     }
 
     /* ============================================================ */
-    /* 核心焦点：模式 A 前台浮窗小组件 (Floating Popover Widget)   */
+    /* 核心视觉控制栏 (Prototype Visual Inspector Bar)              */
+    /* ============================================================ */
+    .prototype-control-bar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1.5px solid rgba(99, 102, 241, 0.4);
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+      font-size: 13px;
+    }
+
+    .pcb-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pcb-label {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .pcb-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #e2e8f0;
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pcb-btn:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: #6366f1;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .pcb-btn.active {
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      border-color: #38bdf8;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(79, 70, 229, 0.45);
+    }
+
+    /* ============================================================ */
+    /* 🌟 核心焦点：边框强化与右下立体深邃投影系统 (4 套对比方案)   */
     /* ============================================================ */
 
-    /* 悬浮胶囊触发按钮 (Bottom-Right Floating Trigger Button) */
+    /* 方案一：立体深影 + 贴近宿主卡片边框风格 (极细 1px 边框，无红绿边框，无脉冲动效) */
+    .theme-shadow-opt1 .widget-card {
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 
+        8px 16px 36px rgba(0, 0, 0, 0.55),
+        2px 4px 10px rgba(0, 0, 0, 0.35)
+        !important;
+    }
+    .theme-shadow-opt1 .widget-trigger-sq,
+    .theme-shadow-opt1 .widget-trigger-sq.safe,
+    .theme-shadow-opt1 .widget-trigger-sq.alert {
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      color: #cbd5e1 !important;
+      box-shadow: 
+        4px 6px 18px rgba(0, 0, 0, 0.45),
+        1px 2px 4px rgba(0, 0, 0, 0.25)
+        !important;
+    }
+    .theme-shadow-opt1 .widget-trigger-pill {
+      border: 1px solid rgba(99, 102, 241, 0.45) !important;
+      box-shadow: 
+        5px 8px 20px rgba(0, 0, 0, 0.45),
+        1px 3px 6px rgba(0, 0, 0, 0.25)
+        !important;
+    }
+
+    /* 方案二：超强悬浮极地深影 (High Elevation · 大落差 3D 浮雕) */
+    .theme-shadow-opt2 .widget-card {
+      border: 2px solid rgba(255, 255, 255, 0.3) !important;
+      box-shadow: 
+        16px 28px 56px rgba(0, 0, 0, 0.78),        /* 宽幅超深右下投影 (X:16px, Y:28px) */
+        5px 10px 20px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.15),
+        inset 1.5px 2px 0 rgba(255, 255, 255, 0.4)
+        !important;
+    }
+    .theme-shadow-opt2 .widget-trigger-sq {
+      border: 2.5px solid #10b981 !important;
+      box-shadow: 
+        8px 12px 28px rgba(0, 0, 0, 0.75),
+        2px 4px 8px rgba(0, 0, 0, 0.5),
+        inset 1.5px 2px 0 rgba(255, 255, 255, 0.45)
+        !important;
+    }
+    .theme-shadow-opt2 .widget-trigger-sq.alert {
+      border-color: #ef4444 !important;
+      box-shadow: 
+        8px 12px 28px rgba(0, 0, 0, 0.75),
+        0 0 18px rgba(239, 68, 68, 0.6),
+        inset 1.5px 2px 0 rgba(255, 255, 255, 0.45)
+        !important;
+    }
+    .theme-shadow-opt2 .widget-trigger-pill {
+      border: 2px solid #6366f1 !important;
+      box-shadow: 8px 14px 30px rgba(0, 0, 0, 0.65), 2px 4px 8px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    /* 方案三：科技彩晕 + 右下深投影 (Tech Ambient Glow + Drop Shadow) */
+    .theme-shadow-opt3 .widget-card {
+      border: 1.5px solid rgba(99, 102, 241, 0.55) !important;
+      box-shadow: 
+        10px 18px 40px rgba(0, 0, 0, 0.65),
+        0 0 32px rgba(99, 102, 241, 0.3),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.3)
+        !important;
+    }
+    .theme-shadow-opt3 .widget-trigger-sq {
+      border: 2px solid #10b981 !important;
+      box-shadow: 
+        6px 10px 22px rgba(0, 0, 0, 0.65),
+        0 0 20px rgba(16, 185, 129, 0.45),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.4)
+        !important;
+    }
+    .theme-shadow-opt3 .widget-trigger-sq.alert {
+      border-color: #ef4444 !important;
+      box-shadow: 
+        6px 10px 22px rgba(0, 0, 0, 0.65),
+        0 0 22px rgba(239, 68, 68, 0.6),
+        inset 1px 1px 0 rgba(255, 255, 255, 0.4)
+        !important;
+    }
+    .theme-shadow-opt3 .widget-trigger-pill {
+      border: 1.5px solid #6366f1 !important;
+      box-shadow: 6px 10px 24px rgba(0, 0, 0, 0.55), 0 0 20px rgba(99, 102, 241, 0.4) !important;
+    }
+
+    /* 原版基线：无方向性弱阴影 (Baseline · 缺乏右下方向深度对比) */
+    .theme-shadow-optbase .widget-card {
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+    }
+    .theme-shadow-optbase .widget-trigger-sq {
+      border: 1.5px solid #10b981 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    .theme-shadow-optbase .widget-trigger-sq.alert {
+      border: 1.5px solid #ef4444 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    .theme-shadow-optbase .widget-trigger-pill {
+      border: 1px solid rgba(99, 102, 241, 0.45) !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* ============================================================ */
+    /* 触发按钮组件 (48px 方块与经典胶囊)                           */
+    /* ============================================================ */
+
+    /* 48px 几何方形触发按钮 (生产规范样式) */
+    .widget-trigger-sq {
+      position: fixed;
+      bottom: 24px;
+      right: 28px;
+      z-index: 1000;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s cubic-bezier(0.2, 0, 0, 1);
+    }
+    .widget-trigger-sq:hover {
+      transform: translate(-1px, -1px) scale(1.06);
+    }
+    .widget-trigger-sq:active {
+      cursor: grabbing;
+      transform: scale(0.96);
+    }
+    .widget-trigger-sq * {
+      pointer-events: none;
+    }
+    .widget-trigger-sq.safe,
+    .widget-trigger-sq.alert {
+      color: #cbd5e1;
+    }
+    .sq-svg {
+      width: 26px;
+      height: 26px;
+    }
+    .sq-dot {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid #0f172a;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+    .sq-dot.alert {
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+
+    /* 悬浮胶囊触发按钮 (Bottom-Right Floating Trigger Pill) */
     .widget-trigger-pill {
       position: fixed;
       bottom: 24px;
       right: 28px;
       z-index: 1000;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(99, 102, 241, 0.45);
+      background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       color: #fff;
       padding: 10px 18px;
       border-radius: 40px;
-      display: flex;
+      display: none; /* 默认显示 48px 方块，可切换 */
       align-items: center;
       gap: 10px;
       cursor: pointer;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.25);
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       user-select: none;
     }
-
     .widget-trigger-pill:hover {
-      background: rgba(30, 41, 59, 0.95);
-      border-color: #6366f1;
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.4);
+      transform: translate(-1px, -1px) scale(1.03);
     }
-
     .pulse-dot {
       width: 9px;
       height: 9px;
@@ -259,19 +481,16 @@
       box-shadow: 0 0 10px #ef4444;
       animation: pulse 1.6s infinite;
     }
-
     @keyframes pulse {
       0% { transform: scale(0.95); opacity: 0.85; }
       50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 14px #ef4444; }
       100% { transform: scale(0.95); opacity: 0.85; }
     }
-
     .trigger-title {
       font-size: 13px;
       font-weight: 600;
       letter-spacing: -0.01em;
     }
-
     .trigger-alert-badge {
       font-size: 11px;
       background: var(--danger-bg);
@@ -285,20 +504,152 @@
     /* 模式 A：浮窗面板主体 (Floating Card Container) */
     .widget-card {
       position: fixed;
-      bottom: 80px;
+      bottom: 84px;
       right: 28px;
       width: 440px;
+      min-width: 320px;
+      min-height: 240px;
       max-height: 82vh;
-      background: rgba(15, 23, 42, 0.94);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(24px);
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
       border-radius: 20px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(99, 102, 241, 0.15);
       display: flex;
       flex-direction: column;
       z-index: 999;
       animation: slideUpFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       overflow: hidden;
+      resize: both; /* 支持前台自由拉伸 */
+      box-sizing: border-box;
+    }
+
+    /* 右下角拉伸触控手柄 (Resize Grip) */
+    .km-ul-resize-grip {
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      opacity: 0.6;
+      transition: opacity 0.2s;
+      z-index: 10;
+      user-select: none;
+    }
+    .km-ul-resize-grip:hover {
+      opacity: 1;
+      color: #38bdf8;
+    }
+
+    /* ============================================================ */
+    /* 浅色主题模式 (Light Mode 适配)                               */
+    /* ============================================================ */
+    body.light-theme {
+      --bg: #f1f5f9;
+      --card-bg: rgba(255, 255, 255, 0.85);
+      --card-border: rgba(15, 23, 42, 0.08);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+      color: var(--text-main);
+    }
+    body.light-theme .komari-navbar {
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    body.light-theme .brand-title,
+    body.light-theme .mock-hero-title,
+    body.light-theme .mock-m-val,
+    body.light-theme .wh-title,
+    body.light-theme .w-kpi-val,
+    body.light-theme .w-node-title,
+    body.light-theme .w-progress-meta strong {
+      color: #0f172a !important;
+    }
+    body.light-theme .mock-server-card {
+      background: rgba(255, 255, 255, 0.8);
+      border-color: rgba(15, 23, 42, 0.08);
+    }
+    body.light-theme .mock-m-item {
+      background: rgba(241, 245, 249, 0.85);
+      border-color: rgba(15, 23, 42, 0.06);
+    }
+    body.light-theme .widget-card {
+      background: rgba(255, 255, 255, 0.95) !important;
+      color: #0f172a !important;
+    }
+    body.light-theme .widget-header,
+    body.light-theme .widget-kpi-bar {
+      background: rgba(241, 245, 249, 0.7) !important;
+      border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+    }
+    body.light-theme .w-node-card {
+      background: rgba(255, 255, 255, 0.92) !important;
+      border-color: rgba(15, 23, 42, 0.08) !important;
+    }
+    body.light-theme .widget-trigger-sq {
+      background: rgba(255, 255, 255, 0.96) !important;
+    }
+    body.light-theme .sq-dot {
+      border-color: #ffffff !important;
+    }
+    body.light-theme .widget-trigger-pill {
+      background: rgba(255, 255, 255, 0.96) !important;
+      color: #0f172a !important;
+    }
+    body.light-theme .trigger-title {
+      color: #0f172a !important;
+    }
+    body.light-theme .prototype-control-bar {
+      background: rgba(255, 255, 255, 0.96);
+      border-bottom-color: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+    }
+    body.light-theme .pcb-label {
+      color: #64748b;
+    }
+    body.light-theme .pcb-btn {
+      background: rgba(15, 23, 42, 0.06);
+      border-color: rgba(15, 23, 42, 0.12);
+      color: #1e293b;
+    }
+    /* 浅色下的方案一深邃右下阴影 */
+    body.light-theme.theme-shadow-opt1 .widget-card {
+      border: 1px solid rgba(15, 23, 42, 0.12) !important;
+      box-shadow: 
+        8px 16px 36px rgba(15, 23, 42, 0.14),
+        2px 4px 10px rgba(15, 23, 42, 0.08)
+        !important;
+    }
+    body.light-theme.theme-shadow-opt1 .widget-trigger-sq {
+      border: 1px solid rgba(15, 23, 42, 0.12) !important;
+      color: #334155 !important;
+      box-shadow: 
+        4px 6px 18px rgba(15, 23, 42, 0.14),
+        1px 2px 4px rgba(15, 23, 42, 0.08)
+        !important;
+    }
+    body.light-theme.theme-shadow-opt2 .widget-card {
+      border: 2px solid rgba(15, 23, 42, 0.22) !important;
+      box-shadow: 
+        16px 28px 56px rgba(15, 23, 42, 0.25),
+        5px 10px 20px rgba(15, 23, 42, 0.12),
+        inset 1.5px 2px 0 rgba(255, 255, 255, 0.95)
+        !important;
+    }
+    body.light-theme.theme-shadow-opt2 .widget-trigger-sq {
+      border: 2.5px solid #10b981 !important;
+      box-shadow: 
+        8px 12px 28px rgba(15, 23, 42, 0.22),
+        inset 1.5px 2px 0 rgba(255, 255, 255, 0.95)
+        !important;
     }
 
     @keyframes slideUpFade {
@@ -675,7 +1026,27 @@
     }
   </style>
 </head>
-<body>
+<body class="theme-shadow-opt1">
+
+  <!-- 🌟 原型视觉调校与对比控制栏 (Prototype Visual Inspector) -->
+  <aside class="prototype-control-bar">
+    <div class="pcb-section">
+      <span class="pcb-label">🎨 边框与右下阴影方案:</span>
+      <button class="pcb-btn active" id="btnOpt1" onclick="setShadowTheme('opt1', this)">🌟 方案一：立体深影 + 倒角高光 (推荐)</button>
+      <button class="pcb-btn" id="btnOpt2" onclick="setShadowTheme('opt2', this)">💎 方案二：极地高悬浮深邃重影</button>
+      <button class="pcb-btn" id="btnOpt3" onclick="setShadowTheme('opt3', this)">⚡ 方案三：科技彩晕 + 右下投影</button>
+      <button class="pcb-btn" id="btnOptBase" onclick="setShadowTheme('optbase', this)">⚪ 原版基线 (对比用)</button>
+    </div>
+    <div class="pcb-section">
+      <span class="pcb-label">🌓 页面底色:</span>
+      <button class="pcb-btn" id="themeModeBtn" onclick="togglePageTheme()">🌙 深色模式 (切换浅色)</button>
+      <span class="pcb-label" style="margin-left: 8px;">🔘 按钮形态:</span>
+      <button class="pcb-btn active" id="btnShapeSq" onclick="setButtonShape('sq', this)">🔲 48px 标准方块 (生产)</button>
+      <button class="pcb-btn" id="btnShapePill" onclick="setButtonShape('pill', this)">💊 椭圆胶囊条</button>
+      <button class="pcb-btn" id="btnStatusToggle" onclick="toggleButtonStatus()" title="切换绿色安全/红色预警状态">🚨 切换预警/安全态</button>
+      <button class="pcb-btn active" id="btnDualToggle" onclick="toggleDualFab(this)" title="切换多插件按钮防碰撞堆叠效果">👥 双插件防堆叠演示</button>
+    </div>
+  </aside>
 
   <!-- 1. 模拟 Komari 前台页面导航栏 (展示顶栏注入的流量预测入口) -->
   <nav class="komari-navbar">
@@ -760,8 +1131,29 @@
   <!-- 核心设计点 2：前台悬浮小组件 (模式 A 设计)                     -->
   <!-- ============================================================ -->
 
-  <!-- 1. 悬浮胶囊触发按钮 (Bottom-Right Floating Trigger Button) -->
-  <div class="widget-trigger-pill" id="widgetTrigger" onclick="toggleWidget()">
+  <!-- 模拟多插件共存：UnlockTest 悬浮小按钮 (Slot 1: bottom: 84px · 极简线构锁图标与 1px 细边框) -->
+  <div class="widget-trigger-sq" id="mockUnlockTestBtn" style="bottom: 84px; display: flex;" title="流媒体与 AI 解锁测试 (UnlockTest)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+      <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+      <circle cx="12" cy="16" r="1.5" fill="currentColor"></circle>
+    </svg>
+    <div class="sq-dot" style="background:#10b981; box-shadow:0 0 6px #10b981;"></div>
+  </div>
+
+  <!-- 1. 48px 几何方形触发按钮 (NetForecast Slot 0: bottom: 24px · 极细 1px 边框与右下立体深影) -->
+  <div class="widget-trigger-sq alert" id="widgetTriggerSq" onclick="toggleWidget()" title="流量预测 (点击展开/收起浮层)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"></line>
+      <line x1="12" y1="20" x2="12" y2="4"></line>
+      <line x1="6" y1="20" x2="6" y2="14"></line>
+      <path d="M3 14l5-4 5 3 7-7"></path>
+    </svg>
+    <div class="sq-dot alert" id="sqDot"></div>
+  </div>
+
+  <!-- 2. 悬浮胶囊触发按钮 (备选旧版形态) -->
+  <div class="widget-trigger-pill" id="widgetTriggerPill" onclick="toggleWidget()">
     <div class="pulse-dot"></div>
     <span class="trigger-title" id="triggerTitle">流量预测</span>
     <span class="trigger-alert-badge" id="triggerBadge">2 节点预警</span>
@@ -943,6 +1335,13 @@
       </div>
       <a href="public.html" target="_blank" class="wf-btn-full" id="footerFullBtn">查看完整图表 ↗</a>
     </div>
+
+    <!-- 右下角尺寸拉伸手柄 -->
+    <div class="km-ul-resize-grip" id="cardResizeGrip" title="拖拽拉伸调整浮层尺寸">
+      <svg viewBox="0 0 16 16" width="12" height="12">
+        <path d="M14 14H12V12H14V14ZM14 10H12V8H14V10ZM10 14H8V12H10V14ZM14 6H12V4H14V6ZM10 10H8V8H10V10ZM6 14H4V12H6V14Z" fill="currentColor"/>
+      </svg>
+    </div>
   </div>
 
   <script>
@@ -954,6 +1353,107 @@
       isWidgetOpen = !isWidgetOpen;
       card.style.display = isWidgetOpen ? "flex" : "none";
     }
+
+    // 🌟 原型视觉调校：切换阴影与边框方案
+    function setShadowTheme(optKey, btn) {
+      document.querySelectorAll(".prototype-control-bar .pcb-section:first-child .pcb-btn").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+
+      document.body.classList.remove("theme-shadow-opt1", "theme-shadow-opt2", "theme-shadow-opt3", "theme-shadow-optbase");
+      document.body.classList.add("theme-shadow-" + optKey);
+    }
+
+    // 🌟 原型视觉调校：切换明暗底色模式
+    let isLightMode = false;
+    function togglePageTheme() {
+      isLightMode = !isLightMode;
+      const btn = document.getElementById("themeModeBtn");
+      if (isLightMode) {
+        document.body.classList.add("light-theme");
+        btn.textContent = "☀️ 浅色模式 (切换深色)";
+        btn.classList.add("active");
+      } else {
+        document.body.classList.remove("light-theme");
+        btn.textContent = "🌙 深色模式 (切换浅色)";
+        btn.classList.remove("active");
+      }
+    }
+
+    // 🌟 原型视觉调校：切换按钮形态 (48px 方块 vs 椭圆胶囊)
+    function setButtonShape(shape, btn) {
+      const btnSq = document.getElementById("btnShapeSq");
+      const btnPill = document.getElementById("btnShapePill");
+      const elSq = document.getElementById("widgetTriggerSq");
+      const elPill = document.getElementById("widgetTriggerPill");
+
+      if (shape === 'sq') {
+        btnSq.classList.add("active");
+        btnPill.classList.remove("active");
+        elSq.style.display = "flex";
+        elPill.style.display = "none";
+      } else {
+        btnSq.classList.remove("active");
+        btnPill.classList.add("active");
+        elSq.style.display = "none";
+        elPill.style.display = "flex";
+      }
+    }
+
+    // 🌟 原型视觉调校：切换按钮正常/预警状态 (观察边框与脉冲阴影变化)
+    let isBtnAlert = true;
+    function toggleButtonStatus() {
+      isBtnAlert = !isBtnAlert;
+      const elSq = document.getElementById("widgetTriggerSq");
+      const dotSq = document.getElementById("sqDot");
+      const btn = document.getElementById("btnStatusToggle");
+
+      if (isBtnAlert) {
+        elSq.className = "widget-trigger-sq alert";
+        dotSq.className = "sq-dot alert";
+        btn.textContent = "🚨 预警状态 (切换安全)";
+      } else {
+        elSq.className = "widget-trigger-sq safe";
+        dotSq.className = "sq-dot";
+        btn.textContent = "🟢 安全状态 (切换预警)";
+      }
+    }
+
+    // 🌟 原型交互：右下角手柄原生拖拽拉伸支持
+    (function initGripResize() {
+      const grip = document.getElementById("cardResizeGrip");
+      const card = document.getElementById("widgetCard");
+      if (!grip || !card) return;
+
+      let startX = 0, startY = 0, startW = 0, startH = 0;
+      grip.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        grip.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = card.offsetWidth;
+        startH = card.offsetHeight;
+
+        const onMove = (ev) => {
+          if (!grip.hasPointerCapture(ev.pointerId)) return;
+          const nw = Math.max(320, Math.min(window.innerWidth - 40, startW + (ev.clientX - startX)));
+          const nh = Math.max(240, Math.min(window.innerHeight - 40, startH + (ev.clientY - startY)));
+          card.style.width = nw + "px";
+          card.style.height = nh + "px";
+        };
+
+        const onUp = (ev) => {
+          if (grip.hasPointerCapture(ev.pointerId)) {
+            grip.releasePointerCapture(ev.pointerId);
+          }
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      });
+    })();
 
     // 快捷分类筛选
     function filterWidget(type, btn) {
@@ -973,20 +1473,28 @@
 
     // 模拟插件设置：开启/关闭前台浮出层小组件 (默认开启)
     function toggleWidgetFeature(enabled) {
-      const trigger = document.getElementById("widgetTrigger");
+      const triggerSq = document.getElementById("widgetTriggerSq");
+      const triggerPill = document.getElementById("widgetTriggerPill");
       const card = document.getElementById("widgetCard");
       if (!enabled) {
-        if (trigger) trigger.style.display = "none";
+        if (triggerSq) triggerSq.style.display = "none";
+        if (triggerPill) triggerPill.style.display = "none";
         if (card) card.style.display = "none";
         isWidgetOpen = false;
       } else {
-        if (trigger) trigger.style.display = "flex";
+        setButtonShape(document.getElementById("btnShapeSq").classList.contains("active") ? "sq" : "pill");
       }
+    // 模拟多插件共存：开启/关闭第二插件小按钮
+    let isDualVisible = true;
+    function toggleDualFab(btn) {
+      isDualVisible = !isDualVisible;
+      const ulBtn = document.getElementById("mockUnlockTestBtn");
+      if (ulBtn) ulBtn.style.display = isDualVisible ? "flex" : "none";
+      if (btn) btn.classList.toggle("active", isDualVisible);
     }
 
-    // 中英文自适应切换演示 (支持中文「流量预测」与英文「NetForecast」无缝切换)
+    // 中英文自适应切换演示
     let currentLang = 'zh';
-
     function toggleLanguage() {
       currentLang = currentLang === 'zh' ? 'en' : 'zh';
       const btn = document.getElementById('langToggleBtn');

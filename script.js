@@ -1219,41 +1219,25 @@ const WIDGET_BODY_HTML = `
 </div>
 <script>
 (function() {
-  // 严格仅在前台两个页面（首页 / 与实例详情页 /instance/...）显示浮窗；管理后台、矩阵页、iframe 绝对不显示
-  function nfIsAllowedFrontendRoute() {
+  // 健壮黑名单路由判定：仅在管理后台、系统设置、终端或特定插件独立大屏/子页面中隐藏浮窗；其余所有前台页面（首页、节点列表、实例详情、自定义路由等）默认正常展示
+  function nfIsAdminPath() {
     try {
-      if (window.self !== window.top) return false;
-
       var p = (window.location.pathname || "").toLowerCase();
       var h = (window.location.hash || "").toLowerCase();
-      var full = p + " " + h;
 
-      if (full.indexOf("/admin") !== -1 ||
-          full.indexOf("/terminal") !== -1 ||
-          full.indexOf("/api/plugin") !== -1 ||
-          full.indexOf("/plugin") !== -1 ||
-          full.indexOf("matrix.html") !== -1 ||
-          full.indexOf("preview.html") !== -1 ||
-          full.indexOf("public.html") !== -1 ||
-          full.indexOf("admin.html") !== -1 ||
-          full.indexOf("/login") !== -1 ||
-          full.indexOf("/auth") !== -1 ||
-          full.indexOf("/settings") !== -1) {
-        return false;
-      }
+      // 1. 管理后台与系统页面 (兼顾 Path 路由与 Hash 路由)
+      if (p.indexOf("/admin") !== -1 || h.indexOf("/admin") !== -1) return true;
+      if (p.indexOf("/terminal") !== -1 || h.indexOf("/terminal") !== -1) return true;
+      if (p.indexOf("/settings") !== -1 || h.indexOf("/settings") !== -1) return true;
+      if (p.indexOf("/login") !== -1 || h.indexOf("/login") !== -1) return true;
+      if (p.indexOf("/auth") !== -1 || h.indexOf("/auth") !== -1) return true;
 
-      var isInstance = (
-        p.indexOf("/instance") !== -1 || h.indexOf("/instance") !== -1 ||
-        p.indexOf("/node") !== -1 || h.indexOf("/node") !== -1 ||
-        p.indexOf("/server") !== -1 || h.indexOf("/server") !== -1
-      );
-      if (isInstance) return true;
-
-      var cleanP = p.replace(/\/+$/, "") || "/";
-      var cleanH = h.replace(/\/+$/, "") || "";
-      var isHome = (cleanP === "/" || cleanP === "/index.html") &&
-                   (cleanH === "" || cleanH === "#" || cleanH === "#/" || cleanH === "#/home" || cleanH === "#/overview");
-      if (isHome) return true;
+      // 2. 独立插件页面 / HTML 页面 (如流媒体解锁矩阵、NetForecast 自身大屏等)
+      if (p.indexOf("matrix.html") !== -1 || h.indexOf("matrix.html") !== -1) return true;
+      if (p.indexOf("public.html") !== -1 || h.indexOf("public.html") !== -1) return true;
+      if (p.indexOf("admin.html") !== -1 || h.indexOf("admin.html") !== -1) return true;
+      if (p.indexOf("preview.html") !== -1 || h.indexOf("preview.html") !== -1) return true;
+      if (p.indexOf("/api/plugin/") !== -1 || h.indexOf("/api/plugin/") !== -1) return true;
 
       return false;
     } catch (e) {
@@ -1264,14 +1248,16 @@ const WIDGET_BODY_HTML = `
   function nfSyncWidgetVisibility() {
     var widgetRoot = document.getElementById("nf-floating-widget");
     if (widgetRoot) {
-      var allowed = nfIsAllowedFrontendRoute();
-      widgetRoot.style.setProperty("display", allowed ? "block" : "none", "important");
-      if (!allowed) {
+      var isAdmin = nfIsAdminPath();
+      widgetRoot.style.setProperty("display", isAdmin ? "none" : "block", "important");
+      if (isAdmin) {
         var card = widgetRoot.querySelector(".nf-widget-card");
         if (card) {
           card.classList.remove("nf-open");
           card.style.setProperty("display", "none", "important");
         }
+      } else if (typeof cachedData !== "undefined" && cachedData && cachedData.nodes && typeof renderData === "function") {
+        renderData(cachedData);
       }
     }
   }
@@ -1279,7 +1265,7 @@ const WIDGET_BODY_HTML = `
   nfSyncWidgetVisibility();
   window.addEventListener("popstate", nfSyncWidgetVisibility);
   window.addEventListener("hashchange", nfSyncWidgetVisibility);
-  setInterval(nfSyncWidgetVisibility, 500);
+  setInterval(nfSyncWidgetVisibility, 1000);
 
   // 稳健提取当前节点 ID (免正则转义干扰，全面支持 pathname / hash / search)
   function getCurrentInstanceUuid() {
@@ -1370,16 +1356,7 @@ const WIDGET_BODY_HTML = `
   }
 
   function nfCheckRoute() {
-    var el = document.getElementById("nf-floating-widget");
-    if (!el) return;
-    if (nfIsAdminPath()) {
-      el.style.display = "none";
-    } else {
-      el.style.display = "block";
-      if (cachedData && cachedData.nodes) {
-        renderData(cachedData);
-      }
-    }
+    nfSyncWidgetVisibility();
   }
   window.addEventListener("popstate", nfCheckRoute);
   window.addEventListener("hashchange", nfCheckRoute);

@@ -2,10 +2,10 @@
 
 ### 🚀 v26.1020.1
 #### 🛡️ 路由隔离与前台无感展示 (Route Isolation & UX)
-- **严格限制悬浮小组件仅在前台页面展示**：
-  - 增强 `nfIsAllowedFrontendRoute` 路由校验，处于 iframe 内或访问任何后台路径（`/admin`、`/terminal`、`matrix.html`、`preview.html`、`public.html`、`admin.html`、`/login`、`/settings` 等）时严格静默隐藏。
-  - 仅限在首页（`/`）与实例详情页（`/instance/:id`）展示，彻底消除在管理后台或其他插件页面（如解锁矩阵）误显小组件的问题。
-  - 新增 `popstate` / `hashchange` 事件监听与 500ms 周期巡检，单页应用动态路由跳转时瞬间隐藏。
+- **健壮黑名单路由隔离与前台稳定展示**：
+  - 将路由判定重构为健壮黑名单机制：在后台管理（`/admin`、`/terminal`、`/settings`、`/login`）及独立插件大屏（`matrix.html`、`public.html` 等）严格静默隐藏。
+  - 彻底解除过于严苛的正向白名单与 iframe 限制，确保前台所有路由（首页、节点列表、实例详情、二级子路径部署、仪表盘 iframe 嵌入）均能正常稳定显示浮窗。
+  - 修复 `nfCheckRoute` 中调用未定义函数的 ReferenceError，统一 `popstate` / `hashchange` / SPA pushState 路由状态监听与数据热刷新。
 
 ### v26.1012.2 (Previous)
 
@@ -41,10 +41,10 @@
 
 ### 🚀 v26.1020.1
 #### 🛡️ Route Isolation & Frontend UX
-- **Strict Route Isolation for Floating Widget**:
-  - Enhanced route detection logic (`nfIsAllowedFrontendRoute`) to strictly hide the floating widget inside iframes or on any management/subpages (`/admin`, `/terminal`, `matrix.html`, `preview.html`, `public.html`, `admin.html`, `/login`, `/settings`).
-  - The widget now exclusively displays on the frontend home page (`/`) and instance detail pages (`/instance/:id`), eliminating visual interference on admin or sibling plugin views.
-  - Integrated `popstate` / `hashchange` listeners and a 500ms safety poll to guarantee instant hiding upon client-side SPA navigation.
+- **Robust Blacklist Route Isolation & Frontend Reliability**:
+  - Replaced restrictive route whitelisting with robust blacklist filtering: strictly hides on admin management (`/admin`, `/terminal`, `/settings`, `/login`) and standalone plugin pages (`matrix.html`, `public.html`, etc.).
+  - Restored reliable floating widget display across all frontend views, SPA hash routes, custom subpath deployments, and embedded iframe dashboards.
+  - Fixed the `ReferenceError` caused by dangling function references in `nfCheckRoute`, harmonizing `popstate`, `hashchange`, and SPA `pushState` listeners.
 
 ### v26.1012.2 (Previous)
 

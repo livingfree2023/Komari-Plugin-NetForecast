@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at": "2026-10-20T13:04:43.000Z",
+  "updated_at": "2026-10-21T04:48:23.000Z",
   "plugins": [
     {
       "name": {
@@ -12,12 +12,12 @@
         "zh_CN": "全节点账单周期进出站流量增量堆叠柱状图与计费规则自适应累计折线图，直连核心数据库，预测重置日流量并提供超限告警",
         "en": "All-nodes billing cycle stacked bar and billing-adaptive cumulative charts, directly synced with core database, forecasting reset day usage and exhaustion alerts"
       },
-      "version": "26.1020.1",
+      "version": "26.1020.2",
       "author": "livingfree2023",
       "komari": "",
       "url": "https://github.com/livingfree2023/Komari-Plugin-NetForecast",
-      "download": "https://github.com/livingfree2023/Komari-Plugin-NetForecast/releases/download/v26.1020.1/net-forecast.zip",
-      "sha256": "07a4298229d35f244c736bc0f18a885b96a531ddfac3b4a5c2224137f7c7f8c4"
+      "download": "https://github.com/livingfree2023/Komari-Plugin-NetForecast/releases/download/v26.1020.2/net-forecast.zip",
+      "sha256": "11fa49d4a2cfe9fa9f616f3cd5730a1939663bc3ecf377f254664c389fbf7443"
     }
   ]
 }

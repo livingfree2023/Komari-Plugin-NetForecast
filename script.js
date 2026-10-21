@@ -727,11 +727,35 @@ function sendJSON(res, data, statusCode = 200) {
 const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget, #nf-floating-widget * {
   box-sizing: border-box !important;
+  font-family: var(--nf-font) !important;
 }
 
 #nf-floating-widget {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-  color: #f8fafc !important;
+  --nf-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nf-font-size: 14px;
+  --nf-scheme: light;
+  --nf-page-bg: #f8fafc;
+  --nf-card-bg: #fff;
+  --nf-page-image: none;
+  --nf-card-image: none;
+  --nf-text: #172033;
+  --nf-card-text: #172033;
+  --nf-muted: #334155;
+  --nf-accent: #1d4ed8;
+  --nf-safe: #047857;
+  --nf-warning: #92400e;
+  --nf-danger: #b91c1c;
+  --nf-radius: 12px;
+  --nf-shadow: 0 12px 36px #0f172a26;
+  --nf-border-top: 1px solid #cbd5e1;
+  --nf-border-right: 1px solid #cbd5e1;
+  --nf-border-bottom: 1px solid #cbd5e1;
+  --nf-border-left: 1px solid #cbd5e1;
+  font-family: var(--nf-font) !important;
+  font-size: var(--nf-font-size) !important;
+  line-height: 1.45 !important;
+  color-scheme: var(--nf-scheme) !important;
+  color: var(--nf-text) !important;
   z-index: 99999 !important;
 }
 
@@ -740,7 +764,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   width: 48px !important;
   height: 48px !important;
   position: fixed !important;
-  background: rgba(15, 23, 42, 0.92) !important;
+  background: var(--nf-page-bg) !important;
+  background-image: var(--nf-page-image) !important;
+  background-size: var(--nf-page-size, auto) !important;
+  background-position: var(--nf-page-position, 0% 0%) !important;
+  background-repeat: var(--nf-page-repeat, repeat) !important;
+  background-origin: var(--nf-page-origin, padding-box) !important;
+  background-clip: var(--nf-page-clip, border-box) !important;
+  background-blend-mode: var(--nf-page-blend, normal) !important;
+  background-attachment: var(--nf-page-attachment, scroll) !important;
   border-radius: 12px !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -773,7 +805,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 /* 有警告状态：红色外框与脉冲 */
 #nf-floating-widget .nf-trigger-sq.alert {
   border: 2px solid #ef4444 !important;
-  color: #ef4444 !important;
+  color: var(--nf-danger) !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(239, 68, 68, 0.55) !important;
   animation: nfSqPulse 1.8s infinite !important;
 }
@@ -810,12 +842,23 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   width: 440px !important;
   max-width: calc(100vw - 28px) !important;
   max-height: 80vh !important;
-  background: rgba(15, 23, 42, 0.96) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: var(--nf-page-bg) !important;
+  background-image: var(--nf-page-image) !important;
+  background-size: var(--nf-page-size, auto) !important;
+  background-position: var(--nf-page-position, 0% 0%) !important;
+  background-repeat: var(--nf-page-repeat, repeat) !important;
+  background-origin: var(--nf-page-origin, padding-box) !important;
+  background-clip: var(--nf-page-clip, border-box) !important;
+  background-blend-mode: var(--nf-page-blend, normal) !important;
+  background-attachment: var(--nf-page-attachment, scroll) !important;
+  border-top: var(--nf-border-top) !important;
+  border-right: var(--nf-border-right) !important;
+  border-bottom: var(--nf-border-bottom) !important;
+  border-left: var(--nf-border-left) !important;
   backdrop-filter: blur(28px) !important;
   -webkit-backdrop-filter: blur(28px) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(99, 102, 241, 0.18) !important;
+  border-radius: var(--nf-radius) !important;
+  box-shadow: var(--nf-shadow) !important;
   flex-direction: column !important;
   overflow: hidden !important;
 }
@@ -831,11 +874,12 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 /* 顶部 Header */
 #nf-floating-widget .nf-header {
   padding: 16px 20px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: var(--nf-border-bottom) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  background: rgba(30, 41, 59, 0.4) !important;
+  gap: 12px !important;
+  background: transparent !important;
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-header-title {
@@ -845,30 +889,30 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   min-width: 0 !important;
 }
 #nf-floating-widget .nf-header-icon {
-  font-size: 15px !important;
-  background: rgba(99, 102, 241, 0.22) !important;
+  font-size: 1.0714em !important;
+  background: color-mix(in srgb, var(--nf-accent) 12%, transparent) !important;
   width: 30px !important;
   height: 30px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   border-radius: 8px !important;
-  border: 1px solid rgba(99, 102, 241, 0.4) !important;
+  border: 1px solid var(--nf-accent) !important;
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-header-text {
-  font-size: 14px !important;
+  font-size: 1.0em !important;
   font-weight: 700 !important;
-  color: #fff !important;
+  color: var(--nf-text) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 #nf-floating-widget .nf-close-btn {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: #94a3b8 !important;
-  font-size: 14px !important;
+  background: color-mix(in srgb, var(--nf-text) 7%, transparent) !important;
+  border: var(--nf-border-top) !important;
+  color: var(--nf-muted) !important;
+  font-size: 1.0em !important;
   font-weight: 700 !important;
   cursor: pointer !important;
   width: 30px !important;
@@ -881,7 +925,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-close-btn:hover {
-  color: #fff !important;
+  color: var(--nf-text) !important;
   background: rgba(239, 68, 68, 0.25) !important;
   border-color: rgba(239, 68, 68, 0.5) !important;
 }
@@ -889,32 +933,44 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 /* KPI 统计条 */
 #nf-floating-widget .nf-kpi-bar {
   display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 10px !important;
   padding: 14px 20px 10px 20px !important;
-  background: rgba(15, 23, 42, 0.5) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: transparent !important;
+  border-bottom: var(--nf-border-bottom) !important;
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-kpi-item {
-  background: rgba(30, 41, 59, 0.5) !important;
-  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: var(--nf-card-bg) !important;
+  background-image: var(--nf-card-image) !important;
+  background-size: var(--nf-card-size, auto) !important;
+  background-position: var(--nf-card-position, 0% 0%) !important;
+  background-repeat: var(--nf-card-repeat, repeat) !important;
+  background-origin: var(--nf-card-origin, padding-box) !important;
+  background-clip: var(--nf-card-clip, border-box) !important;
+  background-blend-mode: var(--nf-card-blend, normal) !important;
+  background-attachment: var(--nf-card-attachment, scroll) !important;
+  color: var(--nf-card-text) !important;
+  border-top: var(--nf-border-top) !important;
+  border-right: var(--nf-border-right) !important;
+  border-bottom: var(--nf-border-bottom) !important;
+  border-left: var(--nf-border-left) !important;
   padding: 8px 10px !important;
-  border-radius: 10px !important;
+  border-radius: var(--nf-radius) !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 2px !important;
 }
 #nf-floating-widget .nf-kpi-lbl {
-  font-size: 10px !important;
-  color: #94a3b8 !important;
+  font-size: 0.7143em !important;
+  color: var(--nf-muted) !important;
   text-transform: uppercase !important;
   letter-spacing: 0.02em !important;
 }
 #nf-floating-widget .nf-kpi-val {
-  font-size: 13px !important;
+  font-size: 0.9286em !important;
   font-weight: 700 !important;
-  color: #fff !important;
+  color: var(--nf-card-text) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -926,8 +982,8 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   align-items: center !important;
   gap: 8px !important;
   padding: 10px 20px 8px 20px !important;
-  background: rgba(15, 23, 42, 0.2) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  background: transparent !important;
+  border-bottom: var(--nf-border-bottom) !important;
   overflow-x: auto !important;
   flex-shrink: 0 !important;
 }
@@ -935,31 +991,32 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   display: none !important;
 }
 #nf-floating-widget .nf-filter-btn {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  color: #94a3b8 !important;
+  background: color-mix(in srgb, var(--nf-text) 7%, transparent) !important;
+  border: var(--nf-border-top) !important;
+  color: var(--nf-muted) !important;
   padding: 5px 12px !important;
   border-radius: 20px !important;
-  font-size: 11px !important;
+  font-size: 0.7857em !important;
   font-weight: 500 !important;
   cursor: pointer !important;
   white-space: nowrap !important;
   transition: all 0.15s ease !important;
 }
 #nf-floating-widget .nf-filter-btn:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--nf-text) !important;
+  background: color-mix(in srgb, var(--nf-text) 7%, transparent) !important;
 }
 #nf-floating-widget .nf-filter-btn.active {
-  background: rgba(99, 102, 241, 0.25) !important;
-  border-color: rgba(99, 102, 241, 0.55) !important;
-  color: #a5b4fc !important;
+  background: color-mix(in srgb, var(--nf-accent) 12%, var(--nf-page-bg)) !important;
+  border-color: var(--nf-accent) !important;
+  color: var(--nf-accent) !important;
   font-weight: 700 !important;
 }
 
 /* 节点列表容器 (充裕内边距，滚动顺滑) */
 #nf-floating-widget .nf-list {
-  flex: 1 !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
   padding: 14px 20px 18px 20px !important;
   display: flex !important;
@@ -976,40 +1033,61 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 
 /* 单节点精炼卡片 (带有明显独立卡片背景、边框、投影和充裕内边距，支持点击跳转至详情页) */
 #nf-floating-widget .nf-node-card {
-  background: rgba(30, 41, 59, 0.72) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 14px !important;
+  background: var(--nf-card-bg) !important;
+  background-image: var(--nf-card-image) !important;
+  background-size: var(--nf-card-size, auto) !important;
+  background-position: var(--nf-card-position, 0% 0%) !important;
+  background-repeat: var(--nf-card-repeat, repeat) !important;
+  background-origin: var(--nf-card-origin, padding-box) !important;
+  background-clip: var(--nf-card-clip, border-box) !important;
+  background-blend-mode: var(--nf-card-blend, normal) !important;
+  background-attachment: var(--nf-card-attachment, scroll) !important;
+  color: var(--nf-card-text) !important;
+  border-top: var(--nf-border-top) !important;
+  border-right: var(--nf-border-right) !important;
+  border-bottom: var(--nf-border-bottom) !important;
+  border-left: var(--nf-border-left) !important;
+  border-radius: var(--nf-radius) !important;
   padding: 13px 15px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 8px !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--nf-shadow) !important;
   transition: all 0.18s ease !important;
   cursor: pointer !important;
   user-select: none !important;
 }
 #nf-floating-widget .nf-node-card:hover {
-  background: rgba(30, 41, 59, 0.95) !important;
-  border-color: rgba(99, 102, 241, 0.45) !important;
+  background: var(--nf-card-bg) !important;
+  background-image: var(--nf-card-image) !important;
+  background-size: var(--nf-card-size, auto) !important;
+  background-position: var(--nf-card-position, 0% 0%) !important;
+  background-repeat: var(--nf-card-repeat, repeat) !important;
+  background-origin: var(--nf-card-origin, padding-box) !important;
+  background-clip: var(--nf-card-clip, border-box) !important;
+  background-blend-mode: var(--nf-card-blend, normal) !important;
+  background-attachment: var(--nf-card-attachment, scroll) !important;
+  color: var(--nf-card-text) !important;
+  border-color: var(--nf-accent) !important;
   transform: translateY(-2px) !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 12px rgba(99, 102, 241, 0.2) !important;
+  box-shadow: var(--nf-shadow) !important;
 }
 #nf-floating-widget .nf-node-card:active {
   transform: scale(0.99) !important;
 }
 #nf-floating-widget .nf-node-card:hover .nf-node-name {
-  color: #a5b4fc !important;
+  color: var(--nf-accent) !important;
 }
 #nf-floating-widget .nf-node-jump {
-  font-size: 11px !important;
-  color: #64748b !important;
+  font-size: 0.7857em !important;
+  color: var(--nf-muted) !important;
   opacity: 0 !important;
   transition: all 0.18s ease !important;
   margin-left: 2px !important;
 }
 #nf-floating-widget .nf-node-card:hover .nf-node-jump {
   opacity: 1 !important;
-  color: #a5b4fc !important;
+  color: var(--nf-accent) !important;
 }
 #nf-floating-widget .nf-row-head {
   display: flex !important;
@@ -1024,18 +1102,18 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   min-width: 0 !important;
 }
 #nf-floating-widget .nf-node-name {
-  font-size: 13px !important;
+  font-size: 0.9286em !important;
   font-weight: 700 !important;
-  color: #fff !important;
+  color: var(--nf-card-text) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 #nf-floating-widget .nf-mode-badge {
-  font-size: 10px !important;
-  background: rgba(99, 102, 241, 0.18) !important;
-  border: 1px solid rgba(99, 102, 241, 0.4) !important;
-  color: #a5b4fc !important;
+  font-size: 0.7143em !important;
+  background: color-mix(in srgb, var(--nf-accent) 12%, transparent) !important;
+  border: 1px solid var(--nf-accent) !important;
+  color: var(--nf-accent) !important;
   padding: 1px 6px !important;
   border-radius: 4px !important;
   font-weight: 600 !important;
@@ -1048,7 +1126,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-badge {
-  font-size: 10px !important;
+  font-size: 0.7143em !important;
   font-weight: 700 !important;
   padding: 2px 7px !important;
   border-radius: 6px !important;
@@ -1057,37 +1135,37 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 #nf-floating-widget .nf-badge.critical {
   background: rgba(239, 68, 68, 0.25) !important;
-  color: #fca5a5 !important;
+  color: var(--nf-danger) !important;
   border: 1px solid rgba(239, 68, 68, 0.5) !important;
 }
 #nf-floating-widget .nf-badge.warning {
   background: rgba(245, 158, 11, 0.25) !important;
-  color: #fde68a !important;
+  color: var(--nf-warning) !important;
   border: 1px solid rgba(245, 158, 11, 0.5) !important;
 }
 #nf-floating-widget .nf-badge.safe {
   background: rgba(16, 185, 129, 0.2) !important;
-  color: #a7f3d0 !important;
+  color: var(--nf-safe) !important;
   border: 1px solid rgba(16, 185, 129, 0.4) !important;
 }
 #nf-floating-widget .nf-badge.no-quota {
   background: rgba(148, 163, 184, 0.18) !important;
-  color: #cbd5e1 !important;
+  color: var(--nf-card-text) !important;
   border: 1px solid rgba(148, 163, 184, 0.3) !important;
 }
 #nf-floating-widget .nf-pct {
-  font-size: 12px !important;
+  font-size: 0.8571em !important;
   font-weight: 700 !important;
-  color: #38bdf8 !important;
+  color: var(--nf-accent) !important;
 }
 #nf-floating-widget .nf-pct.critical {
-  color: #ef4444 !important;
+  color: var(--nf-danger) !important;
 }
 
 #nf-floating-widget .nf-bar-bg {
   width: 100% !important;
   height: 8px !important;
-  background: rgba(15, 23, 42, 0.85) !important;
+  background: transparent !important;
   border-radius: 4px !important;
   overflow: hidden !important;
   position: relative !important;
@@ -1096,7 +1174,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 #nf-floating-widget .nf-bar-used {
   height: 100% !important;
-  background: #6366f1 !important;
+  background: var(--nf-accent) !important;
   border-radius: 4px 0 0 4px !important;
   transition: width 0.3s ease !important;
 }
@@ -1113,31 +1191,33 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  font-size: 11px !important;
-  color: #94a3b8 !important;
+  font-size: 0.7857em !important;
+  color: var(--nf-card-text) !important;
+  flex-wrap: wrap !important;
+  gap: 4px 8px !important;
   padding-top: 1px !important;
 }
 #nf-floating-widget .nf-row-meta strong {
-  color: #f1f5f9 !important;
+  color: var(--nf-card-text) !important;
 }
 #nf-floating-widget .nf-row-meta .nf-speed {
-  color: #38bdf8 !important;
+  color: var(--nf-accent) !important;
   font-weight: 600 !important;
 }
 
 /* 底部 Footer */
 #nf-floating-widget .nf-footer {
   padding: 13px 20px !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background: rgba(15, 23, 42, 0.85) !important;
+  border-top: var(--nf-border-top) !important;
+  background: transparent !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   flex-shrink: 0 !important;
 }
 #nf-floating-widget .nf-footer-status {
-  font-size: 11px !important;
-  color: #94a3b8 !important;
+  font-size: 0.7857em !important;
+  color: var(--nf-muted) !important;
   display: flex !important;
   align-items: center !important;
   gap: 6px !important;
@@ -1150,9 +1230,10 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   box-shadow: 0 0 6px #10b981 !important;
 }
 #nf-floating-widget .nf-btn-full {
-  font-size: 12px !important;
-  color: #fff !important;
-  background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%) !important;
+  font-size: 0.8571em !important;
+  color: var(--nf-accent) !important;
+  background: var(--nf-card-bg) !important;
+  border: 1px solid var(--nf-accent) !important;
   padding: 6px 14px !important;
   border-radius: 8px !important;
   text-decoration: none !important;
@@ -1163,6 +1244,15 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 #nf-floating-widget .nf-btn-full:hover {
   transform: translateY(-1px) !important;
   box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45) !important;
+}
+#nf-floating-widget .nf-node-name, #nf-floating-widget .nf-kpi-val { color: var(--nf-card-text) !important; }
+#nf-floating-widget #nfKpiRiskVal { color: var(--nf-risk, var(--nf-card-text)) !important; }
+#nf-floating-widget .nf-empty { text-align: center !important; padding: 28px !important; color: var(--nf-muted) !important; font-size: 0.86em !important; }
+#nf-floating-widget .nf-kpi-item { min-width: 0 !important; }
+#nf-floating-widget .nf-header-text { font-size: 1em !important; }
+#nf-floating-widget .nf-filter-btn { flex-shrink: 0 !important; }
+@media (prefers-color-scheme: dark) {
+  #nf-floating-widget { --nf-scheme: dark; --nf-page-bg: #0f172a; --nf-card-bg: #1e293b; --nf-text: #f1f5f9; --nf-card-text: #f1f5f9; --nf-muted: #cbd5e1; --nf-accent: #93c5fd; --nf-safe: #6ee7b7; --nf-warning: #fde68a; --nf-danger: #fca5a5; }
 }
 </style>`;
 
@@ -1191,9 +1281,9 @@ const WIDGET_BODY_HTML = `
 
     <!-- 顶部 KPI -->
     <div class="nf-kpi-bar">
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal" style="color:#38bdf8;">-</span></div>
+      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal" >-</span></div>
       <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal">-</span></div>
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" style="color:#fde68a;">-</span></div>
+      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" >-</span></div>
     </div>
 
     <!-- 筛选药丸 (单节点页面增加当前节点药丸) -->
@@ -1207,7 +1297,7 @@ const WIDGET_BODY_HTML = `
 
     <!-- 精简节点列表 -->
     <div class="nf-list" id="nfNodeList">
-      <div style="text-align:center; padding:28px; color:#94a3b8; font-size:12px;">正在计算全节点流量与预算预测...</div>
+      <div class="nf-empty">正在计算全节点流量与预算预测...</div>
     </div>
 
     <!-- 底部动作条 -->
@@ -1219,6 +1309,221 @@ const WIDGET_BODY_HTML = `
 </div>
 <script>
 (function() {
+  // Sample host surfaces only. Discovery is bounded and cached; widget writes never resample.
+  var nfThemeRoot = document.getElementById("nf-floating-widget");
+  var nfThemePage = null, nfThemeCard = null, nfThemeAccent = null;
+  var nfThemeTimer = null, nfThemeDue = 0, nfThemeLast = 0, nfThemeDiscover = true;
+  var nfThemeLastDiscovery = 0;
+  var nfThemeAncestors = [];
+  var nfThemeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  var nfColorCanvas = document.createElement("canvas");
+  nfColorCanvas.width = nfColorCanvas.height = 1;
+  var nfColorContext = nfColorCanvas.getContext("2d", { willReadFrequently: true });
+
+  function nfHostElement(el) {
+    return el && el.nodeType === 1 && !nfThemeRoot.contains(el) &&
+      !el.closest('[role="dialog"], [role="menu"], [role="listbox"], [popover], nav, header, footer, #netforecast-widget-style');
+  }
+  function nfRGBA(value) {
+    if (!nfColorContext || !value || !CSS.supports("color", value)) return [0, 0, 0, 0];
+    nfColorContext.clearRect(0, 0, 1, 1);
+    nfColorContext.fillStyle = value;
+    nfColorContext.fillRect(0, 0, 1, 1);
+    var c = nfColorContext.getImageData(0, 0, 1, 1).data;
+    return [c[0], c[1], c[2], c[3] / 255];
+  }
+  function nfBlend(top, bottom) {
+    return [0, 1, 2].map(function(i) { return Math.round(top[i] * top[3] + bottom[i] * (1 - top[3])); }).concat(1);
+  }
+  function nfColor(c) { return "rgb(" + c.slice(0, 3).join(", ") + ")"; }
+  function nfLuminance(c) {
+    var v = c.slice(0, 3).map(function(n) { n /= 255; return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4); });
+    return v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722;
+  }
+  function nfContrast(a, b) {
+    var x = nfLuminance(a), y = nfLuminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  function nfReadable(value, bg, fallback) {
+    var c = nfBlend(nfRGBA(value), bg);
+    return nfContrast(c, bg) >= 4.5 ? nfColor(c) : fallback;
+  }
+  function nfVisible(el) {
+    if (!nfHostElement(el) || !el.isConnected) return false;
+    if (el.checkVisibility && !el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false;
+    var r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && s.visibility === "visible" && Number(s.opacity) >= 0.5 &&
+      r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+  }
+  function nfSurface(el, fallback) {
+    var chain = [], images = [], sizes = [], positions = [], repeats = [], attachments = [], origins = [], clips = [], blends = [];
+    for (var p = el, depth = 0; nfHostElement(p) && depth < 16; p = p.parentElement, depth++) {
+      var s = getComputedStyle(p);
+      chain.push(s);
+      if (nfThemeAncestors.indexOf(p) < 0) nfThemeAncestors.push(p);
+      if (s.backgroundImage !== "none") {
+        images.push(s.backgroundImage); sizes.push(s.backgroundSize); positions.push(s.backgroundPosition);
+        repeats.push(s.backgroundRepeat); attachments.push(s.backgroundAttachment);
+        origins.push(s.backgroundOrigin); clips.push(s.backgroundClip); blends.push(s.backgroundBlendMode);
+      }
+      // An opaque surface hides all backgrounds behind it.
+      if (nfRGBA(s.backgroundColor)[3] >= 0.99) break;
+    }
+    var bg = fallback;
+    for (var i = chain.length - 1; i >= 0; i--) bg = nfBlend(nfRGBA(chain[i].backgroundColor), bg);
+    return { bg: bg, image: images.join(", ") || "none", size: sizes.join(", ") || "auto",
+      position: positions.join(", ") || "0% 0%", repeat: repeats.join(", ") || "repeat",
+      attachment: attachments.join(", ") || "scroll", origin: origins.join(", ") || "padding-box",
+      clip: clips.join(", ") || "border-box", blend: blends.join(", ") || "normal" };
+  }
+  function nfDiscoverTheme() {
+    nfThemeLastDiscovery = Date.now();
+    nfThemePage = document.body;
+    // Broad visible content surfaces win over the browser's often transparent body.
+    var pageArea = Infinity;
+    [[0.5, 0.45], [0.15, 0.3], [0.85, 0.7]].forEach(function(point) {
+      var stack = document.elementsFromPoint(innerWidth * point[0], innerHeight * point[1]);
+      stack.slice(0, 8).forEach(function(el) {
+        for (var p = el, d = 0; nfHostElement(p) && d < 8; p = p.parentElement, d++) {
+          var r = p.getBoundingClientRect();
+          var area = Math.min(r.width, innerWidth) * Math.min(r.height, innerHeight);
+          if (area < innerWidth * innerHeight * 0.55 || area >= pageArea) continue;
+          var s = getComputedStyle(p);
+          if (s.visibility !== "visible" || Number(s.opacity) < 0.5) continue;
+          if (nfRGBA(s.backgroundColor)[3] > 0.05 || s.backgroundImage !== "none") {
+            nfThemePage = p; pageArea = area;
+          }
+        }
+      });
+    });
+    nfThemeCard = null; nfThemeAccent = null;
+    var best = 0, reads = 0, visited = 0;
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: function(el) { return nfHostElement(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }
+    });
+    for (var el = walker.nextNode(); el && visited < 600 && reads < 60; el = walker.nextNode(), visited++) {
+      var tag = el.tagName.toLowerCase();
+      var hint = (String(el.className || "") + " " + el.id + " " + (el.getAttribute("data-slot") || "")).toLowerCase();
+      var href = el.getAttribute("href") || "";
+      var nodeLink = href.indexOf("/instance/") >= 0 || href.indexOf("/node/") >= 0 || href.indexOf("/server/") >= 0;
+      var named = hint.indexOf("card") >= 0 || hint.indexOf("server") >= 0 || hint.indexOf("node") >= 0 || hint.indexOf("panel") >= 0;
+      if (!named && !nodeLink && tag !== "article" && tag !== "a" && tag !== "button") continue;
+      reads++;
+      if (!nfVisible(el)) continue;
+      var accentEl = el;
+      // Themes often put the instance link inside a classless surface wrapper.
+      if (nodeLink) {
+        for (var parent = el.parentElement, hop = 0; nfHostElement(parent) && hop < 3; parent = parent.parentElement, hop++) {
+          var pr = parent.getBoundingClientRect(), pst = getComputedStyle(parent);
+          if (pr.width * pr.height > innerWidth * innerHeight * 0.7) break;
+          if (pr.height >= 48 && (nfRGBA(pst.backgroundColor)[3] > 0.05 || pst.backgroundImage !== "none" || parseFloat(pst.borderTopWidth) > 0)) { el = parent; break; }
+        }
+      }
+      var style = getComputedStyle(el), rect = el.getBoundingClientRect();
+      if (!nfThemeAccent && (tag === "a" || tag === "button")) {
+        var accentStyle = getComputedStyle(accentEl);
+        var fg = nfRGBA(accentStyle.color), fill = nfRGBA(accentStyle.backgroundColor);
+        if (Math.max.apply(null, fg.slice(0, 3)) - Math.min.apply(null, fg.slice(0, 3)) > 40) nfThemeAccent = accentEl;
+        else if (fill[3] > 0.5 && Math.max.apply(null, fill.slice(0, 3)) - Math.min.apply(null, fill.slice(0, 3)) > 40) nfThemeAccent = accentEl;
+      }
+      if (rect.width < 120 || rect.height < 48 || rect.width * rect.height > innerWidth * innerHeight * 0.7) continue;
+      if (style.position === "fixed" || style.position === "sticky" || tag === "button") continue;
+      var border = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== "none";
+      var surface = nfRGBA(style.backgroundColor)[3] > 0.05 || style.backgroundImage !== "none";
+      if (!surface && !border) continue;
+      var score = (named ? 10 : 0) + (nodeLink ? 20 : 0) + (surface ? 3 : 0) + (border ? 2 : 0);
+      if (score > best) { best = score; nfThemeCard = el; }
+    }
+  }
+  function nfApplyTheme() {
+    nfThemeTimer = null; nfThemeDue = 0; nfThemeLast = Date.now();
+    if (!nfThemeRoot.isConnected || document.hidden) return;
+    try {
+      if (nfThemeDiscover || !nfVisible(nfThemePage) || (nfThemeCard && !nfVisible(nfThemeCard))) nfDiscoverTheme();
+      nfThemeDiscover = false; nfThemeAncestors = [];
+      // Watch even opaque surfaces' ancestors: theme classes are often on an app wrapper.
+      [nfThemePage, nfThemeCard].forEach(function(sample) {
+        for (var p = sample; p; p = p.parentElement) if (nfThemeAncestors.indexOf(p) < 0) nfThemeAncestors.push(p);
+      });
+      var fallback = nfThemeMedia.matches ? [15, 23, 42, 1] : [248, 250, 252, 1];
+      var page = nfSurface(nfThemePage, fallback);
+      var dark = nfLuminance(page.bg) < 0.35;
+      var ink = nfLuminance(page.bg) < 0.179 ? "#ffffff" : "#111111";
+      var cardSurface = nfThemeCard ? nfSurface(nfThemeCard, page.bg) : {
+        bg: dark ? [30, 41, 59, 1] : [255, 255, 255, 1], image: "none", size: "auto", position: "0% 0%", repeat: "repeat", attachment: "scroll", origin: "padding-box", clip: "border-box", blend: "normal"
+      };
+      var ps = getComputedStyle(nfThemePage || document.body);
+      var cs = nfThemeCard ? getComputedStyle(nfThemeCard) : null;
+      var text = nfReadable(ps.color, page.bg, ink);
+      var cardInk = nfLuminance(cardSurface.bg) < 0.179 ? "#ffffff" : "#111111";
+      var cardText = nfReadable(cs && cs.color, cardSurface.bg, cardInk);
+      var accent = dark ? "#93c5fd" : "#1d4ed8";
+      if (nfThemeAccent && nfVisible(nfThemeAccent)) {
+        var as = getComputedStyle(nfThemeAccent);
+        if (nfThemeAncestors.indexOf(nfThemeAccent) < 0) nfThemeAncestors.push(nfThemeAccent);
+        var ac = nfRGBA(as.color);
+        if (Math.max.apply(null, ac.slice(0, 3)) - Math.min.apply(null, ac.slice(0, 3)) < 40) ac = nfRGBA(as.backgroundColor);
+        if (ac[3] > 0.5 && nfContrast(ac, page.bg) >= 4.5 && nfContrast(ac, cardSurface.bg) >= 4.5) accent = nfColor(ac);
+      }
+      var vars = { "font": ps.fontFamily, "font-size": ps.fontSize, "scheme": dark ? "dark" : "light",
+        "text": text, "card-text": cardText, "muted": text, "accent": accent,
+        "radius": cs ? cs.borderRadius : "12px", "shadow": cs ? cs.boxShadow : (dark ? "0 12px 36px #0008" : "0 12px 36px #0f172a26"),
+        "safe": nfLuminance(cardSurface.bg) < 0.179 ? "#6ee7b7" : "#047857", "warning": nfLuminance(cardSurface.bg) < 0.179 ? "#fde68a" : "#92400e", "danger": nfLuminance(cardSurface.bg) < 0.179 ? "#fca5a5" : "#b91c1c" };
+      ["top", "right", "bottom", "left"].forEach(function(side) {
+        vars["border-" + side] = cs ? cs.getPropertyValue("border-" + side) : ("1px solid " + (dark ? "#475569" : "#cbd5e1"));
+      });
+      [["page", page], ["card", cardSurface]].forEach(function(entry) {
+        var prefix = entry[0], surface = entry[1];
+        vars[prefix + "-bg"] = nfColor(surface.bg);
+        ["image", "size", "position", "repeat", "attachment", "origin", "clip", "blend"].forEach(function(key) { vars[prefix + "-" + key] = surface[key]; });
+      });
+      Object.keys(vars).forEach(function(key) {
+        var name = "--nf-" + key;
+        if (nfThemeRoot.style.getPropertyValue(name) !== vars[key]) nfThemeRoot.style.setProperty(name, vars[key]);
+      });
+      if (isOpen && typeof positionCard === "function") positionCard();
+    } catch (e) { /* Scoped CSS defaults stay readable if sampling is unavailable. */ }
+  }
+  function nfScheduleTheme(discover, delay) {
+    nfThemeDiscover = nfThemeDiscover || discover === true;
+    var wait = Math.max(100, delay || 0, 1000 - (Date.now() - nfThemeLast));
+    var due = Date.now() + wait;
+    if (nfThemeTimer !== null && nfThemeDue <= due) return;
+    if (nfThemeTimer !== null) clearTimeout(nfThemeTimer);
+    nfThemeDue = due;
+    nfThemeTimer = setTimeout(nfApplyTheme, wait);
+  }
+  var nfThemeObserver = new MutationObserver(function(records) {
+    for (var i = 0; i < records.length; i++) {
+      var record = records[i], target = record.target;
+      if (target === nfThemeRoot || nfThemeRoot.contains(target)) continue;
+      if (record.type === "attributes") {
+        if (target === document.documentElement || target === document.body || target.tagName === "LINK" || target.tagName === "STYLE" || nfThemeAncestors.indexOf(target) >= 0) { nfScheduleTheme(record.attributeName !== "style"); return; }
+      } else {
+        // Text and chart updates do not cause rediscovery; replaced samples and new surfaces do.
+        if (!nfThemePage || !nfThemePage.isConnected || (nfThemeCard && !nfThemeCard.isConnected) || (nfThemeAccent && !nfThemeAccent.isConnected)) { nfScheduleTheme(true); return; }
+        for (var j = 0; j < record.addedNodes.length; j++) {
+          var added = record.addedNodes[j];
+          var lateSurface = !nfThemeCard &&
+            added.nodeType === 1 && ["DIV", "MAIN", "SECTION", "ARTICLE", "A", "LI"].indexOf(added.tagName) >= 0;
+          if (added.nodeType === 1 && !nfThemeRoot.contains(added) &&
+              (lateSurface || added.tagName === "STYLE" || added.tagName === "LINK")) {
+            nfScheduleTheme(true, lateSurface ? Math.max(0, 5000 - (Date.now() - nfThemeLastDiscovery)) : 0); return;
+          }
+        }
+        if (target.nodeType === 1 && target.closest("style")) { nfScheduleTheme(true); return; }
+      }
+    }
+  });
+  nfThemeObserver.observe(document.documentElement, { subtree: true, childList: true, attributes: true,
+    attributeFilter: ["class", "style", "data-theme", "data-color-mode", "data-mode", "color-scheme", "hidden", "href", "media", "disabled"] });
+  window.addEventListener("resize", function() { nfScheduleTheme(true); });
+  window.addEventListener("load", function() { nfScheduleTheme(true); });
+  document.addEventListener("load", function(e) { if (e.target.tagName === "LINK") nfScheduleTheme(true); }, true);
+  document.addEventListener("visibilitychange", function() { if (!document.hidden) nfScheduleTheme(true); });
+  if (nfThemeMedia.addEventListener) nfThemeMedia.addEventListener("change", function() { nfScheduleTheme(true); });
+  nfApplyTheme();
+
   // 健壮黑名单路由判定：仅在管理后台、系统设置、终端或特定插件独立大屏/子页面中隐藏浮窗；其余所有前台页面（首页、节点列表、实例详情、自定义路由等）默认正常展示
   function nfIsAdminPath() {
     try {
@@ -1253,6 +1558,7 @@ const WIDGET_BODY_HTML = `
       if (isAdmin) {
         var card = widgetRoot.querySelector(".nf-widget-card");
         if (card) {
+          isOpen = false;
           card.classList.remove("nf-open");
           card.style.setProperty("display", "none", "important");
         }
@@ -1263,9 +1569,10 @@ const WIDGET_BODY_HTML = `
   }
 
   nfSyncWidgetVisibility();
-  window.addEventListener("popstate", nfSyncWidgetVisibility);
-  window.addEventListener("hashchange", nfSyncWidgetVisibility);
-  setInterval(nfSyncWidgetVisibility, 1000);
+  var nfLastRoute = location.href;
+  setInterval(function() {
+    if (location.href !== nfLastRoute) nfCheckRoute();
+  }, 1000);
 
   // 稳健提取当前节点 ID (免正则转义干扰，全面支持 pathname / hash / search)
   function getCurrentInstanceUuid() {
@@ -1356,6 +1663,8 @@ const WIDGET_BODY_HTML = `
   }
 
   function nfCheckRoute() {
+    nfLastRoute = location.href;
+    nfScheduleTheme(true);
     nfSyncWidgetVisibility();
   }
   window.addEventListener("popstate", nfCheckRoute);
@@ -1495,16 +1804,15 @@ const WIDGET_BODY_HTML = `
     var cardW = Math.min(440, window.innerWidth - 28);
     card.style.setProperty("width", cardW + "px", "important");
 
-    // 水平方向自适应
-    if (bRect.left + cardW > window.innerWidth - 14) {
-      var r = Math.max(12, window.innerWidth - bRect.right);
-      card.style.setProperty("right", r + "px", "important");
-      card.style.setProperty("left", "auto", "important");
-    } else {
-      var l = Math.max(12, bRect.left);
-      card.style.setProperty("left", l + "px", "important");
-      card.style.setProperty("right", "auto", "important");
-    }
+    // Reserve room between the trigger and panel, including short/mobile viewports.
+    var below = bRect.top <= window.innerHeight / 2;
+    var available = below ? window.innerHeight - bRect.bottom - 24 : bRect.top - 24;
+    card.style.setProperty("max-height", Math.max(80, Math.min(window.innerHeight * 0.8, available)) + "px", "important");
+
+    // Clamp the entire panel, including a trigger dragged toward either edge.
+    var panelLeft = Math.max(14, Math.min(window.innerWidth - cardW - 14, bRect.left));
+    card.style.setProperty("left", panelLeft + "px", "important");
+    card.style.setProperty("right", "auto", "important");
 
     // 垂直方向自适应
     if (bRect.top > window.innerHeight / 2) {
@@ -1533,6 +1841,7 @@ const WIDGET_BODY_HTML = `
 
   function openCard() {
     isOpen = true;
+    nfScheduleTheme(true);
     positionCard();
     card.style.setProperty("display", "flex", "important");
     card.classList.add("nf-open");
@@ -1596,10 +1905,10 @@ const WIDGET_BODY_HTML = `
         if (singleNode.has_quota && singleNode.traffic_limit_bytes > 0) {
           var ratioPct = Math.round((singleNode.usage_ratio || 0) * 100);
           kpiRiskVal.textContent = ratioPct + "%";
-          kpiRiskVal.style.color = ratioPct >= 100 ? "#ef4444" : (ratioPct >= 90 ? "#fde68a" : "#6ee7b7");
+          kpiRiskVal.style.setProperty("--nf-risk", ratioPct >= 100 ? "var(--nf-danger)" : (ratioPct >= 90 ? "var(--nf-warning)" : "var(--nf-safe)"));
         } else {
           kpiRiskVal.textContent = isEn ? "Uncapped" : "免额度";
-          kpiRiskVal.style.color = "#cbd5e1";
+          kpiRiskVal.style.setProperty("--nf-risk", "var(--nf-card-text)");
         }
       }
 
@@ -1640,7 +1949,7 @@ const WIDGET_BODY_HTML = `
       if (kpiRiskLbl) kpiRiskLbl.textContent = isEn ? "AT RISK" : "超限风险";
       if (kpiRiskVal) {
         kpiRiskVal.textContent = totalAlerts > 0 ? (totalAlerts + (isEn ? " Nodes Alert" : " 台预警")) : (isEn ? "All Safe" : "全节点安全");
-        kpiRiskVal.style.color = totalAlerts > 0 ? "#fca5a5" : "#6ee7b7";
+        kpiRiskVal.style.setProperty("--nf-risk", totalAlerts > 0 ? "var(--nf-danger)" : "var(--nf-safe)");
       }
 
       if (kpiResetLbl) kpiResetLbl.textContent = isEn ? "NEXT RESET" : "最近重置";
@@ -1697,7 +2006,7 @@ const WIDGET_BODY_HTML = `
     }
 
     if (filtered.length === 0) {
-      nodeList.innerHTML = '<div style="text-align:center; padding:32px; color:#94a3b8; font-size:12px;">' + (isEn ? "No matching nodes" : "无符合条件的节点") + '</div>';
+      nodeList.innerHTML = '<div class="nf-empty">' + (isEn ? "No matching nodes" : "无符合条件的节点") + '</div>';
       return;
     }
 
@@ -1740,7 +2049,7 @@ const WIDGET_BODY_HTML = `
           projPct = Math.min(100 - usedPct, Math.max(0, Math.round((projBytes - usedBytes) / quotaBytes * 100)));
         }
         var isCrit = status === "CRITICAL";
-        var usedColor = isCrit ? "#ef4444" : "#6366f1";
+        var usedColor = isCrit ? "var(--nf-danger)" : "var(--nf-accent)";
         var projClass = isCrit ? "critical" : "";
         barHtml = '<div class="nf-bar-used" style="width:' + usedPct + '%; background:' + usedColor + ';"></div>' +
                   '<div class="nf-bar-projected ' + projClass + '" style="width:' + projPct + '%;"></div>';

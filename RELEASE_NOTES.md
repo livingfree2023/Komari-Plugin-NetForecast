@@ -1,3 +1,43 @@
+# v26.1020.2 — 浮窗主题跟随 / Floating Widget Theme Adaptation
+
+## 🇨🇳 中文更新日志
+
+### 新增功能
+- 现有浮窗在运行时读取宿主页面与节点卡片的可靠计算样式，通过浮窗根节点上的 `--nf-*` CSS 变量同步字体、字号、明暗模式、页面与卡片底色及背景图、四边边框颜色/宽度/线型、圆角、文字色、强调色和阴影。
+- 浮窗主体接近页面背景，服务卡片接近节点卡片；标题栏、筛选栏及状态栏透出主体背景。保留原有数据、拖拽、位置记忆、筛选与完整图表入口，不向宿主节点卡片注入内容。
+
+### 问题修复与改进
+- 排除插件自身、菜单及弹层作为取样对象，避免样式反馈循环；取样不足时采用可读的默认样式，并按底色检查文字对比度。
+- 缓存并限量发现宿主表面，对主题、系统明暗、SPA 路由、窗口变化及重渲染合并刷新；不进行定时全页扫描。
+- 路由巡检仅在地址改变时重绘，避免每秒重建节点列表；修复手机拖动后面板向左越界，限制展开高度并保留标题栏与筛选栏间距。
+- 新增模板执行、CSS 作用域和 Playwright 浏览器回归检查，完善测试、打包及版本递增说明。个人规则文件更名为本地忽略的 `AGENTS.md`。
+
+### 验证与已知限制
+- 2 项静态检查与 5 项 Playwright 回归通过，覆盖桌面/手机视口、浅深色切换、背景图、卡片、字体、边框、标题/状态栏、路由及拖拽。
+- 原有 TypeScript 检查和构建仍有 12 条基线诊断，已与修改前源码复核一致；发布包直接使用 `script.js`，不包含 `dist/`。
+- 真实 Komari/Goja 注入、所有第三方主题与原生下拉弹层仍需实际环境验收；伪元素、Canvas、跨域 iframe 及纯 CSSOM 修改未自动覆盖，复杂背景图上的可读性仍需目测。
+
+## 🇬🇧 English Changelog
+
+### Features
+- The existing widget samples reliable computed styles from the host page and node cards at runtime. Widget-scoped `--nf-*` CSS variables follow fonts and sizes, color scheme, page/card colors and background images, per-side border color/width/style, radii, foreground/accent colors and shadows.
+- The panel follows the page surface and service cards follow host node cards. The header, filters and status bar reveal the panel background. Existing data, dragging, saved positions, filtering and the full-chart entry remain; no content is injected into host node cards.
+
+### Fixes and Improvements
+- Excludes the widget, menus and overlays from sampling to prevent feedback loops. Unreliable samples fall back to readable defaults, with text contrast checked against the base color.
+- Caches and bounds surface discovery and coalesces updates for theme/system color-scheme changes, SPA navigation, resizing and rerendering, without periodic whole-page scans.
+- Route polling redraws only when the URL changes. Fixes horizontal overflow after dragging on mobile, bounds panel height and preserves header/filter spacing.
+- Adds executable-template, scoped-CSS and Playwright regression checks and documents packaging, testing and patch increments. Personal rules are renamed to the locally ignored `AGENTS.md`.
+
+### Validation and Known Limitations
+- Two static checks and five Playwright regressions pass, covering desktop/mobile layouts, light/dark switching, images, cards, typography, borders, header/footer, navigation and dragging.
+- TypeScript checking/building still reports the same 12 pre-existing diagnostics, reproduced against the previous source. The release package directly loads `script.js` and excludes `dist/`.
+- Real Komari/Goja injection, all third-party themes and native dropdown popups need deployment validation. Pseudo-elements, Canvas, cross-origin iframes and pure CSSOM updates are not automatically covered; complex background-image contrast needs visual review.
+
+---
+
+# 历史更新 / Previous Changes
+
 ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
 
 ### 🚀 v26.1020.1

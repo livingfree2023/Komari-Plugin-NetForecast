@@ -1,3 +1,7 @@
+# Personal guidelines and retired handover notes
+/AGENTS_GENERAL.md
+/AGENTS.md
+
 # Dependency & Build Artifacts
 node_modules/
 dist/
@@ -32,3 +36,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Browser verification screenshots
+test-results/

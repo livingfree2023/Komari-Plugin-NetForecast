@@ -1,115 +1,63 @@
-# v26.1020.2 — 浮窗主题跟随 / Floating Widget Theme Adaptation
-
-## 🇨🇳 中文更新日志
-
-### 新增功能
-- 现有浮窗在运行时读取宿主页面与节点卡片的可靠计算样式，通过浮窗根节点上的 `--nf-*` CSS 变量同步字体、字号、明暗模式、页面与卡片底色及背景图、四边边框颜色/宽度/线型、圆角、文字色、强调色和阴影。
-- 浮窗主体接近页面背景，服务卡片接近节点卡片；标题栏、筛选栏及状态栏透出主体背景。保留原有数据、拖拽、位置记忆、筛选与完整图表入口，不向宿主节点卡片注入内容。
-
-### 问题修复与改进
-- 排除插件自身、菜单及弹层作为取样对象，避免样式反馈循环；取样不足时采用可读的默认样式，并按底色检查文字对比度。
-- 缓存并限量发现宿主表面，对主题、系统明暗、SPA 路由、窗口变化及重渲染合并刷新；不进行定时全页扫描。
-- 路由巡检仅在地址改变时重绘，避免每秒重建节点列表；修复手机拖动后面板向左越界，限制展开高度并保留标题栏与筛选栏间距。
-- 新增模板执行、CSS 作用域和 Playwright 浏览器回归检查，完善测试、打包及版本递增说明。个人规则文件更名为本地忽略的 `AGENTS.md`。
-
-### 验证与已知限制
-- 2 项静态检查与 5 项 Playwright 回归通过，覆盖桌面/手机视口、浅深色切换、背景图、卡片、字体、边框、标题/状态栏、路由及拖拽。
-- 原有 TypeScript 检查和构建仍有 12 条基线诊断，已与修改前源码复核一致；发布包直接使用 `script.js`，不包含 `dist/`。
-- 真实 Komari/Goja 注入、所有第三方主题与原生下拉弹层仍需实际环境验收；伪元素、Canvas、跨域 iframe 及纯 CSSOM 修改未自动覆盖，复杂背景图上的可读性仍需目测。
-
-## 🇬🇧 English Changelog
-
-### Features
-- The existing widget samples reliable computed styles from the host page and node cards at runtime. Widget-scoped `--nf-*` CSS variables follow fonts and sizes, color scheme, page/card colors and background images, per-side border color/width/style, radii, foreground/accent colors and shadows.
-- The panel follows the page surface and service cards follow host node cards. The header, filters and status bar reveal the panel background. Existing data, dragging, saved positions, filtering and the full-chart entry remain; no content is injected into host node cards.
-
-### Fixes and Improvements
-- Excludes the widget, menus and overlays from sampling to prevent feedback loops. Unreliable samples fall back to readable defaults, with text contrast checked against the base color.
-- Caches and bounds surface discovery and coalesces updates for theme/system color-scheme changes, SPA navigation, resizing and rerendering, without periodic whole-page scans.
-- Route polling redraws only when the URL changes. Fixes horizontal overflow after dragging on mobile, bounds panel height and preserves header/filter spacing.
-- Adds executable-template, scoped-CSS and Playwright regression checks and documents packaging, testing and patch increments. Personal rules are renamed to the locally ignored `AGENTS.md`.
-
-### Validation and Known Limitations
-- Two static checks and five Playwright regressions pass, covering desktop/mobile layouts, light/dark switching, images, cards, typography, borders, header/footer, navigation and dragging.
-- TypeScript checking/building still reports the same 12 pre-existing diagnostics, reproduced against the previous source. The release package directly loads `script.js` and excludes `dist/`.
-- Real Komari/Goja injection, all third-party themes and native dropdown popups need deployment validation. Pseudo-elements, Canvas, cross-origin iframes and pure CSSOM updates are not automatically covered; complex background-image contrast needs visual review.
-
----
-
-# 历史更新 / Previous Changes
+# v26.1021.6 — 宿主水合稳定期淡入、手势防重开与多插件对齐 / Host Settling Window, Gesture Disambiguation & Multi-Widget Alignment
 
 ## 🇨🇳 中文更新日志 (Changelog - zh_CN)
 
-### 🚀 v26.1020.1
-#### 🛡️ 路由隔离与前台无感展示 (Route Isolation & UX)
-- **健壮黑名单路由隔离与前台稳定展示**：
-  - 将路由判定重构为健壮黑名单机制：在后台管理（`/admin`、`/terminal`、`/settings`、`/login`）及独立插件大屏（`matrix.html`、`public.html` 等）严格静默隐藏。
-  - 彻底解除过于严苛的正向白名单与 iframe 限制，确保前台所有路由（首页、节点列表、实例详情、二级子路径部署、仪表盘 iframe 嵌入）均能正常稳定显示浮窗。
-  - 修复 `nfCheckRoute` 中调用未定义函数的 ReferenceError，统一 `popstate` / `hashchange` / SPA pushState 路由状态监听与数据热刷新。
+### 🚀 新增功能 (Features)
+- **120ms 宿主水合稳定期与平滑无缝淡入机制 (Host Settling Window & Smooth Delayed Reveal)**：
+  - 引入 120ms 宿主稳定期架构规范。根容器初始保持 `opacity: 0` 隐身，静默等待宿主 SPA 完成 DOM 水合、动态主题类注入与背景图片渲染；
+  - 稳定期结束后，探针读取 100% 真实的宿主背景与边框风格，并结合同屏邻近按钮完成槽位防碰撞避让，随后通过 `0.22s ease` 极其自然地淡入视野；
+  - 彻底消除了页面刷新时按钮瞬间由深灰色闪跳为主题色（Flash of Unstyled Theme）的肉眼撕裂感。
+- **多插件共存防碰撞与槽位智能避让 (Multi-Widget Collision Avoidance)**：
+  - 遵循统一的 `[data-km-fab="true"]` 去中心化契约与 `resolveFabPosition` 算法，在宿主水合与拖拽停靠时自动与同屏其他插件悬浮按钮（如 `unlock-test`）智能错开槽位，杜绝按钮互相重叠遮挡。
+- **全局卡片互斥展示协议 (Mutually Exclusive Cards)**：
+  - 监听并广播 `km:floating-card-open`，同一时刻只展开一个卡片，点击打开当前浮窗时自动收起其他插件已展开的弹窗。
 
-### v26.1012.2 (Previous)
+### 🐛 问题修复 (Bug Fixes)
+- **点击小按钮收起时刚关又开冲突修复 (Click Double-Toggle Disambiguation)**：
+  - 彻底修复当浮窗已展开时再次点击小按钮收起浮窗、浮窗在关闭后立刻被重新打开的交互冲突；
+  - 展开/折叠状态机统一收敛由 `pointerup` 的 `toggle()` 唯一驱动，`click` 仅拦截阻止冒泡与默认行为，杜绝多重事件触发导致的再次展开；
+  - 增加 `onpointercancel` 安全保底，与 `unlock-test` 保持 100% 行为一致。
+- **实例详情页浮窗展示与主题容错**：
+  - 修复在 `/instance/:id` 详情页下主题探测器对单节点卡片样式抓取的容错性，保证在节点详情页依然能稳定呈现悬浮按钮与浮层。
 
-### 🚀 新增功能与高可用自愈 (Features & Resilience)
-- **时序打点重启自适应算法（Counter Reset Detection）**：
-  - 彻底解决 VPS / 网卡重启后，Linux `/proc/net/dev` 内核内存计数器清零导致的“今日”流量归零、大幅倒扣或数据丢失问题。
-  - 引入网络监控工业级重置判定规则：相邻采样点 `curr >= prev` 计正常增量，`curr < prev` 时判定为系统或网卡重启并将 `curr` 作为重启后新产生量正向累加。今日流量无缝衔接网卡实时计数器，单日多次重启亦能全额记录。
-  - 彻底移除过去脆弱的多层嵌套 fallback 分支及 `> 500GB 归零` 的防御性硬编码，计算更简洁、稳健。
-- **核心数据库高并发限流保护（Concurrency Limit & Timeout Shield）**：
-  - 深度优化多节点并发拉取 720 小时历史打点时的数据库负载，引入 `mapConcurrent` 批处理机制（限制最大并发请求数为 4），单次超时时间延长至 8.0s，彻底杜绝单核轻量 VPS 下 SQLite 数据库锁死或大量请求 Abort / 失败。
-- **数据库查询失败节点的视觉警示与按需重试（Failure UI & Retry Mechanisms）**：
-  - **单卡片错误警示**：当节点数据库查询因超时未完成时，卡片顶部标记警示徽标，并在卡片内展示醒目的警告横幅，附带独立 `[🔄 重试此节点]` 按钮（使用 15s 充裕超时重试单节点）。
-  - **全局失败横幅与批量重试**：看板顶部检测到失败节点时，自动展开全局提醒条，并提供 `[🔄 重试失败节点 (N)]` 按钮，低并发平滑轮询重试所有失败节点，重试成功后自动隐退。
-  - **失败专属筛选胶囊**：动态筛选栏若检测到失败节点，自动增加 `⚠️ N 个时序拉取失败` 快捷筛选胶囊，一键聚焦故障节点。
-- **一键纯文本诊断数据导出与静态 URL（AI Agent 友好）**：
-  - **静态接口直取**：提供固定端点 `/api/plugin/net-forecast/export.json`（及别名 `/debug.json`、`/debug`），AI Agent 与自动化脚本可直接通过 HTTP GET 读取完整诊断数据，彻底免除手动下载与繁复 UI 弹窗。
-  - **内存快照缓存与抗 DoS 保护**：服务端提供 180 秒（3 分钟）内存快照缓存与 60 秒刷新节流互斥锁，内存命中响应耗时 `<1ms` 且 0 次数据库 I/O 查询，配合 `Cache-Control: public, max-age=60`，完全免疫高频请求或 DoS 攻击。
-  - **操作栏一键复制**：看板底部提供「📋 复制诊断 URL」与「📥 导出诊断数据 (JSON)」双操作，一键将抓取 URL 提供给 AI Agent。
-
-### 🐛 问题修复与多端体验对齐 (Bug Fixes & Consistency)
-- **彻底解决悬浮小组件与全量看板指标显示不一致的问题**：
-  - **根本原因修复**：修复了浮窗组件在后台重复发送缺乏打点历史的请求，导致服务端回退至本地短采样数据并冲刷覆盖全局快照的严重缺陷。
-  - **30 天高精度时序持久化**：在 `TrafficStorage` 中新增时序合并落盘逻辑（`setNodeDailyHistory`），全量看板从核心数据库拉取的 30 天打点数据自动落盘，确保服务端与浮窗任何时候均具备完整的 7 日均速计算基准。
-  - **浮窗轻量直读优化**：彻底移除浮窗组件内部对所有节点的并发额外轮询与重算逻辑，直接复用服务端高精度权威快照，页面响应 `<1ms`，两处视图均速、预测总量与告警状态实现 100% 绝对一致。
-  - **单节点重试快照保护**：在服务端增加了单节点局部合并防护逻辑，当用户在前端单独重试某个节点时，外科手术式就地更新该节点，杜绝单节点结果冲刷覆盖全局 15 个节点快照。
-  - **RPC 时区对齐**：对齐了 `netForecast:getOverview` RPC 接口的统计时区偏移与快照复用。
-- **账单周期折线平滑对齐（消除 90 度垂直突变）**：
-  - 修复当网卡硬件总计与日采样存在差额时，今日点出现 90 度直角垂直突变的缺陷。引入前序基准底数平滑对齐，折线全周期平滑单调递增，左右严格对齐重置周期。
+### ⚡ 优化与改进 (Improvements)
+- **视觉质感全面对齐与克制美学 (Refined Aesthetics)**：
+  - 采用极致 1px 发丝边框（贴合宿主主题 `var(--nf-border)`），消除内嵌高光避免边框视觉变粗；
+  - 移除粗红绿外框与预警呼吸脉冲动画，状态通过右上角静止角标优雅传达；
+  - 采用右下立体深邃投影（X:4px, Y:6px），使按钮与展开浮窗在各种背景下均具备优雅的立体悬浮空间感。
+- **Z-Index 严格层级隔离规范**：
+  - 展开浮窗卡片层级提升至 `100000`，彻底跨越悬浮按钮层级区间（`99990`），彻底消除被其他插件小按钮部分遮挡角标的层级错乱。
+- **零反斜杠模版安全校验**：
+  - `WIDGET_BODY_HTML` 纯原生字符串处理，严格规避 Goja 模板求值时的反斜杠剥离漏洞。
 
 ---
 
 ## 🇬🇧 English Changelog (en)
 
-### 🚀 v26.1020.1
-#### 🛡️ Route Isolation & Frontend UX
-- **Robust Blacklist Route Isolation & Frontend Reliability**:
-  - Replaced restrictive route whitelisting with robust blacklist filtering: strictly hides on admin management (`/admin`, `/terminal`, `/settings`, `/login`) and standalone plugin pages (`matrix.html`, `public.html`, etc.).
-  - Restored reliable floating widget display across all frontend views, SPA hash routes, custom subpath deployments, and embedded iframe dashboards.
-  - Fixed the `ReferenceError` caused by dangling function references in `nfCheckRoute`, harmonizing `popstate`, `hashchange`, and SPA `pushState` listeners.
+### 🚀 Features
+- **Host Settling Window & Smooth Delayed Reveal (120ms)**:
+  - Introduced a 120ms host settling window architecture. The root container starts in stealth mode (`opacity: 0`), silently allowing the host SPA to complete DOM hydration, dynamic theme classes injection, and background rendering.
+  - After 120ms, computed styles are sampled from the settled host page, collision coordinates are aligned with neighbor widgets, and the button smoothly fades in with `0.22s ease`.
+  - Completely eliminates the instant color flicker from dark gray to host theme on page refresh.
+- **Multi-Widget Collision Avoidance & Smart Stacking**:
+  - Implements the decentralized `[data-km-fab="true"]` contract and `resolveFabPosition` algorithm to automatically offset slots from other plugin buttons (e.g. `unlock-test`), preventing overlap and stacking.
+- **Mutually Exclusive Card Display**:
+  - Dispatches and listens to `km:floating-card-open`, ensuring only one floating card remains expanded at any time.
 
-### v26.1012.2 (Previous)
+### 🐛 Bug Fixes
+- **Click Double-Toggle Disambiguation on Widget Close**:
+  - Fixed an issue where clicking the floating button while the card is open caused it to close and immediately re-open.
+  - Unifies card expansion and collapse strictly through `pointerup`'s `toggle()`. The native `click` listener only intercepts bubbling and default behaviors, eliminating re-triggering.
+  - Added `onpointercancel` safety handler, fully aligning behavior with `unlock-test`.
+- **Instance Detail Page Robustness**:
+  - Improved theme discovery fallback on `/instance/:id` pages, ensuring reliable floating widget display across all routes.
 
-### 🚀 Features & Resilience
-- **Counter Reset Detection for Linux / VPS Reboots**:
-  - Completely resolved the issue where today's traffic counter would reset to zero, become negative, or lose pre-reboot usage when a monitored VPS rebooted (which resets the Linux `/proc/net/dev` kernel memory counter).
-  - Adopted industry-standard reset detection: when adjacent samples show `curr >= prev`, the delta is `curr - prev`; when `curr < prev`, a counter reset / reboot is detected, treating `curr` as newly accumulated post-reboot traffic. Seamlessly stitches historical records with live counters.
-  - Eliminated arbitrary thresholds (like `> 500GB`) and nested fallback cascades in favor of a clean, robust mathematical formulation.
-- **Concurrency Limiting & Database Timeout Defense**:
-  - Implemented `mapConcurrent` batch scheduling (capped at 4 concurrent requests) and extended database timeouts to 8.0s when querying 720h network records, preventing SQLite lockups and request aborts on single-core lightweight VPS servers.
-- **Node Query Failure UI & Interactive Retry Mechanisms**:
-  - **Per-Card Alert & Inline Retry**: Nodes that timeout during initial loading display a clear warning banner and an independent `[🔄 Retry Node]` button with a 15-second relaxed timeout.
-  - **Global Failure Banner & Batch Retry**: The header displays a global alert banner when failed nodes are detected, featuring a `[🔄 Retry Failed Nodes (N)]` button that sequentially recovers all failed nodes with progressive status feedback.
-  - **Quick Filter Pill**: The filter bar dynamically adds a `⚠️ N Failed Queries` pill to quickly isolate nodes needing attention.
-- **Direct Plain-Text Diagnostic JSON Export & Static URL (AI Agent Friendly)**:
-  - **Static Endpoint Access**: Added a dedicated static endpoint `GET /api/plugin/net-forecast/export.json` (with aliases `/debug.json` and `/debug`) allowing AI agents and external scripts to directly retrieve comprehensive diagnostic data via HTTP GET without manual file downloads or bulky UI modals.
-  - **In-Memory Snapshot & DoS Protection**: Implemented a 180-second (3-minute TTL) in-memory snapshot cache with a 60-second mutex refresh lock. Cache hits return in `<1ms` with zero database queries, fortified with `Cache-Control: public, max-age=60` to thoroughly eliminate any risk of DoS attacks or database exhaustion on single-core VPS servers.
-  - **One-Click URL Copying**: Added a "📋 Copy Diagnostic URL" button alongside "📥 Export Debug Data (JSON)" in the footer bar for effortless URL sharing.
-
-### 🐛 Bug Fixes & Multi-View Consistency
-- **Resolved Discrepancy Between Floating Widget and Full Chart**:
-  - **Root Cause Fix**: Fixed a critical defect where the floating widget sent background recalculation requests lacking historical records, causing the backend to fall back to limited local samples and overwrite the authoritative global snapshot.
-  - **Persistent 30-Day Historical Storage**: Added `setNodeDailyHistory` in `TrafficStorage` to persistently save high-resolution 30-day records fetched by the dashboard to disk, ensuring both server endpoints and the floating widget consistently compute the accurate 7-day weighted run-rate.
-  - **Lightweight Floating Widget Direct Consumption**: Removed redundant 15-node `/api/recent` polling and degraded re-POST loops from the floating widget. The widget now directly consumes the unified high-precision overview snapshot in `<1ms`, ensuring 100% data consistency across both views.
-  - **Surgical Snapshot Protection on Node Retry**: Added in-place partial update protection so that retrying an individual node does not flush or overwrite the global multi-node snapshot.
-  - **RPC Timezone Alignment**: Aligned the `netForecast:getOverview` RPC interface with the configured timezone offset and snapshot reuse.
-- **Continuous Monotonic Billing Cycle Curves**:
-  - Fixed the 90-degree vertical cliff artifact on the cumulative line chart by smoothly offsetting the baseline when historical counters and daily increments have discrepancies, ensuring strictly monotonic curves aligned between `[cycleStart, cycleEnd]`.
+### ⚡ Improvements
+- **Refined Aesthetics & Restrained Design**:
+  - Applied 1px hairline borders matching host theme styles without deceptive inset highlights.
+  - Removed garish colored borders and distracting pulse animations in favor of static badge dots.
+  - Added directional bottom-right elevation shadows (X:4px, Y:6px) for solid depth separation against diverse backgrounds.
+- **Strict Z-Index Hierarchy**:
+  - Set floating cards to `z-index: 100000`, strictly separating them from trigger buttons (`99990`) to prevent any clipping from neighbor widgets.
+- **Zero-Backslash Template Safety**:
+  - Enforced 100% native string operations inside `WIDGET_BODY_HTML`, avoiding Goja template backslash-stripping hazards.

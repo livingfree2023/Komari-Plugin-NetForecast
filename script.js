@@ -757,6 +757,16 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   color-scheme: var(--nf-scheme) !important;
   color: var(--nf-text) !important;
   pointer-events: none !important;
+  opacity: 0 !important;
+  transition: opacity 0.22s ease !important;
+}
+
+#nf-floating-widget.nf-ready {
+  opacity: 1 !important;
+}
+
+#nf-floating-widget:not(.nf-ready) .nf-trigger-sq {
+  pointer-events: none !important;
 }
 
 /* 1. 可拖拽方形触发图标按钮 (无文字，边框状态变色) */
@@ -764,7 +774,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   width: 48px !important;
   height: 48px !important;
   position: fixed !important;
-  background: var(--nf-card-bg, #1e293b) !important;
+  background-color: var(--nf-card-bg, #1e293b) !important;
   background-image: var(--nf-card-image, none) !important;
   background-size: var(--nf-card-size, auto) !important;
   background-position: var(--nf-card-position, 0% 0%) !important;
@@ -840,7 +850,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
   min-height: 220px !important;
   max-width: calc(100vw - 28px) !important;
   max-height: 80vh !important;
-  background: var(--nf-page-bg) !important;
+  background-color: var(--nf-page-bg) !important;
   background-image: var(--nf-page-image) !important;
   background-size: var(--nf-page-size, auto) !important;
   background-position: var(--nf-page-position, 0% 0%) !important;
@@ -1254,58 +1264,7 @@ const WIDGET_HEAD_HTML = `<style id="netforecast-widget-style">
 }
 </style>`;
 
-const WIDGET_BODY_HTML = `
-<div id="nf-floating-widget">
-  <!-- 1. 可拖拽方形图标按钮 (无文字，状态边框变色) -->
-  <div class="nf-trigger-sq safe" id="nfTriggerBtn" data-km-fab="true" data-km-fab-id="net-forecast" title="流量预测 (可拖拽移动位置)">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"></line>
-      <line x1="12" y1="20" x2="12" y2="4"></line>
-      <line x1="6" y1="20" x2="6" y2="14"></line>
-      <path d="M3 14l5-4 5 3 7-7"></path>
-    </svg>
-    <div class="nf-sq-dot" id="nfSqDot"></div>
-  </div>
-
-  <!-- 2. 精致展开看板 (留足边距，精简布局) -->
-  <div class="nf-widget-card" id="nfWidgetCard">
-    <div class="nf-header">
-      <div class="nf-header-title">
-        <div class="nf-header-icon">📊</div>
-        <span class="nf-header-text" id="nfWhTitle">流量预测与预算监控</span>
-      </div>
-      <button class="nf-close-btn" id="nfCloseBtn" title="关闭 (✕)">✕</button>
-    </div>
-
-    <!-- 顶部 KPI -->
-    <div class="nf-kpi-bar">
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiUsedLbl">配额总已用</span><span class="nf-kpi-val" id="nfKpiUsedVal" >-</span></div>
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiRiskLbl">超限风险</span><span class="nf-kpi-val" id="nfKpiRiskVal">-</span></div>
-      <div class="nf-kpi-item"><span class="nf-kpi-lbl" id="nfKpiResetLbl">最近重置</span><span class="nf-kpi-val" id="nfKpiResetVal" >-</span></div>
-    </div>
-
-    <!-- 筛选药丸 (单节点页面增加当前节点药丸) -->
-    <div class="nf-filter-bar" id="nfFilterBar">
-      <button class="nf-filter-btn" data-filter="CURRENT" id="nfBtnCurrent" style="display:none;">📌 当前 (1)</button>
-      <button class="nf-filter-btn active" data-filter="ALL" id="nfBtnAll">全部 (0)</button>
-      <button class="nf-filter-btn" data-filter="ALERT" id="nfBtnAlert">🚨 预警 (0)</button>
-      <button class="nf-filter-btn" data-filter="SAFE" id="nfBtnSafe">✅ 安全 (0)</button>
-      <button class="nf-filter-btn" data-filter="NO_QUOTA" id="nfBtnNoQuota">⚪ 免额 (0)</button>
-    </div>
-
-    <!-- 精简节点列表 -->
-    <div class="nf-list" id="nfNodeList">
-      <div class="nf-empty">正在计算全节点流量与预算预测...</div>
-    </div>
-
-    <!-- 底部动作条 -->
-    <div class="nf-footer">
-      <div class="nf-footer-status"><div class="nf-live-dot"></div><span id="nfFooterStatus">实时监测中</span></div>
-      <a href="/api/plugin/net-forecast/pages/public.html" target="_blank" class="nf-btn-full" id="nfFooterFullBtn">完整图表 ↗</a>
-    </div>
-  </div>
-</div>
-<script>
+const WIDGET_BODY_HTML = `<script>
 (function() {
   // Sample host surfaces only. Discovery is bounded and cached; widget writes never resample.
   var nfThemeRoot = document.getElementById("nf-floating-widget");
@@ -1321,7 +1280,8 @@ const WIDGET_BODY_HTML = `
   function nfHostElement(el) {
     var root = document.getElementById("nf-floating-widget") || nfThemeRoot;
     return el && el.nodeType === 1 && (!root || !root.contains(el)) &&
-      !el.closest('[role="dialog"], [role="menu"], [role="listbox"], [popover], nav, header, footer, #netforecast-widget-style');
+      (!el.id || el.id.indexOf("km-ul-") < 0) &&
+      (!el.closest || !el.closest('[role="dialog"], [role="menu"], [role="listbox"], [popover], nav, header, footer, #netforecast-widget-style, #km-unlock-floating-root, #km-ul-min-icon'));
   }
   function nfRGBA(value) {
     if (!nfColorContext || !value || !CSS.supports("color", value)) return [0, 0, 0, 0];
@@ -1332,9 +1292,19 @@ const WIDGET_BODY_HTML = `
     return [c[0], c[1], c[2], c[3] / 255];
   }
   function nfBlend(top, bottom) {
-    return [0, 1, 2].map(function(i) { return Math.round(top[i] * top[3] + bottom[i] * (1 - top[3])); }).concat(1);
+    var a = top[3] + bottom[3] * (1 - top[3]);
+    if (a <= 0) return [0, 0, 0, 0];
+    var r = Math.round((top[0] * top[3] + bottom[0] * bottom[3] * (1 - top[3])) / a);
+    var g = Math.round((top[1] * top[3] + bottom[1] * bottom[3] * (1 - top[3])) / a);
+    var b = Math.round((top[2] * top[3] + bottom[2] * bottom[3] * (1 - top[3])) / a);
+    return [r, g, b, Math.round(a * 100) / 100];
   }
-  function nfColor(c) { return "rgb(" + c.slice(0, 3).join(", ") + ")"; }
+  function nfColor(c) {
+    if (c.length >= 4 && c[3] < 1) {
+      return "rgba(" + c.slice(0, 3).join(", ") + ", " + c[3] + ")";
+    }
+    return "rgb(" + c.slice(0, 3).join(", ") + ")";
+  }
   function nfLuminance(c) {
     var v = c.slice(0, 3).map(function(n) { n /= 255; return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4); });
     return v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722;
@@ -1354,6 +1324,61 @@ const WIDGET_BODY_HTML = `
     return r.width > 0 && r.height > 0 && s.visibility === "visible" && Number(s.opacity) >= 0.5 &&
       r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
   }
+  function nfQueryVisible(selectorList) {
+    for (var i = 0; i < selectorList.length; i++) {
+      try {
+        var list = document.querySelectorAll(selectorList[i]);
+        for (var j = 0; j < list.length; j++) {
+          var el = list[j];
+          if (!nfHostElement(el)) continue;
+          var s = getComputedStyle(el);
+          if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) < 0.05) continue;
+          var r = el.getBoundingClientRect();
+          if (r.width >= 2 && r.height >= 2) return el;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+  function nfSamplePageBackdrop(fallback) {
+    var selectors = [
+      ".background-container .background-image", ".background-container", ".default-background",
+      ".bp-root", "main", "[role='main']", "#app", "#root", "body", "html"
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var candidate = nfQueryVisible([selectors[i]]);
+      if (!candidate) continue;
+      var s = getComputedStyle(candidate);
+      var img = s.backgroundImage || "none";
+      var c = nfRGBA(s.backgroundColor);
+      if (c[3] <= 0.05 && img === "none") continue;
+      if (nfThemeAncestors.indexOf(candidate) < 0) nfThemeAncestors.push(candidate);
+      var color = c;
+      if (color[3] <= 0.05) {
+        for (var p = candidate.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+          var ps = getComputedStyle(p);
+          var pc = nfRGBA(ps.backgroundColor);
+          if (pc[3] > 0.05) { color = pc; break; }
+        }
+      }
+      if (color[3] <= 0.05) color = fallback;
+      return {
+        bg: color,
+        image: img,
+        size: s.backgroundSize || "auto",
+        position: s.backgroundPosition || "0% 0%",
+        repeat: s.backgroundRepeat || "repeat",
+        attachment: s.backgroundAttachment || "scroll",
+        origin: s.backgroundOrigin || "padding-box",
+        clip: s.backgroundClip || "border-box",
+        blend: s.backgroundBlendMode || "normal"
+      };
+    }
+    return {
+      bg: fallback, image: "none", size: "auto", position: "0% 0%", repeat: "repeat",
+      attachment: "scroll", origin: "padding-box", clip: "border-box", blend: "normal"
+    };
+  }
   function nfSurface(el, fallback) {
     var chain = [], images = [], sizes = [], positions = [], repeats = [], attachments = [], origins = [], clips = [], blends = [];
     for (var p = el, depth = 0; nfHostElement(p) && depth < 16; p = p.parentElement, depth++) {
@@ -1369,7 +1394,10 @@ const WIDGET_BODY_HTML = `
       if (nfRGBA(s.backgroundColor)[3] >= 0.99) break;
     }
     var bg = fallback;
-    for (var i = chain.length - 1; i >= 0; i--) bg = nfBlend(nfRGBA(chain[i].backgroundColor), bg);
+    for (var i = chain.length - 1; i >= 0; i--) {
+      var c = nfRGBA(chain[i].backgroundColor);
+      if (c[3] > 0.02) bg = nfBlend(c, bg);
+    }
     return { bg: bg, image: images.join(", ") || "none", size: sizes.join(", ") || "auto",
       position: positions.join(", ") || "0% 0%", repeat: repeats.join(", ") || "repeat",
       attachment: attachments.join(", ") || "scroll", origin: origins.join(", ") || "padding-box",
@@ -1377,61 +1405,74 @@ const WIDGET_BODY_HTML = `
   }
   function nfDiscoverTheme() {
     nfThemeLastDiscovery = Date.now();
-    nfThemePage = document.body;
-    // Broad visible content surfaces win over the browser's often transparent body.
-    var pageArea = Infinity;
-    [[0.5, 0.45], [0.15, 0.3], [0.85, 0.7]].forEach(function(point) {
-      var stack = document.elementsFromPoint(innerWidth * point[0], innerHeight * point[1]);
-      stack.slice(0, 8).forEach(function(el) {
-        for (var p = el, d = 0; nfHostElement(p) && d < 8; p = p.parentElement, d++) {
-          var r = p.getBoundingClientRect();
-          var area = Math.min(r.width, innerWidth) * Math.min(r.height, innerHeight);
-          if (area < innerWidth * innerHeight * 0.55 || area >= pageArea) continue;
-          var s = getComputedStyle(p);
-          if (s.visibility !== "visible" || Number(s.opacity) < 0.5) continue;
-          if (nfRGBA(s.backgroundColor)[3] > 0.05 || s.backgroundImage !== "none") {
-            nfThemePage = p; pageArea = area;
+    nfThemeCard = null;
+    nfThemeAccent = null;
+
+    var cardSelectors = [
+      ".node-card", ".km-node-card", ".km-instance-server-item", "[data-node-uuid]", "[data-uuid]",
+      ".instance-card", ".server-card", "[class*='card']", "[class*='panel']", "article"
+    ];
+    for (var j = 0; j < cardSelectors.length; j++) {
+      var cardCandidate = nfQueryVisible([cardSelectors[j]]);
+      if (cardCandidate) {
+        var cardSt = getComputedStyle(cardCandidate);
+        var hasBg = nfRGBA(cardSt.backgroundColor)[3] > 0.05 || cardSt.backgroundImage !== "none";
+        var hasBorder = parseFloat(cardSt.borderTopWidth) > 0 && cardSt.borderTopStyle !== "none";
+        if (hasBg || hasBorder) {
+          nfThemeCard = cardCandidate;
+          break;
+        }
+      }
+    }
+
+    var accentCandidate = nfQueryVisible([
+      'button[class*="primary"]', 'a[class*="primary"]', 'button[class*="accent"]', 'a[class*="accent"]',
+      '[data-variant="default"]', '[role="tab"][aria-selected="true"]'
+    ]);
+    if (accentCandidate) {
+      nfThemeAccent = accentCandidate;
+    }
+
+    if (!nfThemeCard || !nfThemeAccent) {
+      var best = 0, reads = 0, visited = 0;
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
+        acceptNode: function(el) { return nfHostElement(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }
+      });
+      for (var el = walker.nextNode(); el && visited < 600 && reads < 60; el = walker.nextNode(), visited++) {
+        var tag = el.tagName.toLowerCase();
+        var hint = (String(el.className || "") + " " + el.id + " " + (el.getAttribute("data-slot") || "")).toLowerCase();
+        var href = el.getAttribute("href") || "";
+        var nodeLink = href.indexOf("/instance/") >= 0 || href.indexOf("/node/") >= 0 || href.indexOf("/server/") >= 0;
+        var named = hint.indexOf("card") >= 0 || hint.indexOf("server") >= 0 || hint.indexOf("node") >= 0 || hint.indexOf("panel") >= 0;
+        if (!named && !nodeLink && tag !== "article" && tag !== "a" && tag !== "button") continue;
+        reads++;
+        if (!nfVisible(el)) continue;
+        var accentEl = el;
+        // Themes often put the instance link inside a classless surface wrapper.
+        if (nodeLink) {
+          for (var parent = el.parentElement, hop = 0; nfHostElement(parent) && hop < 3; parent = parent.parentElement, hop++) {
+            var pr = parent.getBoundingClientRect(), pst = getComputedStyle(parent);
+            if (pr.width * pr.height > innerWidth * innerHeight * 0.7) break;
+            if (pr.height >= 48 && (nfRGBA(pst.backgroundColor)[3] > 0.05 || pst.backgroundImage !== "none" || parseFloat(pst.borderTopWidth) > 0)) { el = parent; break; }
           }
         }
-      });
-    });
-    nfThemeCard = null; nfThemeAccent = null;
-    var best = 0, reads = 0, visited = 0;
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
-      acceptNode: function(el) { return nfHostElement(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }
-    });
-    for (var el = walker.nextNode(); el && visited < 600 && reads < 60; el = walker.nextNode(), visited++) {
-      var tag = el.tagName.toLowerCase();
-      var hint = (String(el.className || "") + " " + el.id + " " + (el.getAttribute("data-slot") || "")).toLowerCase();
-      var href = el.getAttribute("href") || "";
-      var nodeLink = href.indexOf("/instance/") >= 0 || href.indexOf("/node/") >= 0 || href.indexOf("/server/") >= 0;
-      var named = hint.indexOf("card") >= 0 || hint.indexOf("server") >= 0 || hint.indexOf("node") >= 0 || hint.indexOf("panel") >= 0;
-      if (!named && !nodeLink && tag !== "article" && tag !== "a" && tag !== "button") continue;
-      reads++;
-      if (!nfVisible(el)) continue;
-      var accentEl = el;
-      // Themes often put the instance link inside a classless surface wrapper.
-      if (nodeLink) {
-        for (var parent = el.parentElement, hop = 0; nfHostElement(parent) && hop < 3; parent = parent.parentElement, hop++) {
-          var pr = parent.getBoundingClientRect(), pst = getComputedStyle(parent);
-          if (pr.width * pr.height > innerWidth * innerHeight * 0.7) break;
-          if (pr.height >= 48 && (nfRGBA(pst.backgroundColor)[3] > 0.05 || pst.backgroundImage !== "none" || parseFloat(pst.borderTopWidth) > 0)) { el = parent; break; }
+        var style = getComputedStyle(el), rect = el.getBoundingClientRect();
+        if (!nfThemeAccent && (tag === "a" || tag === "button")) {
+          var accentStyle = getComputedStyle(accentEl);
+          var fg = nfRGBA(accentStyle.color), fill = nfRGBA(accentStyle.backgroundColor);
+          if (Math.max.apply(null, fg.slice(0, 3)) - Math.min.apply(null, fg.slice(0, 3)) > 40) nfThemeAccent = accentEl;
+          else if (fill[3] > 0.5 && Math.max.apply(null, fill.slice(0, 3)) - Math.min.apply(null, fill.slice(0, 3)) > 40) nfThemeAccent = accentEl;
+        }
+        if (!nfThemeCard) {
+          if (rect.width < 120 || rect.height < 48 || rect.width * rect.height > innerWidth * innerHeight * 0.7) continue;
+          if (style.position === "fixed" || style.position === "sticky" || tag === "button") continue;
+          var border = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== "none";
+          var surface = nfRGBA(style.backgroundColor)[3] > 0.05 || style.backgroundImage !== "none";
+          if (!surface && !border) continue;
+          var score = (named ? 10 : 0) + (nodeLink ? 20 : 0) + (surface ? 3 : 0) + (border ? 2 : 0);
+          if (score > best) { best = score; nfThemeCard = el; }
         }
       }
-      var style = getComputedStyle(el), rect = el.getBoundingClientRect();
-      if (!nfThemeAccent && (tag === "a" || tag === "button")) {
-        var accentStyle = getComputedStyle(accentEl);
-        var fg = nfRGBA(accentStyle.color), fill = nfRGBA(accentStyle.backgroundColor);
-        if (Math.max.apply(null, fg.slice(0, 3)) - Math.min.apply(null, fg.slice(0, 3)) > 40) nfThemeAccent = accentEl;
-        else if (fill[3] > 0.5 && Math.max.apply(null, fill.slice(0, 3)) - Math.min.apply(null, fill.slice(0, 3)) > 40) nfThemeAccent = accentEl;
-      }
-      if (rect.width < 120 || rect.height < 48 || rect.width * rect.height > innerWidth * innerHeight * 0.7) continue;
-      if (style.position === "fixed" || style.position === "sticky" || tag === "button") continue;
-      var border = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== "none";
-      var surface = nfRGBA(style.backgroundColor)[3] > 0.05 || style.backgroundImage !== "none";
-      if (!surface && !border) continue;
-      var score = (named ? 10 : 0) + (nodeLink ? 20 : 0) + (surface ? 3 : 0) + (border ? 2 : 0);
-      if (score > best) { best = score; nfThemeCard = el; }
     }
   }
   function nfApplyTheme() {
@@ -1440,20 +1481,21 @@ const WIDGET_BODY_HTML = `
     if (!root || !root.isConnected || document.hidden) return;
     nfThemeRoot = root;
     try {
-      if (nfThemeDiscover || !nfVisible(nfThemePage) || (nfThemeCard && !nfVisible(nfThemeCard))) nfDiscoverTheme();
+      if (nfThemeDiscover || (nfThemeCard && !nfVisible(nfThemeCard))) nfDiscoverTheme();
       nfThemeDiscover = false; nfThemeAncestors = [];
-      // Watch even opaque surfaces' ancestors: theme classes are often on an app wrapper.
-      [nfThemePage, nfThemeCard].forEach(function(sample) {
-        for (var p = sample; p; p = p.parentElement) if (nfThemeAncestors.indexOf(p) < 0) nfThemeAncestors.push(p);
-      });
-      var fallback = nfThemeMedia.matches ? [15, 23, 42, 1] : [248, 250, 252, 1];
-      var page = nfSurface(nfThemePage, fallback);
+      if (nfThemeCard) {
+        for (var p = nfThemeCard; p; p = p.parentElement) if (nfThemeAncestors.indexOf(p) < 0) nfThemeAncestors.push(p);
+      }
+      var bodyBg = nfRGBA(getComputedStyle(document.body).backgroundColor);
+      var htmlBg = nfRGBA(getComputedStyle(document.documentElement).backgroundColor);
+      var fallback = bodyBg[3] > 0.1 ? bodyBg : (htmlBg[3] > 0.1 ? htmlBg : (nfThemeMedia.matches ? [15, 23, 42, 1] : [248, 250, 252, 1]));
+      var page = nfSamplePageBackdrop(fallback);
       var dark = nfLuminance(page.bg) < 0.35;
       var ink = nfLuminance(page.bg) < 0.179 ? "#ffffff" : "#111111";
       var cardSurface = nfThemeCard ? nfSurface(nfThemeCard, page.bg) : {
         bg: dark ? [30, 41, 59, 1] : [255, 255, 255, 1], image: "none", size: "auto", position: "0% 0%", repeat: "repeat", attachment: "scroll", origin: "padding-box", clip: "border-box", blend: "normal"
       };
-      var ps = getComputedStyle(nfThemePage || document.body);
+      var ps = getComputedStyle(document.body);
       var cs = nfThemeCard ? getComputedStyle(nfThemeCard) : null;
       var text = nfReadable(ps.color, page.bg, ink);
       var cardInk = nfLuminance(cardSurface.bg) < 0.179 ? "#ffffff" : "#111111";
@@ -1487,12 +1529,15 @@ const WIDGET_BODY_HTML = `
         var name = "--nf-" + key;
         if (root.style.getPropertyValue(name) !== vars[key]) root.style.setProperty(name, vars[key]);
       });
+      try {
+        localStorage.setItem("nf_theme_vars_v3", JSON.stringify(vars));
+      } catch (e) {}
       if (isOpen && typeof positionCard === "function") positionCard();
     } catch (e) { /* Scoped CSS defaults stay readable if sampling is unavailable. */ }
   }
   function nfScheduleTheme(discover, delay) {
     nfThemeDiscover = nfThemeDiscover || discover === true;
-    var wait = Math.max(100, delay || 0, 1000 - (Date.now() - nfThemeLast));
+    var wait = typeof delay === "number" ? delay : 60;
     var due = Date.now() + wait;
     if (nfThemeTimer !== null && nfThemeDue <= due) return;
     if (nfThemeTimer !== null) clearTimeout(nfThemeTimer);
@@ -1853,13 +1898,15 @@ const WIDGET_BODY_HTML = `
       }
     };
 
+    btn.onpointercancel = function(e) {
+      if (!btn.hasPointerCapture(e.pointerId)) return;
+      try { btn.releasePointerCapture(e.pointerId); } catch (err) {}
+      isDragging = false;
+    };
+
     btn.onclick = function(e) {
       e.stopPropagation();
       e.preventDefault();
-      if (isDragging) return;
-      if (!isOpen) {
-        openCard();
-      }
     };
   }
 
@@ -1987,15 +2034,27 @@ const WIDGET_BODY_HTML = `
       }
       root = document.createElement("div");
       root.id = "nf-floating-widget";
+      try {
+        var cachedTheme = localStorage.getItem("nf_theme_vars_v3");
+        if (cachedTheme) {
+          var parsedVars = JSON.parse(cachedTheme);
+          if (parsedVars && typeof parsedVars === "object") {
+            Object.keys(parsedVars).forEach(function(k) {
+              root.style.setProperty("--nf-" + k, parsedVars[k]);
+            });
+          }
+        }
+      } catch (e) {}
       root.innerHTML = WIDGET_INNER_HTML;
       if (document.body) {
         document.body.appendChild(root);
       } else if (document.documentElement) {
         document.documentElement.appendChild(root);
       }
+      nfThemeRoot = root;
       bindWidgetElements();
       loadSavedPos();
-      nfScheduleTheme(true);
+      nfApplyTheme();
       if (cachedData) renderData(cachedData);
     } else if (!btn || !card) {
       bindWidgetElements();
@@ -2010,6 +2069,29 @@ const WIDGET_BODY_HTML = `
     if (cachedData && typeof renderData === "function") {
       renderData(cachedData);
     }
+  }
+
+  var nfIsReady = false;
+
+  function nfRevealWidget() {
+    ensureWidgetMounted();
+    loadSavedPos();
+    setTimeout(function() {
+      nfApplyTheme();
+      if (btn) {
+        var rect = btn.getBoundingClientRect();
+        var safePos = resolveFabPosition(rect.left, rect.top, btn, "net-forecast");
+        if (safePos.left !== rect.left || safePos.top !== rect.top) {
+          btn.style.setProperty("left", safePos.left + "px", "important");
+          btn.style.setProperty("top", safePos.top + "px", "important");
+        }
+      }
+      nfIsReady = true;
+      var root = document.getElementById("nf-floating-widget") || nfThemeRoot;
+      if (root) {
+        root.classList.add("nf-ready");
+      }
+    }, 120);
   }
 
   function nfSyncWidgetVisibility() {
@@ -2028,6 +2110,9 @@ const WIDGET_BODY_HTML = `
       var widgetRoot = document.getElementById("nf-floating-widget");
       if (widgetRoot) {
         widgetRoot.style.setProperty("display", "block", "important");
+        if (nfIsReady) {
+          widgetRoot.classList.add("nf-ready");
+        }
       }
       if (btn) {
         btn.style.removeProperty("display");
@@ -2035,8 +2120,11 @@ const WIDGET_BODY_HTML = `
     }
   }
 
-  ensureWidgetMounted();
-  loadSavedPos();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", nfRevealWidget);
+  } else {
+    nfRevealWidget();
+  }
 
   setTimeout(function() {
     if (!btn) return;
@@ -2046,7 +2134,7 @@ const WIDGET_BODY_HTML = `
       btn.style.setProperty("left", safePos.left + "px", "important");
       btn.style.setProperty("top", safePos.top + "px", "important");
     }
-  }, 350);
+  }, 400);
 
   window.addEventListener("popstate", nfCheckRoute);
   window.addEventListener("hashchange", nfCheckRoute);

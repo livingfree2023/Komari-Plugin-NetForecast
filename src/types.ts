@@ -28,6 +28,8 @@ export interface NodeCoreConfig {
   net_out?: number;
   net_total_up?: number;
   net_total_down?: number;
+  totalUp?: number;
+  totalDown?: number;
   total_up?: number;
   total_down?: number;
   network?: {
@@ -105,6 +107,7 @@ export interface NodeForecastData {
 }
 
 export interface PluginConfig {
+  timezone_offset: number;
   default_reset_day: number;
   warning_threshold: number;
   auto_collect_cron: string;

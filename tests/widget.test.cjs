@@ -7,7 +7,7 @@ test('Goja template produces executable browser JavaScript', () => {
   const scripts = [...body.matchAll(/<script>([\s\S]*?)<\/script>/g)];
   assert.equal(scripts.length, 1);
   for (const [, script] of scripts) new vm.Script(script);
-  assert.equal(source.slice(source.indexOf('const WIDGET_BODY_HTML'), source.indexOf('\nfunction load()')).includes('\\'), false);
+  assert.equal(source.slice(source.indexOf('const WIDGET_BODY_HTML'), source.indexOf('\nasync function load()')).includes('\\'), false);
 });
 test('all widget CSS rules are scoped, including media rules', () => {
   const css = head.replace(/<[^>]+>/g, '').replace(/\/\*[\s\S]*?\*\//g, '');

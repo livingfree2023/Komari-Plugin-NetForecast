@@ -97,7 +97,7 @@ export class StorageManager {
   /**
    * 记录实时采样的流量计数器并换算为每日增量
    */
-  public recordSample(nodeId: string, currentIn: number, currentOut: number, now: Date = new Date()) {
+  public recordSample(nodeId: string, currentIn: number, currentOut: number, now: Date = new Date(), tzOffsetHours: number = 8) {
     const last = this.lastKnownCounters[nodeId];
     this.lastKnownCounters[nodeId] = {
       in: currentIn,
@@ -124,7 +124,7 @@ export class StorageManager {
       return;
     }
 
-    const todayStr = now.toISOString().split("T")[0];
+    const todayStr = new Date(now.getTime() + tzOffsetHours * 3600000).toISOString().split("T")[0];
     const history = this.trafficCache[nodeId] || [];
     let todayRecord = history.find((r) => r.date === todayStr);
 

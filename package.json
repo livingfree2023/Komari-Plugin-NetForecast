@@ -1,15 +1,17 @@
 {
   "name": "komari-plugin-net-forecast",
-  "version": "26.1021.6",
+  "version": "26.1109.1",
   "description": "Network traffic forecasting and quota exhaustion alert plugin for Komari",
   "main": "script.js",
   "scripts": {
     "dev": "komari-plugin dev",
     "build": "tsc",
     "package": "zip -r net-forecast.zip komari-plugin.json script.js pages assets README.md LICENSE",
-    "check": "tsc --noEmit",
-    "test": "node --test tests/widget.test.cjs",
-    "test:browser": "node --test tests/widget-theme.browser.cjs"
+    "check": "node scripts/sync-version.cjs --check && tsc --noEmit",
+    "test": "node --test tests/widget.test.cjs tests/config.test.cjs tests/cycle-series.test.cjs",
+    "test:browser": "node --test tests/widget-theme.browser.cjs",
+    "sync:version": "node scripts/sync-version.cjs",
+    "prepackage": "npm run sync:version"
   },
   "keywords": [
     "komari",
@@ -23,8 +25,9 @@
   "devDependencies": {
     "@komari-monitor/plugin-dev": "latest",
     "@komari-monitor/plugin-sdk": "latest",
-    "typescript": "^5.0.0",
-    "playwright": "^1.62.1"
+    "@types/node": "^26.6.6",
+    "playwright": "^1.62.1",
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "@komari-monitor/plugin-sdk": "latest"

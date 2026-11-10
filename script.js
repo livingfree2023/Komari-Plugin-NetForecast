@@ -172,16 +172,21 @@ function calculateBillingCycle(resetDay = 1, now = new Date(), tzOffsetHours = 8
  */
 function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date(), tzOffsetHours = 8) {
   const historyMap = {};
+  const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
+  const cycleStartStr = formatDateToYMD(cycle.cycleStartDate, tzOffsetHours);
   let totalHistIn = 0;
   let totalHistOut = 0;
 
-  (history || []).forEach((item) => {
-    if (item.date) {
+  // 底数与绘图使用同一周期、同一日期集合，重复日期只取末条。
+  for (const item of history || []) {
+    if (item.date && item.date >= cycleStartStr && item.date <= todayStr) {
       historyMap[item.date] = item;
-      totalHistIn += (item.in_bytes || 0);
-      totalHistOut += (item.out_bytes || 0);
     }
-  });
+  }
+  for (const item of Object.values(historyMap)) {
+    totalHistIn += item.in_bytes || 0;
+    totalHistOut += item.out_bytes || 0;
+  }
 
   const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
   // 当网卡物理总计大于可见历史记录和时，将差额作为周期前序底数（彻底消除折线在“今日”突然直角暴涨的缺陷）
@@ -190,7 +195,6 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
   const points = [];
   const cycleStartMs = cycle.cycleStartDate.getTime();
   const daysTotal = cycle.daysTotal;
-  const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
   const nowMs = now.getTime();
 
   let runningIn = 0;
@@ -272,7 +276,8 @@ function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, current
     } else {
       // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
       const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
-      const futureStep = i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed);
+      // 周期终点是下一周期零点，不额外计入一个消耗日。
+      const futureStep = Math.min(cycle.daysRemaining, i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed));
       const fCumBillable = lastValidCumBillable + dailyForecastBillable * Math.max(0, futureStep);
 
       points.push({
@@ -303,7 +308,7 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetH
     return {
       resetDay: Math.max(1, Math.min(31, fallbackResetDay || 1)),
       hasExpiredAt: false,
-      desc: "自然月 1 号 (未设置到期日)",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   }
 
@@ -335,7 +340,7 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetH
         return {
           resetDay: fallbackResetDay || 1,
           hasExpiredAt: false,
-          desc: "自然月 1 号 (到期时间格式无效)",
+          desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
         };
       }
 
@@ -357,13 +362,13 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetH
     return {
       resetDay: fallbackResetDay || 1,
       hasExpiredAt: false,
-      desc: "自然月 1 号",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   } catch (e) {
     return {
       resetDay: fallbackResetDay || 1,
       hasExpiredAt: false,
-      desc: "自然月 1 号",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   }
 }
@@ -371,8 +376,8 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetH
 /**
  * 核心预测与状态推算（严格使用真实数据，绝不构造假数据）
  */
-function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date(), tzOffsetHours = 8) {
-  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1, tzOffsetHours);
+function calculateNodeForecast(history, node, warningThresholdPercent = 90, now = new Date(), tzOffsetHours = 8, defaultResetDay = 1) {
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || defaultResetDay, tzOffsetHours);
   const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
   const cycleStartMs = cycle.cycleStartDate.getTime();
@@ -2505,12 +2510,12 @@ const WIDGET_BODY_HTML = `<script>
 })();
 </script>`;
 
-function load() {
+async function load() {
   console.log("[NetForecast] Plugin loaded in strict real-data mode.");
   const storage = new TrafficStorage();
 
-  const getConfig = () => {
-    const raw = server.getConfig ? server.getConfig() : {};
+  const getConfig = async () => {
+    const raw = server.getConfig ? (await server.getConfig()) || {} : {};
     return {
       default_reset_day: Number(raw.default_reset_day) || 1,
       warning_threshold: Number(raw.warning_threshold) || 90,
@@ -2519,6 +2524,17 @@ function load() {
       timezone_offset: raw.timezone_offset !== undefined && !isNaN(raw.timezone_offset) ? Number(raw.timezone_offset) : 8,
     };
   };
+
+  server.route("GET", "/api/plugin/net-forecast/config", async (req, res) => {
+    try {
+      const config = await getConfig();
+      res.setHeader("Cache-Control", "no-store");
+      res.end(JSON.stringify({ ok: true, config }));
+    } catch (error) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ ok: false, error: String(error) }));
+    }
+  });
 
   const parseBody = (body) => {
     try {
@@ -2582,12 +2598,12 @@ function load() {
   // 1. 全节点 30 天预测总览接口
   const handleOverview = async (req, res) => {
     try {
-      const config = getConfig();
+      const config = await getConfig();
       const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
       const body = req.body ? parseBody(req.body) : {};
 
       // 1. 若为只读 GET 请求（或未传 clients 的空请求），且当前内存中已存在完整的全局快照，直接复用秒级响应（数据 100% 对齐，0 次计算开销）
-      if ((!body.clients || body.clients.length === 0) && latestDebugSnapshot && latestDebugSnapshot.nodes && latestDebugSnapshot.nodes.length > 0) {
+      if ((!body.clients || body.clients.length === 0) && latestDebugSnapshot && JSON.stringify(latestDebugSnapshot.server_debug.config) === JSON.stringify(config) && latestDebugSnapshot.nodes && latestDebugSnapshot.nodes.length > 0) {
         const crit = latestDebugSnapshot.nodes.filter((n) => n.status === "CRITICAL").length;
         const warn = latestDebugSnapshot.nodes.filter((n) => n.status === "WARNING").length;
         const safe = latestDebugSnapshot.nodes.filter((n) => n.status === "SAFE").length;
@@ -2632,7 +2648,7 @@ function load() {
           ? c.daily_history
           : storage.getNodeHistory(c.uuid);
 
-        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
+        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset, config.default_reset_day);
       });
 
       const criticalCount = list.filter((n) => n.status === "CRITICAL").length;
@@ -2644,7 +2660,7 @@ function load() {
       const hasFullHistory = (body.raw_records_map && Object.keys(body.raw_records_map).length > 0) ||
                              (Array.isArray(body.clients) && body.clients.some((c) => Array.isArray(c.daily_history) && c.daily_history.length > 0));
 
-      if (latestDebugSnapshot && Array.isArray(latestDebugSnapshot.nodes)) {
+      if (latestDebugSnapshot && JSON.stringify(latestDebugSnapshot.server_debug.config) === JSON.stringify(config) && Array.isArray(latestDebugSnapshot.nodes)) {
         if (list.length === 1 && latestDebugSnapshot.nodes.length > 1) {
           // 单节点重试局部更新：外科手术式局部更新快照中的该节点，不冲刷其余节点！
           const updatedNode = list[0];
@@ -2749,14 +2765,14 @@ function load() {
 
       isRefreshingSnapshot = true;
       try {
-        const config = getConfig();
+        const config = await getConfig();
         const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
         let clients = await fetchCoreClients();
         if (!clients) clients = [];
 
         const list = clients.map((c) => {
           const history = storage.getNodeHistory(c.uuid);
-          return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
+          return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset, config.default_reset_day);
         });
 
         latestDebugSnapshot = {
@@ -2838,7 +2854,7 @@ function load() {
   });
 
   // 3. 定时同步轮询
-  const config = getConfig();
+  const config = await getConfig();
   try {
     server.cron(config.auto_collect_cron, async () => {
       try {
@@ -2875,20 +2891,20 @@ function load() {
 
   // 5. RPC
   server.registerRPC("netForecast:getOverview", async () => {
-    if (latestDebugSnapshot && Array.isArray(latestDebugSnapshot.nodes) && latestDebugSnapshot.nodes.length > 0) {
+    const config = await getConfig();
+    if (latestDebugSnapshot && JSON.stringify(latestDebugSnapshot.server_debug.config) === JSON.stringify(config) && Array.isArray(latestDebugSnapshot.nodes) && latestDebugSnapshot.nodes.length > 0) {
       return {
         ok: true,
         nodes: latestDebugSnapshot.nodes,
       };
     }
-    const config = getConfig();
     const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
     const clients = await fetchCoreClients();
     return {
       ok: true,
       nodes: clients.map((c) => {
         const history = storage.getNodeHistory(c.uuid);
-        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset);
+        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset, config.default_reset_day);
       }),
     };
   });

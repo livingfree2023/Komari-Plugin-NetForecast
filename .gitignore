@@ -39,3 +39,6 @@ Thumbs.db
 
 # Browser verification screenshots
 test-results/
+
+# Local engineering retrospectives
+blog/

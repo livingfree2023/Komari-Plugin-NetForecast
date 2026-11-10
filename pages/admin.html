@@ -934,7 +934,7 @@
     <!-- 底部调试与数据导出栏 -->
     <footer class="debug-footer-bar">
       <div class="footer-meta">
-        <span>NetForecast v1.2.0</span>
+        <span>NetForecast v26.1109.1</span>
         <span class="dot">•</span>
         <span id="footerNodeCount">0 个节点已加载</span>
         <span class="dot">•</span>
@@ -1557,6 +1557,11 @@
       }
 
       try {
+        const configResponse = await fetchWithTimeout("/api/plugin/net-forecast/config", { cache: "no-store" }, 8000);
+        if (!configResponse.ok) throw new Error("读取插件配置失败");
+        const settings = await configResponse.json();
+        if (!settings.ok || !settings.config || !Number.isFinite(Number(settings.config.timezone_offset))) throw new Error("插件时区配置无效");
+        state.timezoneOffset = Number(settings.config.timezone_offset);
         // 3. 步骤 1：优先拉取核心管理客户端列表
         setSyncProgress(25, "正在获取节点列表...");
         let coreClients = [];
@@ -1876,7 +1881,7 @@
               <span class="node-quota-meta">
                 <span>📦 限额: <strong>${node.traffic_limit_formatted}</strong></span>
                 <span>·</span>
-                <span>🗓️ ${node.has_expired_at ? `每月 <strong>${node.traffic_reset_day}</strong> 号重置` : `<strong>自然月</strong>重置 (1号)`}</span>
+                <span>🗓️ ${node.has_expired_at ? `每月 <strong>${node.traffic_reset_day}</strong> 号重置` : `每月 <strong>${node.traffic_reset_day || 1}</strong> 号重置`}</span>
               </span>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
@@ -2339,7 +2344,7 @@
       document.getElementById("modalNodeName").value = node.node_name || node.node_id;
       document.getElementById("modalTrafficMode").value = (node.traffic_limit_type || "sum").toLowerCase();
       document.getElementById("modalQuotaGB").value = node.has_quota ? Math.round(node.traffic_limit_bytes / GB) : 0;
-      document.getElementById("modalResetDayInfo").value = node.reset_day_desc || (node.has_expired_at ? `每月 ${node.traffic_reset_day} 号 (到期日: ${node.expired_at_str})` : "自然月 1 号 (未设置到期日)");
+      document.getElementById("modalResetDayInfo").value = node.reset_day_desc || (node.has_expired_at ? `每月 ${node.traffic_reset_day} 号 (到期日: ${node.expired_at_str})` : `每月 ${node.traffic_reset_day || 1} 号 (未设置到期日)`);
 
       document.getElementById("nodeConfigModal").style.display = "flex";
     }

@@ -10,19 +10,30 @@ export default definePlugin({
     const storage = new StorageManager();
 
     // 获取插件托管配置
-    const getPluginConfig = (): PluginConfig => {
-      const raw = server.getConfig ? server.getConfig() : {};
+    const getPluginConfig = async (): Promise<PluginConfig> => {
+      const raw = server.getConfig ? (await server.getConfig()) || {} : {};
       return {
         default_reset_day: Number(raw.default_reset_day) || 1,
         warning_threshold: Number(raw.warning_threshold) || 90,
-        auto_collect_cron: raw.auto_collect_cron || "*/10 * * * *",
+        timezone_offset: raw.timezone_offset !== undefined && Number.isFinite(Number(raw.timezone_offset)) ? Number(raw.timezone_offset) : 8,
+        auto_collect_cron: String(raw.auto_collect_cron || "*/10 * * * *"),
         enable_floating_widget: raw.enable_floating_widget !== undefined ? Boolean(raw.enable_floating_widget) : true,
       };
     };
 
-    /**
-     * 辅助解析请求体 JSON
-     */
+    // 只读配置：前端按日聚合前先获取统计时区。
+    server.route("GET", "/api/plugin/net-forecast/config", async (req, res) => {
+      try {
+        const config = await getPluginConfig();
+        res.setHeader("Cache-Control", "no-store");
+        res.end(JSON.stringify({ ok: true, config }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.end(JSON.stringify({ ok: false, error: String(error) }));
+      }
+    });
+
+    /** 辅助解析请求体 JSON */
     const parseBody = (body: string) => {
       try {
         return JSON.parse(body || "{}");
@@ -62,7 +73,7 @@ export default definePlugin({
     // 1. 获取所有节点 30 天流量堆叠与未来预测总览接口 (支持 GET 或 POST 附带最新核心客户端)
     const handleOverview = async (req: any, res: any) => {
       try {
-        const config = getPluginConfig();
+        const config = await getPluginConfig();
         const body = req.body ? parseBody(req.body) : {};
         let clients = await fetchCoreClients(body.clients);
 
@@ -76,7 +87,7 @@ export default definePlugin({
 
           // 记录当前采样的网卡实时计数器增量
           if (typeof client.net_in === "number" && typeof client.net_out === "number") {
-            storage.recordSample(uuid, client.net_in, client.net_out);
+            storage.recordSample(uuid, client.net_in, client.net_out, new Date(), config.timezone_offset);
           }
 
           // 优先使用直接上报的真实历史打点记录，如无则使用本地真实采样记录
@@ -84,7 +95,7 @@ export default definePlugin({
             ? client.daily_history
             : storage.getNodeHistory(uuid);
 
-          return calculateNodeForecast(history, client, config.warning_threshold);
+          return calculateNodeForecast(history, client, config.warning_threshold, new Date(), config.timezone_offset, config.default_reset_day);
         });
 
         // 状态统计
@@ -155,7 +166,7 @@ export default definePlugin({
     });
 
     // 3. 定时轮询上报：定期从核心数据库拉取各节点最新流量计数并记录时间序列
-    const config = getPluginConfig();
+    const config = await getPluginConfig();
     try {
       server.cron(config.auto_collect_cron, async () => {
         try {
@@ -164,7 +175,7 @@ export default definePlugin({
             if (Array.isArray(clients)) {
               for (const c of clients) {
                 if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
-                  storage.recordSample(c.uuid, c.net_in, c.net_out);
+                  storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), config.timezone_offset);
                 }
               }
             }
@@ -179,14 +190,14 @@ export default definePlugin({
 
     // 4. 注册 RPC 方法
     server.registerRPC("netForecast:getOverview", async () => {
-      const config = getPluginConfig();
+      const config = await getPluginConfig();
       const clients = await fetchCoreClients();
       return {
         ok: true,
         count: clients.length,
         nodes: clients.map((c) => {
           const history = storage.getNodeHistory(c.uuid);
-          return calculateNodeForecast(history, c, config.warning_threshold);
+          return calculateNodeForecast(history, c, config.warning_threshold, new Date(), config.timezone_offset, config.default_reset_day);
         }),
       };
     });

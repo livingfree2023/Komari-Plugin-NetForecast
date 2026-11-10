@@ -19,7 +19,8 @@ export function formatDateToYMD(d: Date): string {
  */
 export function extractResetDayFromExpiredAt(
   expiredAt?: string | number | null,
-  fallbackResetDay: number = 1
+  fallbackResetDay: number = 1,
+  tzOffsetHours: number = 8
 ): {
   resetDay: number;
   hasExpiredAt: boolean;
@@ -30,7 +31,7 @@ export function extractResetDayFromExpiredAt(
     return {
       resetDay: Math.max(1, Math.min(31, fallbackResetDay || 1)),
       hasExpiredAt: false,
-      desc: "自然月 1 号 (未设置到期日)",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   }
 
@@ -62,7 +63,7 @@ export function extractResetDayFromExpiredAt(
         return {
           resetDay: fallbackResetDay || 1,
           hasExpiredAt: false,
-          desc: "自然月 1 号 (到期时间格式无效)",
+          desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
         };
       }
 
@@ -84,13 +85,13 @@ export function extractResetDayFromExpiredAt(
     return {
       resetDay: fallbackResetDay || 1,
       hasExpiredAt: false,
-      desc: "自然月 1 号",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   } catch (e) {
     return {
       resetDay: fallbackResetDay || 1,
       hasExpiredAt: false,
-      desc: "自然月 1 号",
+      desc: `每月 ${Math.max(1, Math.min(31, fallbackResetDay || 1))} 号 (无有效到期日，使用重置日配置)`,
     };
   }
 }
@@ -247,10 +248,11 @@ export function calculateNodeForecast(
   node: NodeCoreConfig,
   warningThresholdPercent: number = 90,
   now: Date = new Date(),
-  tzOffsetHours: number = 8
+  tzOffsetHours: number = 8,
+  defaultResetDay: number = 1
 ): NodeForecastData {
   // 从核心节点的 expired_at 提取账单重置日（若未设置则按自然月 1 号）
-  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || 1, tzOffsetHours);
+  const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || defaultResetDay, tzOffsetHours);
   const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
   const cycleStartMs = cycle.cycleStartDate.getTime();
@@ -451,15 +453,20 @@ export function buildCycleSeries(
   tzOffsetHours: number = 8
 ): TrafficRecord[] {
   const historyMap = new Map<string, TrafficRecord>();
+  const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
+  const cycleStartStr = getTzDateParts(cycle.cycleStartDate, tzOffsetHours).dateStr;
   let totalHistIn = 0;
   let totalHistOut = 0;
 
+  // 底数与绘图使用同一周期、同一日期集合，重复日期只取末条。
   for (const item of history || []) {
-    if (item.date) {
+    if (item.date && item.date >= cycleStartStr && item.date <= todayStr) {
       historyMap.set(item.date, item);
-      totalHistIn += (item.in_bytes || 0);
-      totalHistOut += (item.out_bytes || 0);
     }
+  }
+  for (const item of historyMap.values()) {
+    totalHistIn += item.in_bytes || 0;
+    totalHistOut += item.out_bytes || 0;
   }
 
   const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
@@ -469,8 +476,6 @@ export function buildCycleSeries(
   const points: TrafficRecord[] = [];
   const cycleStartMs = cycle.cycleStartDate.getTime();
   const daysTotal = cycle.daysTotal;
-  const tzParts = getTzDateParts(now, tzOffsetHours);
-  const todayStr = tzParts.dateStr;
   const nowMs = now.getTime();
 
   let runningIn = 0;
@@ -552,7 +557,8 @@ export function buildCycleSeries(
     } else {
       // 未来推算点：严格不画柱体 (in_bytes=0, out_bytes=0)，虚线平滑延伸至周期结束日
       const dailyForecastBillable = computeBillableAmount(dailyAvgIn, dailyAvgOut, mode);
-      const futureStep = i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed);
+      // 周期终点是下一周期零点，不额外计入一个消耗日。
+      const futureStep = Math.min(cycle.daysRemaining, i - (todayIndex >= 0 ? todayIndex : cycle.daysElapsed));
       const fCumBillable = lastValidCumBillable + dailyForecastBillable * Math.max(0, futureStep);
 
       points.push({

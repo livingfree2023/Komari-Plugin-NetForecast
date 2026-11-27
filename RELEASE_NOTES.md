@@ -1,45 +1,31 @@
-# v26.1109.1 — 配置读取与流量图表一致性 / Configuration and Traffic Chart Consistency
+# v26.1126.1 — 账期用量与耗尽预警 / Billing-cycle usage and quota alerts
 
-## 🇨🇳 中文更新日志 (Changelog - zh_CN)
+## 中文更新日志
 
-### 🚀 新增功能 (Features)
-- 新增轻量只读配置接口，看板在聚合每日历史前先获取统计时区，避免首次加载或重新打开页面时按默认时区分桶。
-- 增加从插件清单同步管理页与公开页页脚版本的脚本；本地打包前自动同步，检查阶段验证版本一致。
+### 新增功能
+- 公开看板、管理看板和浮窗按节点的每月重置日统一显示账期已用、累计趋势和额度预测。
 
-### 🐛 问题修复 (Bug Fixes)
-- 修复将宿主 `server.getConfig()` 返回的 Promise 当成配置对象读取的问题。总览、诊断、RPC、定时任务初始化及浮窗注入正确等待配置，恢复管理员配置的重置日、告警阈值、时区、采样频率与浮窗开关。
-- 修复默认重置日读取后未传入预测计算的问题，保留节点到期日与节点重置日的既有优先级；无有效到期日的文案显示实际采用的重置日。
-- 修复累计折线底数混入上一账单周期历史、未来记录或重复日期的问题。底数与绘图使用相同的本周期至今日数据集合，避免今日点突然补回累计差额；每日物理增量柱体不补入缺失历史。
-- 修复预测折线将下一周期零点边界额外算成一个消耗日的问题，使本次验证的双向求和预测终点与顶部周期预测摘要一致。
-- 修复两个看板页脚遗留的固定 `v1.2.0` 版本显示。
+### 问题修复
+- 修复跨账期的原始网卡累计被计入本期用量的问题。累计折线从账期内的每日增量起算，额度预测与耗尽预警使用同一份账期累计。
+- 修复今日打点时间戳重复应用统计时区偏移的问题。旧版快照仍可按统计日期正确归入账期。
+- 修复前端同步后，本地采样可能重复计入同一段实时流量的问题。首次有效计数建立基准，后续采样识别网卡归零并累计新增流量。
 
-### ⚡ 优化与改进 (Improvements)
-- 补齐 TypeScript 的时区参数、采样时区传递、累计字段类型及 Node 类型依赖。
-- 配置读取失败时不静默生成默认配置结果；前端配置获取失败时停止本轮同步，避免按错误时区提交历史。
-- 总览与 RPC 复用累计快照前核对配置，避免配置变化后直接沿用旧配置计算的结果。
-- 新增异步配置、五种计费模式历史范围、冷启动、重置边界及 TypeScript/部署脚本一致性回归，15 项测试和类型检查通过。
-- 真实实例完整同步快照验证了两个目标节点的今日折线增量与柱体精确一致；预测边界修复通过真实快照本地回放及用户测试确认。
-- 验证说明：原有浏览器主题套件的四项断言在未修改基线上同样失败，本次未修改浮窗主题代码。
+### 优化与改进
+- 按统计日期筛选最近 7 个有用量的完整日计算加权均速，避免旧快照的「今日」标记影响日均耗用。
+- 时序查询失败时沿用已保存的每日采样，并在看板提示当前用量和预测的历史覆盖情况。
+- 24 项自动化测试、类型检查、双看板浏览器同步和真实诊断快照回放均通过。另有四项浮窗主题或渲染用例在原始版本和本版均失败。
 
----
+## English Changelog
 
-## 🇬🇧 English Changelog (en)
+### Features
+- The public dashboard, admin dashboard, and floating widget use each node's monthly reset day for billing-cycle usage, cumulative trends, and quota forecasts.
 
-### 🚀 Features
-- Added a lightweight read-only configuration endpoint so dashboards obtain the configured timezone before aggregating daily history, including first loads and reopened pages.
-- Added manifest-driven footer version synchronization for both dashboards, with automatic synchronization before local packaging and consistency checks during validation.
+### Bug Fixes
+- Fixed raw network interface totals carrying usage from earlier cycles into the current cycle. The cumulative line starts with current-cycle daily increments, and quota forecasts and exhaustion alerts use that same usage total.
+- Fixed the configured timezone offset being applied twice to today's sample timestamp. Older snapshots still map to the correct billing cycle by their reporting date.
+- Fixed a live traffic interval being counted twice after a dashboard sync. The first valid counter establishes a baseline, and subsequent samples handle interface counter resets.
 
-### 🐛 Bug Fixes
-- Fixed reading the Promise returned by `server.getConfig()` as a configuration object. Overview, diagnostics, RPC, cron initialization and widget injection now await configuration, restoring configured reset days, warning thresholds, timezone offsets, collection schedules and widget visibility.
-- Passed the configured default reset day into forecasting while preserving the existing node expiry and node reset-day precedence. Fallback labels now reflect the reset day actually used.
-- Restricted cumulative baseline calculations to unique dates within the current billing cycle through today. Previous-cycle records, future records and overwritten duplicates no longer depress the historical line and cause a sudden catch-up at today's point. Daily bars remain physical daily increments.
-- Prevented the next-cycle midnight boundary from adding an extra consumption day to the forecast. The verified SUM-mode endpoints now agree with their forecast summaries.
-- Replaced the stale hardcoded `v1.2.0` dashboard footer versions.
-
-### ⚡ Improvements
-- Completed TypeScript timezone parameters, sampling timezone propagation, cumulative field types and Node type dependencies.
-- Configuration failures no longer silently become default configuration results; dashboards stop the current synchronization if configuration cannot be obtained.
-- Overview and RPC snapshot reuse now checks configuration consistency before returning previously calculated results.
-- Added regression coverage for asynchronous configuration, history ranges across five billing modes, cold starts, reset boundaries and TypeScript/runtime parity. All 15 tests and type checking pass.
-- Full-sync diagnostics from a real instance confirmed exact agreement between today's line increments and daily bars for both target nodes. Forecast boundary corrections were verified by local replay of real diagnostics and user testing.
-- Validation note: four existing browser theme assertions also fail on the unchanged baseline. Floating-widget theme code is unchanged in this release.
+### Improvements
+- The weighted run rate uses the last seven complete days with recorded usage. The reporting date determines whether a day is complete, including for older snapshots.
+- If historical records fail to load, dashboards use saved daily samples and show that usage and forecasts may have incomplete coverage.
+- All 24 automated tests, type checks, dashboard browser sync checks, and replay of a real diagnostic snapshot passed. Four separate floating-widget theme or rendering tests failed on both the baseline and this version.

@@ -82,20 +82,18 @@ export default definePlugin({
           clients = [];
         }
 
+        const now = new Date();
         const nodesOverview = clients.map((client) => {
           const uuid = client.uuid;
 
-          // 记录当前采样的网卡实时计数器增量
-          if (typeof client.net_in === "number" && typeof client.net_out === "number") {
-            storage.recordSample(uuid, client.net_in, client.net_out, new Date(), config.timezone_offset);
+          // 日记录已衔接实时增量，合并时覆盖相同日期的本地采样。
+          storage.recordSample(uuid, client.net_total_down, client.net_total_up, now, config.timezone_offset);
+          if (Array.isArray(client.daily_history) && client.daily_history.length > 0) {
+            storage.setNodeHistory(uuid, client.daily_history);
           }
 
-          // 优先使用直接上报的真实历史打点记录，如无则使用本地真实采样记录
-          const history = Array.isArray(client.daily_history) && client.daily_history.length > 0
-            ? client.daily_history
-            : storage.getNodeHistory(uuid);
-
-          return calculateNodeForecast(history, client, config.warning_threshold, new Date(), config.timezone_offset, config.default_reset_day);
+          const history = storage.getNodeHistory(uuid);
+          return calculateNodeForecast(history, client, config.warning_threshold, now, config.timezone_offset, config.default_reset_day);
         });
 
         // 状态统计
@@ -174,9 +172,7 @@ export default definePlugin({
             const clients = await server.call("admin:listClients").catch(() => null);
             if (Array.isArray(clients)) {
               for (const c of clients) {
-                if (c.uuid && typeof c.net_in === "number" && typeof c.net_out === "number") {
-                  storage.recordSample(c.uuid, c.net_in, c.net_out, new Date(), config.timezone_offset);
-                }
+                storage.recordSample(c.uuid, c.net_total_down, c.net_total_up, new Date(), config.timezone_offset);
               }
             }
           }

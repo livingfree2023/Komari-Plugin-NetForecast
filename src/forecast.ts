@@ -240,6 +240,16 @@ export function getThresholdModeLabel(mode: string = "sum"): string {
   }
 }
 
+function indexDailyHistory(history: TrafficRecord[], startDate: string, endDate: string) {
+  const byDate = new Map<string, TrafficRecord>();
+  for (const record of history || []) {
+    if (record && record.date && record.date >= startDate && record.date <= endDate) {
+      byDate.set(record.date, record);
+    }
+  }
+  return byDate;
+}
+
 /**
  * 计算单个节点的流量预测与预警信息（严格采用真实数据）
  */
@@ -255,57 +265,33 @@ export function calculateNodeForecast(
   const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || defaultResetDay, tzOffsetHours);
   const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
-  const cycleStartMs = cycle.cycleStartDate.getTime();
+  const today = getTzDateParts(now, tzOffsetHours).dateStr;
+  const dailyHistory = indexDailyHistory(history, "", today);
 
   const mode = (node.traffic_limit_type || "sum") as ThresholdMode;
 
-  // 1. 获取当月真实的累计流量：优先使用 Komari 原生上报的真实累计计数器（保证与 Komari 实例页 100% 对齐）
-  const rawTotalUp = Number(
-    node.net_total_up ?? 
-    node.network?.totalUp ?? 
-    node.total_up ?? 
-    node.totalUp ?? 
-    0
-  );
-  const rawTotalDown = Number(
-    node.net_total_down ?? 
-    node.network?.totalDown ?? 
-    node.total_down ?? 
-    node.totalDown ?? 
-    0
-  );
-
-  let histIn = 0;
-  let histOut = 0;
-  for (const r of history || []) {
-    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-      histIn += (r.in_bytes || 0);
-      histOut += (r.out_bytes || 0);
-    }
-  }
-
+  // 1. 每日记录已按统计时区切日，并包含可用的实时采样增量。
   let cumulativeIn = 0;
   let cumulativeOut = 0;
-
-  if (rawTotalUp > 0 || rawTotalDown > 0) {
-    // 真实累计计数器存在；若节点曾重启导致网卡计数器清零小于历史分天总和，自动取较大者防下坠
-    cumulativeIn = Math.max(rawTotalDown, histIn);
-    cumulativeOut = Math.max(rawTotalUp, histOut);
-  } else {
-    cumulativeIn = histIn;
-    cumulativeOut = histOut;
+  for (const record of dailyHistory.values()) {
+    if (record.date >= cycle.cycleStart) {
+      cumulativeIn += record.in_bytes || 0;
+      cumulativeOut += record.out_bytes || 0;
+    }
   }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
   const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
-  // 2. 计算日均增量：优先参考近 7 天真实打点增量；若无历史打点记录，根据本周期真实已用流量和已过天数推算均速
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
   // 2. 计算日均增量：优先参考过去（不包含尚未完整的今日）真实打点增量；
   // 若无过去历史打点记录（如插件安装首日），严格根据本周期真实已用流量和已过天数推算均速
-  const validPastDays = (history || []).filter(r => !r.is_today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
+  const validPastDays = Array.from(dailyHistory.values())
+    .filter(r => r.date < today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-7);
 
   if (validPastDays.length > 0) {
     let weightSum = 0;
@@ -325,10 +311,6 @@ export function calculateNodeForecast(
     // 严格按真实累计值与已过天数求均速，绝无随机数
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
-  } else {
-    const todayRec = (history || []).find(r => r.is_today);
-    dailyAvgIn = todayRec ? (todayRec.in_bytes || 0) : 0;
-    dailyAvgOut = todayRec ? (todayRec.out_bytes || 0) : 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
@@ -452,25 +434,19 @@ export function buildCycleSeries(
   now: Date = new Date(),
   tzOffsetHours: number = 8
 ): TrafficRecord[] {
-  const historyMap = new Map<string, TrafficRecord>();
   const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
   const cycleStartStr = getTzDateParts(cycle.cycleStartDate, tzOffsetHours).dateStr;
+  const historyMap = indexDailyHistory(history, cycleStartStr, todayStr);
   let totalHistIn = 0;
   let totalHistOut = 0;
 
-  // 底数与绘图使用同一周期、同一日期集合，重复日期只取末条。
-  for (const item of history || []) {
-    if (item.date && item.date >= cycleStartStr && item.date <= todayStr) {
-      historyMap.set(item.date, item);
-    }
-  }
   for (const item of historyMap.values()) {
     totalHistIn += item.in_bytes || 0;
     totalHistOut += item.out_bytes || 0;
   }
 
   const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
-  // 当网卡物理总计大于可见历史记录和时，将差额作为周期前序底数（彻底消除折线在“今日”突然直角暴涨的缺陷）
+  // 若调用者另有已确认的账期累计，将其与可见日期记录的差额作为折线底数。
   const startOffset = (currentCycleBillable > totalHistBillable) ? (currentCycleBillable - totalHistBillable) : 0;
 
   const points: TrafficRecord[] = [];

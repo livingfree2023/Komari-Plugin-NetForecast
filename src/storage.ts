@@ -87,17 +87,27 @@ export class StorageManager {
   }
 
   /**
-   * 设置/覆盖节点历史记录（例如从核心接口同步历史记录时）
+   * 合并按日同步的历史记录，以新记录覆盖相同日期。
    */
   public setNodeHistory(nodeId: string, history: TrafficRecord[]) {
-    this.trafficCache[nodeId] = history;
+    if (!nodeId) return;
+    const byDate = new Map<string, TrafficRecord>();
+    for (const record of this.trafficCache[nodeId] || []) {
+      if (record && record.date) byDate.set(record.date, record);
+    }
+    for (const record of history) {
+      if (record && record.date) byDate.set(record.date, record);
+    }
+    this.trafficCache[nodeId] = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)).slice(-90);
     this.save();
   }
 
   /**
    * 记录实时采样的流量计数器并换算为每日增量
    */
-  public recordSample(nodeId: string, currentIn: number, currentOut: number, now: Date = new Date(), tzOffsetHours: number = 8) {
+  public recordSample(nodeId: string, currentIn: unknown, currentOut: unknown, now: Date = new Date(), tzOffsetHours: number = 8) {
+    if (!nodeId || typeof currentIn !== "number" || typeof currentOut !== "number") return;
+    if (!Number.isFinite(currentIn) || !Number.isFinite(currentOut) || currentIn < 0 || currentOut < 0) return;
     const last = this.lastKnownCounters[nodeId];
     this.lastKnownCounters[nodeId] = {
       in: currentIn,

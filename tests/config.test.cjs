@@ -53,3 +53,25 @@ test('empty host config retains documented defaults', async () => {
 test('host config rejection fails initialization instead of silently using defaults', async () => {
   await assert.rejects(boot(new Error('configuration unavailable')), /configuration unavailable/);
 });
+
+test('overview preserves synced usage without adding the same live increment twice', async () => {
+  const { routes } = await boot({ timezone_offset: 0 });
+  const handler = routes.get('POST /api/plugin/net-forecast/overview');
+  const client = { uuid: 'synced', traffic_limit: 10000 };
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function sync(update) {
+    let response;
+    await handler({ body: JSON.stringify({ clients: [{ ...client, ...update }] }) }, {
+      setHeader() {}, end: body => { response = JSON.parse(body); },
+    });
+    assert.equal(response.ok, true);
+    return response.nodes[0].cumulative.billable_bytes;
+  }
+
+  assert.equal(await sync({ net_total_down: 1000, net_total_up: 2000 }), 0);
+  const daily = { date: today, timestamp: Date.now(), in_bytes: 20, out_bytes: 30 };
+  assert.equal(await sync({ net_total_down: 1020, net_total_up: 2030, daily_history: [daily] }), 50);
+  assert.equal(await sync({ net_in: 400, net_out: 500, fetch_failed: true, daily_history: [] }), 50);
+  assert.equal(await sync({ net_total_down: 1022, net_total_up: 2033 }), 55);
+});

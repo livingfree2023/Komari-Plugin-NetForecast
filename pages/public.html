@@ -930,7 +930,7 @@
     <!-- 底部调试与数据导出栏 -->
     <footer class="debug-footer-bar">
       <div class="footer-meta">
-        <span>NetForecast v26.1109.1</span>
+        <span>NetForecast v26.1109.2</span>
         <span class="dot">•</span>
         <span id="footerNodeCount">0 个节点已加载</span>
         <span class="dot">•</span>
@@ -1067,20 +1067,18 @@
       serverDebugData: null,
       debugCurrentTab: "all",
       timezoneOffset: 8
-    };    /**
-     * 单调递增计数器差值计算与重启重置自适应 (Counter Reset Detection):
-     * 1. 正常单调递增 (curr >= prev)：增量为 curr - prev；
-     * 2. 重启清零检测 (curr < prev 且 curr >= 0)：判定机器或网卡重启清零，增量为 curr；
-     * 3. 初始基线无效 (prev <= 0 或无效)：返回 0，杜绝将节点历史总计误计为单日增量。
-     */
+    };
+
+    function readNetworkCounter(value, fallback = null) {
+      if (value == null || value === "") return fallback;
+      const bytes = Number(value);
+      return Number.isFinite(bytes) && bytes >= 0 ? bytes : fallback;
+    }
+
+    // 相邻计数器递增时取差值，归零后从当前计数值开始累加。
     function calcCounterDelta(prev, curr) {
-      if (typeof curr !== "number" || isNaN(curr)) return 0;
-      if (typeof prev !== "number" || isNaN(prev) || prev <= 0) return 0;
-      if (curr >= prev) {
-        return curr - prev;
-      }
-      // 重启清零检测 (Counter Reset)
-      return Math.max(0, curr);
+      if (!Number.isFinite(prev) || prev < 0 || !Number.isFinite(curr) || curr < 0) return 0;
+      return curr >= prev ? curr - prev : curr;
     }
 
     /**
@@ -1194,18 +1192,16 @@
       }
 
       // 衔接今日最新快照到当前网卡实时计数器 (liveTotal)
-      if (typeof liveTotalUp === "number" && liveTotalUp > 0) {
-        if (lastKnownUp !== null) todayOut += calcCounterDelta(lastKnownUp, liveTotalUp);
-        else todayOut = liveTotalUp;
+      if (lastKnownUp !== null && typeof liveTotalUp === "number") {
+        todayOut += calcCounterDelta(lastKnownUp, liveTotalUp);
       }
-      if (typeof liveTotalDown === "number" && liveTotalDown > 0) {
-        if (lastKnownDown !== null) todayIn += calcCounterDelta(lastKnownDown, liveTotalDown);
-        else todayIn = liveTotalDown;
+      if (lastKnownDown !== null && typeof liveTotalDown === "number") {
+        todayIn += calcCounterDelta(lastKnownDown, liveTotalDown);
       }
 
       result.push({
         date: todayStr,
-        timestamp: targetNow.getTime(),
+        timestamp: now.getTime(),
         in_bytes: Math.max(0, todayIn),
         out_bytes: Math.max(0, todayOut),
         total_bytes: Math.max(0, todayIn + todayOut),
@@ -1219,7 +1215,7 @@
     /* =========================================================================
      * SWR 缓存调度与轻量非阻塞进度指示器 (Stale-While-Revalidate & Progressive UI)
      * ========================================================================= */
-    const OVERVIEW_CACHE_KEY = "nf_overview_cache_v2";
+    const OVERVIEW_CACHE_KEY = "nf_overview_cache_v3";
     let syncProgressTimeout = null;
 
     /**
@@ -1400,7 +1396,7 @@
           <span class="retry-banner-icon">⚠️</span>
           <div>
             <strong>检测到 ${failedNodes.length} 个节点历史时序数据拉取失败或超时</strong>
-            <span style="opacity:0.85; font-size:12px; margin-left:6px;">(核心数据库繁忙，当前仅展示实时累计，可点击右侧重试)</span>
+            <span style="opacity:0.85; font-size:12px; margin-left:6px;">(时序暂未同步，当前显示已采样流量，可点击右侧重试)</span>
           </div>
         </div>
         <button class="btn-retry-all-failed" id="btnRetryAllFailed" onclick="retryFailedNodes()">
@@ -1422,8 +1418,8 @@
         client = (state.rawNodes || []).find((n) => n.node_id === nodeId) || { uuid: nodeId };
       }
 
-      let netTotalUp = Number(client.net_total_up || 0);
-      let netTotalDown = Number(client.net_total_down || 0);
+      let netTotalUp = readNetworkCounter(client.net_total_up);
+      let netTotalDown = readNetworkCounter(client.net_total_down);
       let dailyHistory = [];
       let recFetchError = null;
       let rawRecordsList = [];
@@ -1436,11 +1432,11 @@
           if (recList.length > 0) {
             const latest = recList[recList.length - 1];
             if (latest.network) {
-              netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
-              netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+              netTotalUp = readNetworkCounter(latest.network.totalUp ?? latest.network.total_up, netTotalUp);
+              netTotalDown = readNetworkCounter(latest.network.totalDown ?? latest.network.total_down, netTotalDown);
             }
-            if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
-            if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+            netTotalUp = readNetworkCounter(latest.net_total_up, netTotalUp);
+            netTotalDown = readNetworkCounter(latest.net_total_down, netTotalDown);
           }
         }
       } catch (e) {}
@@ -1454,22 +1450,12 @@
             rawRecordsList = recList;
             const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
             dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown, new Date(), tzOffset);
-            if (netTotalUp === 0 && netTotalDown === 0) {
-              const lastRec = recList[recList.length - 1];
-              if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
-              if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
-            }
           }
         } else {
           recFetchError = `HTTP ${recRes.status}: ${recRes.statusText}`;
         }
       } catch (err) {
         recFetchError = err.message || String(err);
-      }
-
-      if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
-        const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
-        dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown, new Date(), tzOffset);
       }
 
       const nodeName = client.name || client.node_name || nodeId;
@@ -1663,8 +1649,8 @@
 
         // 2. 分批并发拉取各节点的实时上报状态 (/api/recent/:uuid) 与 30 天真实历史打点 (/api/records/load)
         const clientsWithHistory = await mapConcurrent(coreClients, 4, async (client) => {
-          let netTotalUp = Number(client.net_total_up || 0);
-          let netTotalDown = Number(client.net_total_down || 0);
+          let netTotalUp = readNetworkCounter(client.net_total_up);
+          let netTotalDown = readNetworkCounter(client.net_total_down);
           let dailyHistory = [];
           const nodeName = client.name || client.uuid || "未知节点";
           let recFetchError = null;
@@ -1677,11 +1663,11 @@
               if (recList.length > 0) {
                 const latest = recList[recList.length - 1];
                 if (latest.network) {
-                  netTotalUp = Number(latest.network.totalUp || latest.network.total_up || netTotalUp);
-                  netTotalDown = Number(latest.network.totalDown || latest.network.total_down || netTotalDown);
+                  netTotalUp = readNetworkCounter(latest.network.totalUp ?? latest.network.total_up, netTotalUp);
+                  netTotalDown = readNetworkCounter(latest.network.totalDown ?? latest.network.total_down, netTotalDown);
                 }
-                if (typeof latest.net_total_up === "number") netTotalUp = latest.net_total_up;
-                if (typeof latest.net_total_down === "number") netTotalDown = latest.net_total_down;
+                netTotalUp = readNetworkCounter(latest.net_total_up, netTotalUp);
+                netTotalDown = readNetworkCounter(latest.net_total_down, netTotalDown);
               }
             }
           } catch (e) {}
@@ -1696,22 +1682,12 @@
                 rawRecordsList = recList;
                 const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
                 dailyHistory = aggregateDailyFromRecords(recList, netTotalUp, netTotalDown, new Date(), tzOffset);
-                if (netTotalUp === 0 && netTotalDown === 0) {
-                  const lastRec = recList[recList.length - 1];
-                  if (typeof lastRec.net_total_up === "number") netTotalUp = lastRec.net_total_up;
-                  if (typeof lastRec.net_total_down === "number") netTotalDown = lastRec.net_total_down;
-                }
               }
             } else {
               recFetchError = `HTTP ${recRes.status}: ${recRes.statusText}`;
             }
           } catch (err) {
             recFetchError = err.message || String(err);
-          }
-
-          if (dailyHistory.length === 0 && (netTotalUp > 0 || netTotalDown > 0)) {
-            const tzOffset = (state.timezoneOffset !== undefined) ? state.timezoneOffset : 8;
-            dailyHistory = aggregateDailyFromRecords([], netTotalUp, netTotalDown, new Date(), tzOffset);
           }
 
           state.rawRecordsMap[client.uuid] = {
@@ -1866,7 +1842,7 @@
                 <div>
                   <div style="font-weight: 700; color: #fff;">核心数据库时序读取失败 (${escapeHtml(node.fetch_error || "查询超时")})</div>
                   <div style="font-size: 12px; color: #fca5a5; opacity: 0.9; margin-top: 2px;">
-                    由于数据库繁忙或并发限制，时序打点暂未获取。当前仅展示实时网卡累计，缺少历史分日增量柱状图与均速拟合趋势。
+                    暂未取得完整的时序记录。当前按已有采样统计，用量和预测可能偏低。
                   </div>
                 </div>
               </div>

@@ -26,8 +26,8 @@ export interface NodeCoreConfig {
   traffic_reset_day?: number;
   net_in?: number;
   net_out?: number;
-  net_total_up?: number;
-  net_total_down?: number;
+  net_total_up?: number | null;
+  net_total_down?: number | null;
   totalUp?: number;
   totalDown?: number;
   total_up?: number;

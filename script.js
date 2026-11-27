@@ -171,25 +171,19 @@ function calculateBillingCycle(resetDay = 1, now = new Date(), tzOffsetHours = 8
  * - 未来推算天：in_bytes / out_bytes 严格为 0，坚决不画任何柱体！
  */
 function buildCycleSeries(history, mode, cycle, dailyAvgIn, dailyAvgOut, currentCycleBillable, cumulativeIn = 0, cumulativeOut = 0, now = new Date(), tzOffsetHours = 8) {
-  const historyMap = {};
   const todayStr = getTzDateParts(now, tzOffsetHours).dateStr;
   const cycleStartStr = formatDateToYMD(cycle.cycleStartDate, tzOffsetHours);
+  const historyMap = indexDailyHistory(history, cycleStartStr, todayStr);
   let totalHistIn = 0;
   let totalHistOut = 0;
 
-  // 底数与绘图使用同一周期、同一日期集合，重复日期只取末条。
-  for (const item of history || []) {
-    if (item.date && item.date >= cycleStartStr && item.date <= todayStr) {
-      historyMap[item.date] = item;
-    }
-  }
   for (const item of Object.values(historyMap)) {
     totalHistIn += item.in_bytes || 0;
     totalHistOut += item.out_bytes || 0;
   }
 
   const totalHistBillable = computeBillableAmount(totalHistIn, totalHistOut, mode);
-  // 当网卡物理总计大于可见历史记录和时，将差额作为周期前序底数（彻底消除折线在“今日”突然直角暴涨的缺陷）
+  // 若调用者另有已确认的账期累计，将其与可见日期记录的差额作为折线底数。
   const startOffset = (currentCycleBillable > totalHistBillable) ? (currentCycleBillable - totalHistBillable) : 0;
 
   const points = [];
@@ -373,6 +367,16 @@ function extractResetDayFromExpiredAt(expiredAt, fallbackResetDay = 1, tzOffsetH
   }
 }
 
+function indexDailyHistory(history, startDate, endDate) {
+  const byDate = Object.create(null);
+  for (const record of history || []) {
+    if (record && record.date && record.date >= startDate && record.date <= endDate) {
+      byDate[record.date] = record;
+    }
+  }
+  return byDate;
+}
+
 /**
  * 核心预测与状态推算（严格使用真实数据，绝不构造假数据）
  */
@@ -380,50 +384,29 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
   const extracted = extractResetDayFromExpiredAt(node.expired_at, Number(node.traffic_reset_day) || defaultResetDay, tzOffsetHours);
   const resetDay = extracted.resetDay;
   const cycle = calculateBillingCycle(resetDay, now, tzOffsetHours);
-  const cycleStartMs = cycle.cycleStartDate.getTime();
+  const today = formatDateToYMD(now, tzOffsetHours);
+  const dailyHistory = indexDailyHistory(history, "", today);
 
   const mode = (node.traffic_limit_type || "sum");
 
-  // 1. 获取当月真实的累计流量：优先使用 Komari 原生上报的真实累计计数器（保证与 Komari 实例页完全对齐）
-  const rawTotalUp = Number(
-    node.net_total_up !== undefined ? node.net_total_up :
-    (node.network && node.network.totalUp !== undefined ? node.network.totalUp :
-    (node.total_up !== undefined ? node.total_up :
-    (node.totalUp !== undefined ? node.totalUp : 0)))
-  );
-  const rawTotalDown = Number(
-    node.net_total_down !== undefined ? node.net_total_down :
-    (node.network && node.network.totalDown !== undefined ? node.network.totalDown :
-    (node.total_down !== undefined ? node.total_down :
-    (node.totalDown !== undefined ? node.totalDown : 0)))
-  );
-
-  let histIn = 0;
-  let histOut = 0;
-  (history || []).forEach((r) => {
-    if (r.timestamp >= cycleStartMs && r.timestamp <= now.getTime()) {
-      histIn += (r.in_bytes || 0);
-      histOut += (r.out_bytes || 0);
-    }
-  });
-
+  // 1. 每日记录已按统计时区切日，并包含可用的实时采样增量。
   let cumulativeIn = 0;
   let cumulativeOut = 0;
-
-  if (rawTotalUp > 0 || rawTotalDown > 0) {
-    // 真实累计计数器存在；若节点曾重启导致网卡计数器清零小于历史分天总和，自动取较大者防下坠
-    cumulativeIn = Math.max(rawTotalDown, histIn);
-    cumulativeOut = Math.max(rawTotalUp, histOut);
-  } else {
-    cumulativeIn = histIn;
-    cumulativeOut = histOut;
+  for (const record of Object.values(dailyHistory)) {
+    if (record.date >= cycle.cycleStart) {
+      cumulativeIn += record.in_bytes || 0;
+      cumulativeOut += record.out_bytes || 0;
+    }
   }
 
   const cumulativePhysicalTotal = cumulativeIn + cumulativeOut;
   const cumulativeBillable = computeBillableAmount(cumulativeIn, cumulativeOut, mode);
 
   // 2. 7 天移动平均日均增量（优先使用过去已完整天数的真实打点增量，无记录时根据真实累计和已过天数推算均速）
-  const validPastDays = (history || []).filter((r) => !r.is_today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0).slice(-7);
+  const validPastDays = Object.values(dailyHistory)
+    .filter(r => r.date < today && (r.in_bytes || 0) + (r.out_bytes || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-7);
   let dailyAvgIn = 0;
   let dailyAvgOut = 0;
 
@@ -444,10 +427,6 @@ function calculateNodeForecast(history, node, warningThresholdPercent = 90, now 
   } else if (cycle.daysElapsed > 0 && cumulativePhysicalTotal > 0) {
     dailyAvgIn = Math.round(cumulativeIn / cycle.daysElapsed);
     dailyAvgOut = Math.round(cumulativeOut / cycle.daysElapsed);
-  } else {
-    const todayRec = (history || []).find((r) => r.is_today);
-    dailyAvgIn = todayRec ? (todayRec.in_bytes || 0) : 0;
-    dailyAvgOut = todayRec ? (todayRec.out_bytes || 0) : 0;
   }
 
   const dailyAvgTotal = dailyAvgIn + dailyAvgOut;
@@ -612,7 +591,7 @@ class TrafficStorage {
   }
 
   setNodeDailyHistory(nodeId, dailyHistory) {
-    if (!Array.isArray(dailyHistory) || dailyHistory.length === 0) return;
+    if (!nodeId || !Array.isArray(dailyHistory) || dailyHistory.length === 0) return;
     const existing = this.trafficCache[nodeId] || [];
     const map = {};
     existing.forEach((r) => { if (r && r.date) map[r.date] = r; });
@@ -630,6 +609,7 @@ class TrafficStorage {
   }
 
   recordSample(nodeId, currentIn, currentOut, now = new Date(), tzOffsetHours = 8) {
+    if (!nodeId || !Number.isFinite(currentIn) || !Number.isFinite(currentOut) || currentIn < 0 || currentOut < 0) return;
     const last = this.lastCounters[nodeId];
     this.lastCounters[nodeId] = {
       in: currentIn,
@@ -2572,10 +2552,10 @@ async function load() {
             const uuid = c.uuid || c.id;
             const item = statusData[uuid] || (statusData.data && statusData.data[uuid]);
             if (item && item.network) {
-              const up = Number(item.network.totalUp !== undefined ? item.network.totalUp : (item.network.total_up || 0));
-              const down = Number(item.network.totalDown !== undefined ? item.network.totalDown : (item.network.total_down || 0));
-              if (up > 0 && !c.net_total_up) c.net_total_up = up;
-              if (down > 0 && !c.net_total_down) c.net_total_down = down;
+              const up = item.network.totalUp != null ? item.network.totalUp : item.network.total_up;
+              const down = item.network.totalDown != null ? item.network.totalDown : item.network.total_down;
+              if (c.net_total_up == null && up != null) c.net_total_up = Number(up);
+              if (c.net_total_down == null && down != null) c.net_total_down = Number(down);
               if (typeof item.network.up === "number") c.net_out = item.network.up;
               if (typeof item.network.down === "number") c.net_in = item.network.down;
             }
@@ -2629,26 +2609,13 @@ async function load() {
         clients = [];
       }
 
-      // 2. 将前端上报的高精度历史 daily_history 持久化沉淀至本地时序存储，彻底消除前后台时序割裂
-      if (Array.isArray(body.clients) && body.clients.length > 0) {
-        body.clients.forEach((c) => {
-          if (c && c.uuid && Array.isArray(c.daily_history) && c.daily_history.length > 0) {
-            storage.setNodeDailyHistory(c.uuid, c.daily_history);
-          }
-        });
-      }
-
+      const now = new Date();
       const list = clients.map((c) => {
-        const currentDown = typeof c.net_total_down === "number" ? c.net_total_down : c.net_in;
-        const currentUp = typeof c.net_total_up === "number" ? c.net_total_up : c.net_out;
-        if (typeof currentDown === "number" && typeof currentUp === "number") {
-          storage.recordSample(c.uuid, currentDown, currentUp, new Date(), tzOffset);
-        }
-        const history = Array.isArray(c.daily_history) && c.daily_history.length > 0
-          ? c.daily_history
-          : storage.getNodeHistory(c.uuid);
-
-        return calculateNodeForecast(history, c, config.warning_threshold, new Date(), tzOffset, config.default_reset_day);
+        // 日记录已衔接实时增量，合并时覆盖相同日期的本地采样。
+        storage.recordSample(c.uuid, c.net_total_down, c.net_total_up, now, tzOffset);
+        storage.setNodeDailyHistory(c.uuid, c.daily_history);
+        const history = storage.getNodeHistory(c.uuid);
+        return calculateNodeForecast(history, c, config.warning_threshold, now, tzOffset, config.default_reset_day);
       });
 
       const criticalCount = list.filter((n) => n.status === "CRITICAL").length;
@@ -2863,11 +2830,7 @@ async function load() {
           if (Array.isArray(clients)) {
             const tzOffset = config.timezone_offset !== undefined && !isNaN(config.timezone_offset) ? Number(config.timezone_offset) : 8;
             for (const c of clients) {
-              const currentDown = typeof c.net_total_down === "number" ? c.net_total_down : c.net_in;
-              const currentUp = typeof c.net_total_up === "number" ? c.net_total_up : c.net_out;
-              if (c.uuid && typeof currentDown === "number" && typeof currentUp === "number") {
-                storage.recordSample(c.uuid, currentDown, currentUp, new Date(), tzOffset);
-              }
+              storage.recordSample(c.uuid, c.net_total_down, c.net_total_up, new Date(), tzOffset);
             }
           }
         }
